@@ -1,15 +1,15 @@
 from setuptools import find_packages, setup
 import pathlib
 
-with open('./requirements.txt') as f:
-    requirements = f.read().splitlines()
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
+REQUIREMENTS = (HERE / "requirements.txt").read_text()
 
 setup(name="stdl",
-      version="0.0.1",
+      version="0.0.2",
       description="Extended Python Standard Library",
       long_description=README,
+      long_description_content_type="text/markdown",
       author="Ziga Ivansek",
       author_email="ziga.ivansek@gmail.com",
       url="https://github.com/ziga-ivansek/stdl",
@@ -26,4 +26,4 @@ setup(name="stdl",
           "Topic :: Software Development :: Libraries :: Python Modules",
       ],
       packages=find_packages(),
-      install_requires=requirements)
+      install_requires=REQUIREMENTS)
