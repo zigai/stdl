@@ -1,5 +1,5 @@
+from datetime import date, datetime, timedelta
 from time import time
-from datetime import timedelta, date, datetime
 
 
 class Timer:
@@ -28,13 +28,13 @@ class Date:
     def tommorow():
         return Date.now() + timedelta(days=1)
 
-    def today_str(fmt: str = "dmY", sep: str = "-") -> str:
+    def today_as_str(fmt: str = "dmY", sep: str = "-") -> str:
         return Date.now().strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
     def from_timestamp(t: float):
         return datetime.fromtimestamp(t)
 
-    def from_timestamp_str(t: float, sep="-"):
+    def from_timestamp_as_str(t: float, sep="-"):
         return datetime.fromtimestamp(t).strftime(f'%d{sep}%m{sep}%Y')
 
     def range(start_date: date, end_date: date):
@@ -50,8 +50,9 @@ class DateTime:
     def from_timestamp(t: float):
         return datetime.fromtimestamp(t)
 
-    def from_timestamp_str(t: float, date_sep: str = "/", time_sep: str = ":"):
-        return DateTime.from_timestamp(t).strftime(f'%d{date_sep}%m{date_sep}%Y, %H{time_sep}%M{time_sep}%S')
+    def from_timestamp_as_str(t: float, date_sep: str = "/", time_sep: str = ":"):
+        return DateTime.from_timestamp(t).strftime(
+            f'%d{date_sep}%m{date_sep}%Y, %H{time_sep}%M{time_sep}%S')
 
 
 class Time:
@@ -65,16 +66,16 @@ class Time:
     def from_timestamp(t: float):
         return datetime.fromtimestamp(t)
 
-    def from_timestamp_str(t: float, sep=":"):
+    def from_timestamp_as_str(t: float, sep=":"):
         return Time.from_timestamp().strftime(f'%H{sep}%M{sep}%S')
 
 
 if __name__ == '__main__':
     timer = Timer()
-    print(Date.today_str())
+    print(Date.today_as_str())
     print(Time.now_str(sep=".", ms=False))
     print(Time.now_str(sep=":", ms=True))
-    print(Time.from_timestamp_str(time()))
-    print(Date.from_timestamp_str(time()))
-    print(DateTime.from_timestamp_str(time()))
+    print(Time.from_timestamp_as_str(time()))
+    print(Date.from_timestamp_as_str(time()))
+    print(DateTime.from_timestamp_as_str(time()))
     timer.stop()

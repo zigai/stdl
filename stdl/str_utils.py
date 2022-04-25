@@ -1,5 +1,5 @@
-from re import sub
-from textwrap import wrap
+import re
+import textwrap
 
 
 class ANSI_Color:
@@ -26,7 +26,8 @@ class StrFilter:
     LETTERS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
     LETTERS_SLOVENIAN = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZčšžČŠŽ")
     FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:.[]-_()#!")
-    REGULAR = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\:;.,[]-_()#!?")
+    REGULAR_CHARACTERS = set(
+        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\:;.,[]-_()#!?")
     ASCII = ''.join(chr(x) for x in range(128))
     NUMBERS = set("0123456789,.")
     DIGITS = set("0123456789")
@@ -41,7 +42,7 @@ class StrFilter:
         return StrFilter.filter_str(StrFilter.NUMBERS, s)
 
     def normal_chars(s: str):
-        return StrFilter.filter_str(StrFilter.REGULAR, s)
+        return StrFilter.filter_str(StrFilter.REGULAR_CHARACTERS, s)
 
     def file_name(s: str):
         return StrFilter.filter_str(StrFilter.FILE_NAME, s)
@@ -50,16 +51,18 @@ class StrFilter:
         return StrFilter.filter_str(StrFilter.ASCII, s)
 
 
-def str_colored(string: str, ansi_color):
+def str_with_color(string: str, ansi_color):
     return f"{ansi_color}{string}{ANSI_Color.RESET}"
 
 
 def snake_case(s: str) -> str:
-    return "_".join(sub("([A-Z][a-z]+)", r" \1", sub("([A-Z]+)", r" \1", s.replace("-", " "))).split()).lower()
+    return "_".join(
+        re.sub("([A-Z][a-z]+)", r" \1", re.sub("([A-Z]+)", r" \1",
+                                               s.replace("-", " "))).split()).lower()
 
 
 def camel_case(s: str) -> str:
-    s = sub(r"(_|-)+", " ", s).title().replace(" ", "")
+    s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
     return s[0].lower() + s[1:]
 
 
@@ -67,9 +70,16 @@ def strip_esc_chars(text: str):
     return text.strip("\n").strip("\t").strip("\r")
 
 
-def to_lines(text: str, max_text_width: int, newline_char: str = "\n"):
+def to_lines(text: str, max_text_width: int, newline: str = "\n"):
     s = ""
-    wrapped_text = wrap(text, width=max_text_width)
+    wrapped_text = textwrap.wrap(text, width=max_text_width)
     for line in wrapped_text:
-        s = s + line + newline_char
+        s = s + line + newline
     return s
+
+
+def find_urls(s: str) -> list[str]:
+    urls = re.findall('"((http|ftp)s?://.*?)"', s)
+    urls = [i[0] for i in urls]
+    urls = list(set(urls))
+    return urls

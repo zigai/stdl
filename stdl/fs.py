@@ -78,7 +78,7 @@ def yaml_dump(path: str, data):
 
 def get_dir_size(directory: str, readable: bool = False):
     total_size = 0
-    for dirpath, dirnames, filenames in os.walk(directory):
+    for dirpath, _, filenames in os.walk(directory):
         for f in filenames:
             fp = os.path.join(dirpath, f)
             # Skip if it's symbolic link.
@@ -131,28 +131,36 @@ def make_dirs(dest_dir: str, folder_list: str):
 
 def get_files_in(directory: str, file_ext: tuple | str = None) -> list[str]:
     files = []
-    for entry in os.scandir(directory):
-        if entry.is_file():
-            if file_ext is None:
+    if file_ext is None:
+        for entry in os.scandir(directory):
+            if entry.is_file():
                 files.append(entry.path)
-            else:
+            elif entry.is_dir():
+                files.extend(get_files_in(entry.path, file_ext=file_ext))
+    else:
+        for entry in os.scandir(directory):
+            if entry.is_file():
                 if entry.path.lower().endswith(file_ext):
                     files.append(entry.path)
-        elif entry.is_dir():
-            files.extend(get_files_in(entry.path, file_ext=file_ext))
+            elif entry.is_dir():
+                files.extend(get_files_in(entry.path, file_ext=file_ext))
     return files
 
 
 def yield_files_in(directory: str, file_ext: tuple | str = None):
-    for entry in os.scandir(directory):
-        if entry.is_file():
-            if file_ext is None:
+    if file_ext is None:
+        for entry in os.scandir(directory):
+            if entry.is_file():
                 yield entry.path
-            else:
+            elif entry.is_dir():
+                yield yield_files_in(entry.path, file_ext=file_ext)
+    else:
+        for entry in os.scandir(directory):
+            if entry.is_file():
                 if entry.path.lower().endswith(file_ext):
                     yield entry.path
-        elif entry.is_dir():
-            yield yield_files_in(entry.path, file_ext=file_ext)
+            elif entry.is_dir():
+                yield yield_files_in(entry.path, file_ext=file_ext)
 
 
 def get_dirs_in(directory: str) -> list[str]:

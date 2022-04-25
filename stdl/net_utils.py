@@ -1,3 +1,4 @@
+import re
 from urllib.request import urlretrieve
 
 from tqdm import tqdm
