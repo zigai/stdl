@@ -1,12 +1,13 @@
-from setuptools import find_packages, setup
 import pathlib
+
+from setuptools import find_packages, setup
 
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 REQUIREMENTS = (HERE / "requirements.txt").read_text()
 
 setup(name="stdl",
-      version="0.0.2",
+      version="0.0.3",
       description="Extended Python Standard Library",
       long_description=README,
       long_description_content_type="text/markdown",
