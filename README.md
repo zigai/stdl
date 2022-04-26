@@ -2,7 +2,7 @@
 Extended Python Standard Library
 ___
 ## Installation
-stdl requires python 3.8+.
+stdl requires python 3.8.10+.
 ### Using pip
 ```
 pip install stdl
