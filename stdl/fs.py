@@ -13,21 +13,20 @@ import yaml
 
 
 class File:
-    encoding = "utf-8"
 
     @staticmethod
-    def read(filepath: str):
-        with open(filepath, "r", encoding=File.encoding) as f:
+    def read(filepath: str, encoding="utf-8"):
+        with open(filepath, "r", encoding=encoding) as f:
             return f.read()
 
     @staticmethod
-    def write(filepath: str, data):
-        with open(filepath, "w", encoding=File.encoding) as f:
+    def write(filepath: str, data, encoding="utf-8"):
+        with open(filepath, "w", encoding=encoding) as f:
             f.write(data)
 
     @staticmethod
-    def append(filepath: str, data, newline: bool = True):
-        with open(filepath, "a", encoding=File.encoding) as f:
+    def append(filepath: str, data, newline: bool = True, encoding="utf-8"):
+        with open(filepath, "a", encoding=encoding) as f:
             f.write(data)
             if newline:
                 f.write("\n")
@@ -37,18 +36,18 @@ class File:
         copy(filepath, target_dir)
 
     @staticmethod
-    def readlines(filepath: str):
-        with open(filepath, "r", encoding=File.encoding) as f:
+    def readlines(filepath: str, encoding="utf-8"):
+        with open(filepath, "r", encoding=encoding) as f:
             return f.readlines()
 
     @staticmethod
-    def splitlines(filepath: str):
-        with open(filepath, "r", encoding=File.encoding) as f:
+    def splitlines(filepath: str, encoding="utf-8"):
+        with open(filepath, "r", encoding=encoding) as f:
             return f.read().splitlines()
 
     @staticmethod
-    def new_from_list(filepath: str, l: list):
-        with open(filepath, 'w') as f:
+    def new_from_list(filepath: str, l: list, encoding="utf-8"):
+        with open(filepath, 'w', encoding=encoding) as f:
             for item in l:
                 f.write("%s\n" % item)
 
@@ -63,23 +62,23 @@ def pickle_dump(filepath: str, data):
         pickle.dump(data, f)
 
 
-def json_load(path: str):
-    with open(path, "r", encoding="utf-8") as f:
+def json_load(path: str, encoding="utf-8"):
+    with open(path, "r", encoding=encoding) as f:
         return json.load(f)
 
 
-def yaml_load(path: str):
-    with open(path, "r", encoding="utf-8") as f:
+def yaml_load(path: str, encoding="utf-8"):
+    with open(path, "r", encoding=encoding) as f:
         return yaml.safe_load(f)
 
 
-def json_dump(path: str, data):
-    with open(path, 'w') as f:
+def json_dump(path: str, data, encoding="utf-8"):
+    with open(path, 'w', encoding=encoding) as f:
         json.dump(data, f, indent=4, default=str)
 
 
-def yaml_dump(path: str, data):
-    with open(path, "w", encoding="utf-8") as f:
+def yaml_dump(path: str, data, encoding="utf-8"):
+    with open(path, "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
 
