@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 REQUIREMENTS = (HERE / "requirements.txt").read_text()
 
 setup(name="stdl",
-      version="0.0.3",
+      version="0.1.3",
       description="Extended Python Standard Library",
       long_description=README,
       long_description_content_type="text/markdown",
