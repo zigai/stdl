@@ -27,7 +27,7 @@ class FilterStr:
     LETTERS_SLOVENIAN = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZčšžČŠŽ")
     FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
     REGULAR_CHARACTERS = set(
-        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\\:;.,[]-_()#!?")
+        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\\:;.,[]-_()#!?'\"")
     ASCII = set(''.join(chr(x) for x in range(128)))
     NUMBERS = set("0123456789,.")
     DIGITS = set("0123456789")
