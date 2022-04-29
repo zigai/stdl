@@ -1,16 +1,15 @@
 # stdl
-Extended Python Standard Library
+Extended Python standard library
 ___
 ## Installation
-stdl requires python 3.8.10+.
+stdl requires Python 3.8.10+
 ### Using pip
 ```
 pip install stdl
 ```
 ### From source
 ```
-git clone https://github.com/ziga-ivansek/stdl.git && cd stdl
-pip install .
+git clone https://github.com/ziga-ivansek/stdl.git && cd stdl && pip install .
 ```
 ___
 ## License
