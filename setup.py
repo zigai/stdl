@@ -13,7 +13,7 @@ setup(name="stdl",
       long_description_content_type="text/markdown",
       author="Ziga Ivansek",
       author_email="ziga.ivansek@gmail.com",
-      url="https://github.com/ziga-ivansek/stdl",
+      url="https://github.com/zigai/stdl",
       license="MIT",
       classifiers=[
           "Intended Audience :: Developers",
