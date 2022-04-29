@@ -2,7 +2,7 @@ import re
 import textwrap
 
 
-class ANSI_Color:
+class ColorANSI:
     GREEN = '\033[92m'
     RED = '\033[91m'
     YELLOW = "\033[33m"
@@ -22,37 +22,43 @@ class ANSI_Color:
     RESET = '\033[0m'
 
 
-class StrFilter:
+class FilterStr:
     LETTERS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
     LETTERS_SLOVENIAN = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZčšžČŠŽ")
-    FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:.[]-_()#!")
+    FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()#!")
     REGULAR_CHARACTERS = set(
         " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\:;.,[]-_()#!?")
-    ASCII = ''.join(chr(x) for x in range(128))
+    ASCII = set(''.join(chr(x) for x in range(128)))
     NUMBERS = set("0123456789,.")
     DIGITS = set("0123456789")
 
+    @staticmethod
     def filter_str(f: set, s: str):
         return "".join(filter(f.__contains__, s))
 
+    @staticmethod
     def letters_only(s: str):
-        return StrFilter.filter_str(StrFilter.LETTERS, s)
+        return FilterStr.filter_str(FilterStr.LETTERS, s)
 
+    @staticmethod
     def numbers_only(s: str):
-        return StrFilter.filter_str(StrFilter.NUMBERS, s)
+        return FilterStr.filter_str(FilterStr.NUMBERS, s)
 
+    @staticmethod
     def normal_chars(s: str):
-        return StrFilter.filter_str(StrFilter.REGULAR_CHARACTERS, s)
+        return FilterStr.filter_str(FilterStr.REGULAR_CHARACTERS, s)
 
+    @staticmethod
     def file_name(s: str):
-        return StrFilter.filter_str(StrFilter.FILE_NAME, s)
+        return FilterStr.filter_str(FilterStr.FILE_NAME, s)
 
+    @staticmethod
     def ascii(s: str):
-        return StrFilter.filter_str(StrFilter.ASCII, s)
+        return FilterStr.filter_str(FilterStr.ASCII, s)
 
 
 def str_with_color(string: str, ansi_color):
-    return f"{ansi_color}{string}{ANSI_Color.RESET}"
+    return f"{ansi_color}{string}{ColorANSI.RESET}"
 
 
 def snake_case(s: str) -> str:

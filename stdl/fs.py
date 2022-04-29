@@ -15,31 +15,38 @@ import yaml
 class File:
     encoding = "utf-8"
 
+    @staticmethod
     def read(filepath: str):
         with open(filepath, "r", encoding=File.encoding) as f:
             return f.read()
 
+    @staticmethod
     def write(filepath: str, data):
         with open(filepath, "w", encoding=File.encoding) as f:
             f.write(data)
 
+    @staticmethod
     def append(filepath: str, data, newline: bool = True):
         with open(filepath, "a", encoding=File.encoding) as f:
             f.write(data)
             if newline:
                 f.write("\n")
 
+    @staticmethod
     def copy_to(filepath: str, target_dir: str):
         copy(filepath, target_dir)
 
+    @staticmethod
     def readlines(filepath: str):
         with open(filepath, "r", encoding=File.encoding) as f:
             return f.readlines()
 
+    @staticmethod
     def splitlines(filepath: str):
         with open(filepath, "r", encoding=File.encoding) as f:
             return f.read().splitlines()
 
+    @staticmethod
     def new_from_list(filepath: str, l: list):
         with open(filepath, 'w') as f:
             for item in l:
@@ -129,38 +136,38 @@ def make_dirs(dest_dir: str, folder_list: str):
             os.mkdir(folder)
 
 
-def get_files_in(directory: str, file_ext: tuple | str = None) -> list[str]:
+def get_files_in(directory: str, ext: tuple | str = None) -> list[str]:
     files = []
-    if file_ext is None:
+    if ext is None:
         for entry in os.scandir(directory):
             if entry.is_file():
                 files.append(entry.path)
             elif entry.is_dir():
-                files.extend(get_files_in(entry.path, file_ext=file_ext))
+                files.extend(get_files_in(entry.path, ext=ext))
     else:
         for entry in os.scandir(directory):
             if entry.is_file():
-                if entry.path.lower().endswith(file_ext):
+                if entry.path.lower().endswith(ext):
                     files.append(entry.path)
             elif entry.is_dir():
-                files.extend(get_files_in(entry.path, file_ext=file_ext))
+                files.extend(get_files_in(entry.path, ext=ext))
     return files
 
 
-def yield_files_in(directory: str, file_ext: tuple | str = None):
-    if file_ext is None:
+def yield_files_in(directory: str, ext: tuple | str = None):
+    if ext is None:
         for entry in os.scandir(directory):
             if entry.is_file():
                 yield entry.path
             elif entry.is_dir():
-                yield yield_files_in(entry.path, file_ext=file_ext)
+                yield yield_files_in(entry.path, ext=ext)
     else:
         for entry in os.scandir(directory):
             if entry.is_file():
-                if entry.path.lower().endswith(file_ext):
+                if entry.path.lower().endswith(ext):
                     yield entry.path
             elif entry.is_dir():
-                yield yield_files_in(entry.path, file_ext=file_ext)
+                yield yield_files_in(entry.path, ext=ext)
 
 
 def get_dirs_in(directory: str) -> list[str]:
