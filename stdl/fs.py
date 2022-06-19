@@ -62,7 +62,7 @@ def pickle_load(filepath: str):
         return pickle.load(f)
 
 
-def pickle_dump(filepath: str, data):
+def pickle_dump(data, filepath: str):
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
 
@@ -77,12 +77,12 @@ def yaml_load(path: str, encoding="utf-8") -> Union[List[Dict[str, Any]], Dict[s
         return yaml.safe_load(f)
 
 
-def json_dump(path: str, data, encoding="utf-8"):
+def json_dump(data, path: str, encoding="utf-8"):
     with open(path, 'w', encoding=encoding) as f:
         json.dump(data, f, indent=4, default=str)
 
 
-def yaml_dump(path: str, data, encoding="utf-8"):
+def yaml_dump(data, path: str, encoding="utf-8"):
     with open(path, "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
