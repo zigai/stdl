@@ -8,6 +8,7 @@ import platform
 import random
 import time
 from shutil import copy
+from typing import Any, Dict, List, Tuple, Union
 
 import yaml
 
@@ -20,36 +21,40 @@ class File:
             return f.read()
 
     @staticmethod
-    def write(filepath: str, data, encoding="utf-8"):
+    def write(data, filepath: str, encoding="utf-8"):
         with open(filepath, "w", encoding=encoding) as f:
             f.write(data)
 
     @staticmethod
-    def append(filepath: str, data, newline: bool = True, encoding="utf-8"):
+    def append(data, filepath: str, newline: bool = True, encoding="utf-8"):
         with open(filepath, "a", encoding=encoding) as f:
             f.write(data)
             if newline:
                 f.write("\n")
 
     @staticmethod
-    def copy_to(filepath: str, target_dir: str):
-        copy(filepath, target_dir)
+    def copy_to(filepath: str, directory: str):
+        copy(filepath, directory)
 
     @staticmethod
-    def readlines(filepath: str, encoding="utf-8"):
+    def readlines(filepath: str, encoding="utf-8") -> List[str]:
         with open(filepath, "r", encoding=encoding) as f:
             return f.readlines()
 
     @staticmethod
-    def splitlines(filepath: str, encoding="utf-8"):
+    def splitlines(filepath: str, encoding="utf-8") -> List[str]:
         with open(filepath, "r", encoding=encoding) as f:
             return f.read().splitlines()
 
     @staticmethod
     def new_from_list(filepath: str, l: list, encoding="utf-8"):
         with open(filepath, 'w', encoding=encoding) as f:
-            for item in l:
-                f.write("%s\n" % item)
+            for line in l:
+                f.write(f"{line}\n")
+
+    @staticmethod
+    def exists(filepath: str) -> bool:
+        return os.path.exists(filepath)
 
 
 def pickle_load(filepath: str):
@@ -62,12 +67,12 @@ def pickle_dump(filepath: str, data):
         pickle.dump(data, f)
 
 
-def json_load(path: str, encoding="utf-8"):
+def json_load(path: str, encoding="utf-8") -> Union[List[Dict[str, Any]], Dict[str, Any]]:
     with open(path, "r", encoding=encoding) as f:
         return json.load(f)
 
 
-def yaml_load(path: str, encoding="utf-8"):
+def yaml_load(path: str, encoding="utf-8") -> Union[List[Dict[str, Any]], Dict[str, Any]]:
     with open(path, "r", encoding=encoding) as f:
         return yaml.safe_load(f)
 
@@ -82,7 +87,7 @@ def yaml_dump(path: str, data, encoding="utf-8"):
         yaml.safe_dump(data, f)
 
 
-def get_dir_size(directory: str, readable: bool = False):
+def get_dir_size(directory: str, readable: bool = False) -> Union[str, int]:
     total_size = 0
     for dirpath, _, filenames in os.walk(directory):
         for f in filenames:
@@ -95,23 +100,21 @@ def get_dir_size(directory: str, readable: bool = False):
     return total_size
 
 
-def move_files(files: list, target_dir: str, mkdir: bool = False):
-    if not os.path.exists(target_dir):
+def move_files(files: list, directory: str, mkdir: bool = False):
+    if not os.path.exists(directory):
         if mkdir:
-            os.mkdir(target_dir)
+            os.mkdir(directory)
         else:
-            raise FileNotFoundError(f"Target directory does not exist: {target_dir}")
-
+            raise FileNotFoundError(f"Target directory does not exist ({directory})")
     for file in files:
-        new_path = f"{target_dir}{os.sep}{os.path.basename(file)}"
-        try:
-            os.rename(file, new_path)
-        except PermissionError as e:
-            print(file, "-", e)
+        new_path = f"{directory}{os.sep}{os.path.basename(file)}"
+        os.rename(file, new_path)
 
 
-def filename_random(extension: str):
-    return f"file.{time.time()}.{random.randrange(100009, 999999)}.{extension}"
+def random_filename(extension: str = "txt", prefix: str = "file") -> str:
+    if extension.startswith("."):
+        extension = extension[1:]
+    return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}.{extension}"
 
 
 def bytes_readable(size_bytes: int) -> str:
@@ -128,61 +131,104 @@ def win32_has_drive(letter: str) -> bool:
     return "Windows" in platform.system() and os.system("vol %s: 2>nul>nul" % letter) == 0
 
 
-def make_dirs(dest_dir: str, folder_list: str):
-    os.chdir(dest_dir)
-    for folder in folder_list:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
+def make_dirs(dest_dir: str, dirs: str):
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    for i in dirs:
+        if not os.path.exists(i):
+            os.mkdir(f"{dest_dir}{os.sep}{i}")
 
 
-def get_files_in(directory: str, ext: tuple | str = None) -> list[str]:
+def get_files_in(directory: str,
+                 ext: Union[str, Tuple[str], None] = None,
+                 recursive: bool = True) -> List[str]:
     files = []
-    if ext is None:
+    if not recursive:
         for entry in os.scandir(directory):
-            if entry.is_file():
-                files.append(entry.path)
-            elif entry.is_dir():
-                files.extend(get_files_in(entry.path, ext=ext))
+            if not entry.is_file():
+                continue
+            path = os.path.abspath(entry.path)
+            if ext is None:
+                files.append(path)
+            else:
+                if entry.path.endswith(ext):
+                    files.append(path)
     else:
-        for entry in os.scandir(directory):
-            if entry.is_file():
-                if entry.path.lower().endswith(ext):
-                    files.append(entry.path)
-            elif entry.is_dir():
-                files.extend(get_files_in(entry.path, ext=ext))
+        if ext is None:
+            for entry in os.scandir(directory):
+                if entry.is_file():
+                    files.append(os.path.abspath(entry.path))
+                elif entry.is_dir():
+                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
+        else:
+            for entry in os.scandir(directory):
+                if entry.is_file():
+                    if entry.path.lower().endswith(ext):
+                        files.append(os.path.abspath(entry.path))
+                elif entry.is_dir():
+                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
     return files
 
 
-def yield_files_in(directory: str, ext: tuple | str = None):
-    if ext is None:
+def yield_files_in(directory: str,
+                   ext: Union[str, Tuple[str], None] = None,
+                   recursive: bool = True):
+    if not recursive:
         for entry in os.scandir(directory):
-            if entry.is_file():
-                yield entry.path
-            elif entry.is_dir():
-                yield yield_files_in(entry.path, ext=ext)
+            if not entry.is_file():
+                continue
+            path = os.path.abspath(entry.path)
+            if ext is None:
+                yield path
+            else:
+                if entry.path.endswith(ext):
+                    yield path
     else:
-        for entry in os.scandir(directory):
-            if entry.is_file():
-                if entry.path.lower().endswith(ext):
-                    yield entry.path
-            elif entry.is_dir():
-                yield yield_files_in(entry.path, ext=ext)
+        if ext is None:
+            for entry in os.scandir(directory):
+                if entry.is_file():
+                    yield os.path.abspath(entry.path)
+                elif entry.is_dir():
+                    yield yield_files_in(entry.path, ext=ext, recursive=recursive)
+        else:
+            for entry in os.scandir(directory):
+                if entry.is_file():
+                    if entry.path.lower().endswith(ext):
+                        yield os.path.abspath(entry.path)
+                elif entry.is_dir():
+                    yield yield_files_in(entry.path, ext=ext, recursive=recursive)
 
 
-def get_dirs_in(directory: str) -> list[str]:
+def get_dirs_in(directory: str, recursive: bool = True) -> List[str]:
     dirs = []
     for entry in os.scandir(directory):
         if entry.is_dir():
             dirs.append(entry.path)
-            dirs.extend(get_dirs_in(entry.path))
+            if recursive:
+                dirs.extend(get_dirs_in(entry.path, recursive=recursive))
     return dirs
 
 
-def assert_paths_exist(files: str | list):
+def assert_paths_exist(files: Union[str, list, tuple]):
     if isinstance(files, str):
         if not os.path.exists(files):
             raise FileNotFoundError(files)
-    elif isinstance(files, list):
+    elif isinstance(files, list) or isinstance(files, tuple):
         for file in files:
             if not os.path.exists(file):
                 raise FileNotFoundError(file)
+    else:
+        raise TypeError(files)
+
+
+def filename_append(filepath: str, front: str = "", back: str = "") -> str:
+    if len(front) == 0 and len(back) == 0:
+        return filepath
+    dname, fname = os.path.split(filepath)
+    if "." in fname:
+        ext = "." + fname.split(".")[-1]
+    else:
+        ext = ""
+    fname = ".".join(fname.split(".")[:-1])
+    fname = f"{front}{fname}{back}"
+    return f"{dname}{os.sep}{fname}{ext}"

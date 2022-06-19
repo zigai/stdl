@@ -1,63 +1,89 @@
 import re
 import textwrap
+from typing import List
 
 
+# Code by https://github.com/rene-d
+# https://gist.github.com/smcclennon/a42e2e3819a01d2429a430fb57d545c0
 class ColorANSI:
-    GREEN = '\033[92m'
+    BLACK = "\033[30m"
     RED = '\033[91m'
-    YELLOW = "\033[33m"
+    GREEN = '\033[92m'
     BLUE = "\033[34m"
-    MAGENTA = "\033[35m"
+    YELLOW = "\033[33m"
     CYAN = "\033[36m"
-    LIGHT_GRAY = "\033[37m"
+    WHITE = "\033[97m"
+    BROWN = "\033[0;33m"
+    PURPLE = "\033[0;35m"
     DARK_GRAY = "\033[90m"
+    LIGHT_GRAY = "\033[37m"
     LIGHT_RED = "\033[91m"
     LIGHT_GREEN = "\033[92m"
     LIGHT_YELLOW = "\033[93m"
     LIGHT_BLUE = "\033[94m"
-    LIGHT_MAGENTA = "\033[95m"
+    LIGHT_PURPLE = "\033[95m"
     LIGHT_CYAN = "\033[96m"
-    BLACK = "\033[30m"
-    WHITE = "\033[97m"
+    LIGHT_WHITE = "\033[1;37m"
+    BOLD = "\033[1m"
+    FAINT = "\033[2m"
+    ITALIC = "\033[3m"
+    UNDERLINE = "\033[4m"
+    BLINK = "\033[5m"
+    NEGATIVE = "\033[7m"
+    CROSSED = "\033[9m"
     RESET = '\033[0m'
+    # cancel SGR codes if we don't write to a terminal
+    if not __import__("sys").stdout.isatty():
+        for _ in dir():
+            if isinstance(_, str) and _[0] != "_":
+                locals()[_] = ""
+    else:
+        # set Windows console in VT mode
+        if __import__("platform").system() == "Windows":
+            kernel32 = __import__("ctypes").windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+            del kernel32
+
+    @staticmethod
+    def print_all():
+        for i in dir(ColorANSI):
+            if i[0] != "_" and i != "RESET" and i != "print_all":
+                print(str_with_color(i, getattr(ColorANSI, i)))
 
 
 class FilterStr:
-    LETTERS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    LETTERS_SLOVENIAN = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZčšžČŠŽ")
+    ENG_LETTERS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
     FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
-    REGULAR_CHARACTERS = set(
-        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/\\:;.,[]-_()#!?'\"")
     ASCII = set(''.join(chr(x) for x in range(128)))
     NUMBERS = set("0123456789,.")
     DIGITS = set("0123456789")
 
     @staticmethod
-    def filter_str(f: set, s: str):
-        return "".join(filter(f.__contains__, s))
+    def filter(s: str, allowed_chars: set) -> str:
+        return "".join(filter(allowed_chars.__contains__, s))
 
     @staticmethod
-    def letters_only(s: str):
-        return FilterStr.filter_str(FilterStr.LETTERS, s)
+    def file_name(s: str) -> str:
+        return FilterStr.filter(s, FilterStr.FILE_NAME)
 
     @staticmethod
-    def numbers_only(s: str):
-        return FilterStr.filter_str(FilterStr.NUMBERS, s)
+    def ascii(s: str) -> str:
+        return FilterStr.filter(s, FilterStr.ASCII)
 
     @staticmethod
-    def normal_chars(s: str):
-        return FilterStr.filter_str(FilterStr.REGULAR_CHARACTERS, s)
+    def numbers(s: str) -> str:
+        return FilterStr.filter(s, FilterStr.NUMBERS)
 
     @staticmethod
-    def file_name(s: str):
-        return FilterStr.filter_str(FilterStr.FILE_NAME, s)
+    def digits(s: str) -> str:
+        return FilterStr.filter(s, FilterStr.DIGITS)
 
     @staticmethod
-    def ascii(s: str):
-        return FilterStr.filter_str(FilterStr.ASCII, s)
+    def letters_eng(s: str) -> str:
+        return FilterStr.filter(s, FilterStr.ENG_LETTERS)
 
 
-def str_with_color(string: str, ansi_color):
+def str_with_color(string: str, ansi_color) -> str:
     return f"{ansi_color}{string}{ColorANSI.RESET}"
 
 
@@ -72,11 +98,11 @@ def camel_case(s: str) -> str:
     return s[0].lower() + s[1:]
 
 
-def strip_esc_chars(text: str):
+def strip_esc_chars(text: str) -> str:
     return text.strip("\n").strip("\t").strip("\r")
 
 
-def to_lines(text: str, max_text_width: int, newline: str = "\n"):
+def to_lines(text: str, max_text_width: int, newline: str = "\n") -> str:
     s = ""
     wrapped_text = textwrap.wrap(text, width=max_text_width)
     for line in wrapped_text:
@@ -84,7 +110,7 @@ def to_lines(text: str, max_text_width: int, newline: str = "\n"):
     return s
 
 
-def find_urls(s: str) -> list:
+def find_urls(s: str) -> List[str]:
     urls = re.findall('"((http|ftp)s?://.*?)"', s)
     urls = [i[0] for i in urls]
     urls = list(set(urls))
