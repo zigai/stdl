@@ -12,12 +12,13 @@ class ProgressBarTQDM(tqdm):
         self.update(b * bsize - self.n)
 
 
-def download_file(url: str, path: str, progressbar: bool = False, overwrite: bool = False):
+def download(url: str, path: str, progressbar: bool = False, overwrite: bool = False):
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
     if progressbar:
         with ProgressBarTQDM(unit="B", unit_scale=True, unit_divisor=1024) as t:
-            urlretrieve(url, path, reporthook=t.update_to, data=None)
+            r = urlretrieve(url, path, reporthook=t.update_to, data=None)
         t.total = t.n
     else:
-        urlretrieve(url, path)
+        r = urlretrieve(url, path)
+    return r
