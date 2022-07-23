@@ -1,37 +1,43 @@
 import re
 import textwrap
-from typing import List
 
 
-# Code by https://github.com/rene-d
-# https://gist.github.com/smcclennon/a42e2e3819a01d2429a430fb57d545c0
-class ColorANSI:
+def str_with_color(string: str, color: str) -> str:
+    try:
+        clr = Color[color]
+    except KeyError:
+        clr = color
+    return f"{clr}{string}{Color.RESET}"
+
+
+class Color:
     BLACK = "\033[30m"
-    RED = '\033[91m'
-    GREEN = '\033[92m'
-    BLUE = "\033[34m"
-    YELLOW = "\033[33m"
-    CYAN = "\033[36m"
-    WHITE = "\033[97m"
-    BROWN = "\033[0;33m"
-    PURPLE = "\033[0;35m"
-    DARK_GRAY = "\033[90m"
-    LIGHT_GRAY = "\033[37m"
-    LIGHT_RED = "\033[91m"
-    LIGHT_GREEN = "\033[92m"
-    LIGHT_YELLOW = "\033[93m"
-    LIGHT_BLUE = "\033[94m"
-    LIGHT_PURPLE = "\033[95m"
-    LIGHT_CYAN = "\033[96m"
-    LIGHT_WHITE = "\033[1;37m"
-    BOLD = "\033[1m"
-    FAINT = "\033[2m"
-    ITALIC = "\033[3m"
-    UNDERLINE = "\033[4m"
     BLINK = "\033[5m"
-    NEGATIVE = "\033[7m"
+    BLUE = "\033[34m"
+    BOLD = "\033[1m"
+    BROWN = "\033[0;33m"
     CROSSED = "\033[9m"
+    CYAN = "\033[36m"
+    DARK_GRAY = "\033[90m"
+    FAINT = "\033[2m"
+    GREEN = '\033[92m'
+    ITALIC = "\033[3m"
+    LIGHT_BLUE = "\033[94m"
+    LIGHT_CYAN = "\033[96m"
+    LIGHT_GRAY = "\033[37m"
+    LIGHT_GREEN = "\033[92m"
+    LIGHT_PURPLE = "\033[95m"
+    LIGHT_RED = "\033[91m"
+    LIGHT_WHITE = "\033[1;37m"
+    LIGHT_YELLOW = "\033[93m"
+    NEGATIVE = "\033[7m"
+    PURPLE = "\033[0;35m"
+    RED = '\033[91m'
     RESET = '\033[0m'
+    UNDERLINE = "\033[4m"
+    WHITE = "\033[97m"
+    YELLOW = "\033[33m"
+
     # cancel SGR codes if we don't write to a terminal
     if not __import__("sys").stdout.isatty():
         for _ in dir():
@@ -44,53 +50,73 @@ class ColorANSI:
             kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
             del kernel32
 
-    @staticmethod
-    def print_all():
-        for i in dir(ColorANSI):
-            if i[0] != "_" and i != "RESET" and i != "print_all":
-                print(str_with_color(i, getattr(ColorANSI, i)))
+    @classmethod
+    def __class_getitem__(cls, name: str) -> str:
+        name = name.upper().replace(" ", "_")
+        if name in dir(cls):
+            return getattr(cls, name)
+        raise KeyError(name)
+
+    @classmethod
+    @property
+    def dict(cls) -> dict[str, str]:
+        d = {}
+        for i in dir(cls):
+            if i[0] != "_" and i not in ["dict", "print_all"]:
+                d[i] = cls.__class_getitem__(i)
+        return d
+
+    @classmethod
+    def get_all(cls) -> list[str]:
+        return [i for i in cls.dict.keys()]
+
+    @classmethod
+    def print_all(cls):
+        for k, v in cls.dict.items():
+            if k == "RESET":
+                continue
+            print(str_with_color(k, v))
 
 
 class FilterStr:
-    ENG_LETTERS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    FILE_NAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
+    ENG_ALPHABET = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    FILENAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
     ASCII = set(''.join(chr(x) for x in range(128)))
     NUMBERS = set("0123456789,.")
     DIGITS = set("0123456789")
 
-    @staticmethod
-    def filter(s: str, allowed_chars: set) -> str:
+    @classmethod
+    def filter(cls, s: str, allowed_chars: set) -> str:
         return "".join(filter(allowed_chars.__contains__, s))
 
-    @staticmethod
-    def file_name(s: str) -> str:
-        return FilterStr.filter(s, FilterStr.FILE_NAME)
+    @classmethod
+    def filename(cls, s: str) -> str:
+        return cls.filter(s, cls.FILENAME)
 
-    @staticmethod
-    def ascii(s: str) -> str:
-        return FilterStr.filter(s, FilterStr.ASCII)
+    @classmethod
+    def ascii(cls, s: str) -> str:
+        return cls.filter(s, cls.ASCII)
 
-    @staticmethod
-    def numbers(s: str) -> str:
-        return FilterStr.filter(s, FilterStr.NUMBERS)
+    @classmethod
+    def numbers(cls, s: str) -> str:
+        return cls.filter(s, cls.NUMBERS)
 
-    @staticmethod
-    def digits(s: str) -> str:
-        return FilterStr.filter(s, FilterStr.DIGITS)
+    @classmethod
+    def digits(cls, s: str) -> str:
+        return cls.filter(s, cls.DIGITS)
 
-    @staticmethod
-    def letters_eng(s: str) -> str:
-        return FilterStr.filter(s, FilterStr.ENG_LETTERS)
-
-
-def str_with_color(string: str, ansi_color) -> str:
-    return f"{ansi_color}{string}{ColorANSI.RESET}"
+    @classmethod
+    def eng_alphabet(cls, s: str) -> str:
+        return cls.filter(s, cls.ENG_ALPHABET)
 
 
 def snake_case(s: str) -> str:
     return "_".join(
-        re.sub("([A-Z][a-z]+)", r" \1", re.sub("([A-Z]+)", r" \1",
-                                               s.replace("-", " "))).split()).lower()
+        re.sub(
+            "([A-Z][a-z]+)",
+            r" \1",
+            re.sub("([A-Z]+)", r" \1", s.replace("-", " ")),
+        ).split()).lower()
 
 
 def camel_case(s: str) -> str:
@@ -98,20 +124,15 @@ def camel_case(s: str) -> str:
     return s[0].lower() + s[1:]
 
 
-def strip_esc_chars(text: str) -> str:
-    return text.strip("\n").strip("\t").strip("\r")
-
-
-def to_lines(text: str, max_text_width: int, newline: str = "\n") -> str:
+def to_lines(text: str, max_width: int, newline: str = "\n") -> str:
     s = ""
-    wrapped_text = textwrap.wrap(text, width=max_text_width)
-    for line in wrapped_text:
-        s = s + line + newline
+    wrapped = textwrap.wrap(text, width=max_width)
+    for line in wrapped:
+        s = f"{s}{line}{newline}"
     return s
 
 
-def find_urls(s: str) -> List[str]:
+def find_urls(s: str) -> list[str]:
     urls = re.findall('"((http|ftp)s?://.*?)"', s)
     urls = [i[0] for i in urls]
-    urls = list(set(urls))
-    return urls
+    return list(set(urls))
