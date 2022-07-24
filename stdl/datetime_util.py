@@ -1,112 +1,83 @@
+import time
 from datetime import date, datetime, timedelta
-from time import time
+
+from dateutil import parser
 
 
 class Timer:
 
-    def __init__(self):
-        self.start_time = time()
+    def __init__(self, miliseconds: bool = True):
+        self.start = time.time()
+        self.miliseconds = miliseconds
+        self.stops = []
 
-    def stop(self, msg: str = "Time:"):
-        run_time = timedelta(seconds=round(time() - self.start_time))
-        print(f"{msg} {run_time}")
-        return run_time
-
-
-class Date:
-
-    @staticmethod
-    def now() -> date:
-        """
-        YYYY-MM-DD
-        2021-03-03
-        """
-        return date.today()
-
-    @staticmethod
-    def yesterday() -> date:
-        return Date.now() - timedelta(days=1)
-
-    @staticmethod
-    def tommorow() -> date:
-        return Date.now() + timedelta(days=1)
-
-    @staticmethod
-    def from_ts(t: float) -> date:
-        return date.fromtimestamp(t)
-
-    @staticmethod
-    def range(start_date: date, end_date: date):
-        for n in range(int((end_date - start_date).days)):
-            yield start_date + timedelta(n)
-
-    @staticmethod
-    def format(d: date, fmt: str = "Ymd", sep: str = "-") -> str:
-        return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
-
-    @staticmethod
-    def today_as_str(fmt: str = "Ymd", sep: str = "-") -> str:
-        return Date.format(Date.now(), fmt=fmt, sep=sep)
-
-    @staticmethod
-    def from_ts_as_str(t: float, fmt: str = "Ymd", sep="-") -> str:
-        return Date.format(Date.from_ts(t), fmt=fmt, sep=sep)
+    def stop(self, label: str | None = None):
+        diff = time.time() - self.start
+        if not self.miliseconds:
+            diff = round(diff)
+        self.stops.append((diff, label))
+        return timedelta(seconds=diff)
 
 
-class DateTime:
-
-    @staticmethod
-    def now() -> datetime:
-        return datetime.now()
-
-    @staticmethod
-    def from_ts(t: float) -> datetime:
-        return datetime.fromtimestamp(t)
-
-    @staticmethod
-    def format(d: datetime, fmt: str = "Ymd", date_sep: str = ".", time_sep: str = ":") -> str:
-        return d.strftime(
-            f"%{fmt[0]}{date_sep}%{fmt[1]}{date_sep}%{fmt[2]} %H{time_sep}%M{time_sep}%S")
-
-    @staticmethod
-    def from_ts_as_str(t: float, fmt: str = "Ymd", date_sep: str = ".", time_sep: str = ":") -> str:
-        return DateTime.format(DateTime.from_ts(t), fmt=fmt, date_sep=date_sep, time_sep=time_sep)
+def parse_datetime(date: str):
+    return parser.parse(date)
 
 
-class Time:
+def fmt_datetime(
+    d: str | float | None | datetime = None,
+    fmt: str = "Ymd",
+    d_sep: str = "-",
+    t_sep: str = ":",
+):
+    if d is None:
+        d = datetime.fromtimestamp(time.time())
+    elif isinstance(d, str):
+        d = parse_datetime(d)
+    elif isinstance(d, float):
+        d = datetime.fromtimestamp(d)
+    elif isinstance(d, datetime):
+        pass
+    else:
+        raise TypeError(type(d))
+    d_fmt = f"%{fmt[0]}{d_sep}%{fmt[1]}{d_sep}%{fmt[2]}"
+    t_fmt = f"%H{t_sep}%M{t_sep}%S"
+    return d.strftime(f"{d_fmt} {t_fmt}")
 
-    @staticmethod
-    def now() -> float:
-        return time()
 
-    @staticmethod
-    def format(t: float, sep: str = ":", ms: bool = False) -> str:
-        tm = datetime.fromtimestamp(t)
-        ts = tm.strftime(f'%H{sep}%M{sep}%S')
-        if ms:
-            ts = f"{ts}.{int(tm.microsecond / 1000)}"
-        return ts
+def fmt_time(t: float | None = None, sep: str = ":", ms: bool = False):
+    if t is None:
+        t = time.time()
+    tm = datetime.fromtimestamp(t)
+    ts = tm.strftime(f'%H{sep}%M{sep}%S')
+    if ms:
+        ts = f"{ts}.{int(tm.microsecond / 1000)}"
+    return ts
 
-    @staticmethod
-    def now_as_str(sep: str = ":", ms: bool = False) -> str:
-        return Time.format(Time.now(), sep=sep, ms=ms)
+
+def fmt_date(
+    d: float | None | date = None,
+    fmt: str = "Ymd",
+    sep: str = "-",
+):
+    if d is None:
+        d = date.fromtimestamp(time.time())
+    elif isinstance(d, float):
+        d = date.fromtimestamp(d)
+    elif isinstance(d, date):
+        pass
+    else:
+        raise TypeError(type(d))
+    return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
+
+
+def date_range(start: date, end: date):
+    for n in range(int((end - start).days)):
+        yield start + timedelta(n)
 
 
 if __name__ == '__main__':
     timer = Timer()
-    print("\nTime")
-    print(Time.now_as_str())
-    print(Time.now_as_str(sep=".", ms=False))
-    print(Time.now_as_str(sep=":", ms=True))
-    print(Time.format(time()))
-
-    print("\nDate")
-    print(Date.today_as_str())
-    print(Date.from_ts_as_str(time(), sep="/"))
-    print(Date.from_ts(time()))
-
-    print("\nDateTime")
-    print(DateTime.from_ts(time()))
-    print(DateTime.now())
-    print(DateTime.format(DateTime.now()))
-    timer.stop(msg="Timer:")
+    print(fmt_date())
+    print(fmt_datetime())
+    print(fmt_time())
+    print(timer.stop())
