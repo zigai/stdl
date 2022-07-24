@@ -9,7 +9,7 @@ pip install stdl
 ```
 ### From source
 ```
-git clone https://github.com/ziga-ivansek/stdl.git && cd stdl && pip install .
+git clone https://github.com/zigai/stdl.git && cd stdl && pip install .
 ```
 ___
 ## License
