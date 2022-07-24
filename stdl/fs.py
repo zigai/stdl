@@ -52,11 +52,11 @@ class File:
 
     @property
     def created(self):
-        os.path.getctime(self.path)
+        return os.path.getctime(self.path)
 
     @property
     def modified(self):
-        os.path.getmtime(self.path)
+        return os.path.getmtime(self.path)
 
     def read(self) -> str:
         with open(self.path, "r", encoding=self.encoding) as f:
