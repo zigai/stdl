@@ -136,3 +136,19 @@ def find_urls(s: str) -> list[str]:
     urls = re.findall('"((http|ftp)s?://.*?)"', s)
     urls = [i[0] for i in urls]
     return list(set(urls))
+
+
+def terminal_link(uri: str, label: str = None, color: str = None):
+    """
+    Hyperlinks may not be supported in your terminal and can cause disfigured text to be printed.
+    
+    Learn more at:
+    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    """
+    parameters = ''
+    if label is None:
+        label = uri
+    link = f'\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\'
+    if color is not None:
+        link = str_with_color(link, color)
+    return link
