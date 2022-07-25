@@ -25,6 +25,9 @@ class File:
         if isinstance(path, Path):
             self.path = str(path)
 
+    def __str__(self):
+        return self.path
+
     @property
     def exists(self):
         return os.path.isfile(self.path)
@@ -44,13 +47,6 @@ class File:
         return None
 
     @property
-    def size(self, readable: bool = False) -> int | str:
-        size = os.path.getsize(self.path)
-        if readable:
-            return bytes_readable(size)
-        return size
-
-    @property
     def created(self):
         return os.path.getctime(self.path)
 
@@ -58,20 +54,48 @@ class File:
     def modified(self):
         return os.path.getmtime(self.path)
 
+    @property
+    def abspath(self):
+        return os.path.abspath(self.path)
+
+    def size(self, readable: bool = False) -> int | str:
+        size = os.path.getsize(self.path)
+        if readable:
+            return bytes_readable(size)
+        return size
+
+    def to_path(self) -> Path:
+        return Path(self.path)
+
     def read(self) -> str:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
-    def write(self, data, newline: bool = True):
+    def write(self, data, add_newline: bool = True):
         with open(self.path, "w", encoding=self.encoding) as f:
             f.write(data)
-            if newline:
+            if add_newline:
                 f.write("\n")
 
-    def write_iter(self, data: Iterable, sep="\n"):
+    def write_iter(self, data: Iterable, sep="\n", add_newline: bool = True):
         with open(self.path, 'w', encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
+            if add_newline:
+                f.write("\n")
+
+    def append(self, data, add_newline: bool = True):
+        with open(self.path, "a", encoding=self.encoding) as f:
+            f.write(data)
+            if add_newline:
+                f.write("\n")
+
+    def append_iter(self, data: Iterable, sep="\n", add_newline: bool = True):
+        with open(self.path, "a", encoding=self.encoding) as f:
+            for entry in data:
+                f.write(f"{entry}{sep}")
+            if add_newline:
+                f.write("\n")
 
     def readlines(self) -> list[str]:
         with open(self.path, "r", encoding=self.encoding) as f:
