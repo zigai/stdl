@@ -1,5 +1,6 @@
 import time
 from datetime import date, datetime, timedelta
+from typing import Generator
 
 from dateutil import parser
 
@@ -11,7 +12,7 @@ class Timer:
         self.miliseconds = miliseconds
         self.stops = []
 
-    def stop(self, label: str | None = None):
+    def stop(self, label: str | None = None) -> timedelta:
         diff = time.time() - self.start
         if not self.miliseconds:
             diff = round(diff)
@@ -19,7 +20,7 @@ class Timer:
         return timedelta(seconds=diff)
 
 
-def parse_datetime(date: str):
+def parse_datetime(date: str) -> datetime:
     return parser.parse(date)
 
 
@@ -28,7 +29,7 @@ def fmt_datetime(
     fmt: str = "Ymd",
     d_sep: str = "-",
     t_sep: str = ":",
-):
+) -> str:
     if d is None:
         d = datetime.fromtimestamp(time.time())
     elif isinstance(d, str):
@@ -44,7 +45,7 @@ def fmt_datetime(
     return d.strftime(f"{d_fmt} {t_fmt}")
 
 
-def fmt_time(t: float | None = None, sep: str = ":", ms: bool = False):
+def fmt_time(t: float | None = None, sep: str = ":", ms: bool = False) -> str:
     if t is None:
         t = time.time()
     tm = datetime.fromtimestamp(t)
@@ -58,7 +59,7 @@ def fmt_date(
     d: float | None | date = None,
     fmt: str = "Ymd",
     sep: str = "-",
-):
+) -> str:
     if d is None:
         d = date.fromtimestamp(time.time())
     elif isinstance(d, float):
@@ -70,14 +71,7 @@ def fmt_date(
     return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
 
-def date_range(start: date, end: date):
+def date_range(start: date, end: date) -> Generator[date, None, None]:
+    """Returns a generator for dates between ``start`` and ``end``"""
     for n in range(int((end - start).days)):
         yield start + timedelta(n)
-
-
-if __name__ == '__main__':
-    timer = Timer()
-    print(fmt_date())
-    print(fmt_datetime())
-    print(fmt_time())
-    print(timer.stop())

@@ -29,33 +29,33 @@ class File:
         return self.path
 
     @property
-    def exists(self):
+    def exists(self) -> bool:
         return os.path.isfile(self.path)
 
     @property
-    def dirname(self):
+    def dirname(self) -> str:
         return os.path.dirname(self.path)
 
     @property
-    def basename(self):
+    def basename(self) -> str:
         return os.path.basename(self.path)
 
     @property
-    def ext(self):
+    def ext(self) -> str | None:
         if "." in self.basename:
             return self.basename.split(".")[-1]
         return None
 
     @property
-    def created(self):
+    def created(self) -> float:
         return os.path.getctime(self.path)
 
     @property
-    def modified(self):
+    def modified(self) -> float:
         return os.path.getmtime(self.path)
 
     @property
-    def abspath(self):
+    def abspath(self) -> str:
         return os.path.abspath(self.path)
 
     def size(self, readable: bool = False) -> int | str:
@@ -71,26 +71,26 @@ class File:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
-    def write(self, data, add_newline: bool = True):
+    def write(self, data, add_newline: bool = True) -> None:
         with open(self.path, "w", encoding=self.encoding) as f:
             f.write(data)
             if add_newline:
                 f.write("\n")
 
-    def write_iter(self, data: Iterable, sep="\n", add_newline: bool = True):
+    def write_iter(self, data: Iterable, sep="\n", add_newline: bool = True) -> None:
         with open(self.path, 'w', encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
             if add_newline:
                 f.write("\n")
 
-    def append(self, data, add_newline: bool = True):
+    def append(self, data, add_newline: bool = True) -> None:
         with open(self.path, "a", encoding=self.encoding) as f:
             f.write(data)
             if add_newline:
                 f.write("\n")
 
-    def append_iter(self, data: Iterable, sep="\n", add_newline: bool = True):
+    def append_iter(self, data: Iterable, sep="\n", add_newline: bool = True) -> None:
         with open(self.path, "a", encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
@@ -101,7 +101,7 @@ class File:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.readlines()
 
-    def splitlines(self):
+    def splitlines(self) -> list[str]:
         return self.read().splitlines()
 
     def move_to(self, directory: str):
@@ -119,10 +119,10 @@ class File:
         self.path = shutil.copy2(self.path, directory)
         return self
 
-    def get_xattr(self, name: str, group="user"):
+    def get_xattr(self, name: str, group="user") -> str:
         return os.getxattr(self.path, f'{group}.{name}').decode()
 
-    def set_xattr(self, value: str | bytes, name: str, group="user"):
+    def set_xattr(self, value: str | bytes, name: str, group="user") -> None:
         if isinstance(value, str):
             value = value.encode()
         os.setxattr(self.path, f'{group}.{name}', value)
@@ -133,7 +133,7 @@ def pickle_load(filepath: str | Path):
         return pickle.load(f)
 
 
-def pickle_dump(data, filepath: str | Path):
+def pickle_dump(data, filepath: str | Path) -> None:
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
 
@@ -148,12 +148,12 @@ def yaml_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
         return yaml.safe_load(f)
 
 
-def json_dump(data, path: str | Path, encoding="utf-8", default=str, indent=4):
+def json_dump(data, path: str | Path, encoding="utf-8", default=str, indent=4) -> None:
     with open(path, 'w', encoding=encoding) as f:
         json.dump(data, f, indent=indent, default=default)
 
 
-def yaml_dump(data, path: str | Path, encoding="utf-8"):
+def yaml_dump(data, path: str | Path, encoding="utf-8") -> None:
     with open(path, "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
@@ -288,7 +288,7 @@ def yield_dirs_in(directory: str | Path, recursive: bool = True):
         if entry.is_dir():
             yield entry.path
             if recursive:
-                yield get_dirs_in(entry.path, recursive=recursive)
+                yield yield_dirs_in(entry.path, recursive=recursive)
 
 
 def assert_paths_exist(files: str | Iterable):
