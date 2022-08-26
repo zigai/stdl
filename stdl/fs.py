@@ -20,10 +20,10 @@ from stdl.str_util import FilterStr
 class File:
 
     def __init__(self, path: str | Path, encoding="utf-8") -> None:
-        self.path = path
-        self.encoding = encoding
         if isinstance(path, Path):
-            self.path = str(path)
+            path = str(path)
+        self.path = os.path.abspath(path)
+        self.encoding = encoding
 
     def __str__(self):
         return self.path
@@ -37,6 +37,14 @@ class File:
         return os.path.dirname(self.path)
 
     @property
+    def created(self) -> float:
+        return os.path.getctime(self.path)
+
+    @property
+    def modified(self) -> float:
+        return os.path.getmtime(self.path)
+
+    @property
     def basename(self) -> str:
         return os.path.basename(self.path)
 
@@ -47,16 +55,15 @@ class File:
         return None
 
     @property
-    def created(self) -> float:
-        return os.path.getctime(self.path)
-
-    @property
-    def modified(self) -> float:
-        return os.path.getmtime(self.path)
-
-    @property
     def abspath(self) -> str:
         return os.path.abspath(self.path)
+
+    @property
+    def stem(self):
+        base = self.basename
+        if "." not in base:
+            return base
+        return ".".join(base.split(".")[:-1])
 
     def size(self, readable: bool = False) -> int | str:
         size = os.path.getsize(self.path)
@@ -71,31 +78,30 @@ class File:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
-    def write(self, data, add_newline: bool = True) -> None:
-        with open(self.path, "w", encoding=self.encoding) as f:
+    def __write(self, data, mode: str, newline: bool = True):
+        with open(self.path, mode, encoding=self.encoding) as f:
             f.write(data)
-            if add_newline:
+            if newline:
                 f.write("\n")
 
-    def write_iter(self, data: Iterable, sep="\n", add_newline: bool = True) -> None:
-        with open(self.path, 'w', encoding=self.encoding) as f:
+    def __write_iter(self, data: Iterable, mode: str, sep="\n", newline: bool = True) -> None:
+        with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
-            if add_newline:
+            if newline:
                 f.write("\n")
 
-    def append(self, data, add_newline: bool = True) -> None:
-        with open(self.path, "a", encoding=self.encoding) as f:
-            f.write(data)
-            if add_newline:
-                f.write("\n")
+    def write(self, data, newline: bool = True) -> None:
+        self.__write(data, "w", newline=newline)
 
-    def append_iter(self, data: Iterable, sep="\n", add_newline: bool = True) -> None:
-        with open(self.path, "a", encoding=self.encoding) as f:
-            for entry in data:
-                f.write(f"{entry}{sep}")
-            if add_newline:
-                f.write("\n")
+    def append(self, data, newline: bool = True) -> None:
+        self.__write(data, "a", newline=newline)
+
+    def write_iter(self, data: Iterable, sep="\n", newline: bool = True) -> None:
+        self.__write_iter(data, "w", sep=sep, newline=newline)
+
+    def append_iter(self, data: Iterable, sep="\n", newline: bool = True) -> None:
+        self.__write_iter(data, "a", sep=sep, newline=newline)
 
     def readlines(self) -> list[str]:
         with open(self.path, "r", encoding=self.encoding) as f:
@@ -104,18 +110,24 @@ class File:
     def splitlines(self) -> list[str]:
         return self.read().splitlines()
 
-    def move_to(self, directory: str):
-        move_path = f"{directory}{os.sep}{os.path.basename(self.path)}"
-        os.rename(self.path, move_path)
-        self.path = move_path
+    def move_to(self, directory: str, overwrite=True):
+        mv_path = f"{directory}{os.sep}{os.path.basename(self.path)}"
+        if os.path.exists(mv_path) and not overwrite:
+            raise FileExistsError(mv_path)
+        os.rename(self.path, mv_path)
+        self.path = mv_path
         return self
 
-    def copy_to(self, directory, mkdir=False):
+    def copy_to(self, directory, mkdir=False, overwrite=True):
         if not os.path.isdir(directory):
             if mkdir:
                 os.mkdir(directory)
             else:
                 raise FileNotFoundError(f"No such directory: '{directory}'")
+        copy_path = f"{directory}{os.sep}{self.basename}"
+        if os.path.exists(copy_path) and not overwrite:
+            raise FileExistsError(copy_path)
+
         self.path = shutil.copy2(self.path, directory)
         return self
 
@@ -126,6 +138,32 @@ class File:
         if isinstance(value, str):
             value = value.encode()
         os.setxattr(self.path, f'{group}.{name}', value)
+
+    def with_ext(self, ext: str):
+        if not ext.startswith("."):
+            ext = f",{ext}"
+        self.path = f"{self.dirname}{os.sep}{self.stem}{ext}"
+        return self
+
+    def with_suffix(self, suffix: str):
+        ext = self.ext
+        if ext is None:
+            ext = ""
+        else:
+            ext = f".{ext}"
+        filename = f"{self.stem}{suffix}{ext}"
+        self.path = f"{self.dirname}{os.sep}{filename}"
+        return self
+
+    def with_prefix(self, prefix: str):
+        ext = self.ext
+        if ext is None:
+            ext = ""
+        else:
+            ext = f".{ext}"
+        filename = f"{prefix}{self.stem}{ext}"
+        self.path = f"{self.dirname}{os.sep}{filename}"
+        return self
 
 
 def pickle_load(filepath: str | Path):
@@ -181,10 +219,10 @@ def move_files(files: list, directory: str, mkdir: bool = False) -> None:
         os.rename(file, f"{directory}{os.sep}{os.path.basename(file)}")
 
 
-def get_random_filename(extension: str = "txt", prefix: str = "file") -> str:
-    if extension.startswith("."):
-        extension = extension[1:]
-    return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}.{extension}"
+def random_filename(ext: str = "", prefix: str = "file") -> str:
+    if len(ext) and not ext.startswith("."):
+        ext = f".{ext}"
+    return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}{ext}"
 
 
 def bytes_readable(size_bytes: int) -> str:
@@ -192,10 +230,10 @@ def bytes_readable(size_bytes: int) -> str:
         raise ValueError(size_bytes)
     if size_bytes == 0:
         return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
     return f"{s} {size_name[i]}"
 
 
@@ -214,8 +252,8 @@ def make_dirs(dest: str, dirs: list):
 
 
 def get_files_in(
-    directory: str,
-    ext: str | tuple[str] | None = None,
+    directory: str | Path,
+    ext: str | tuple | None = None,
     recursive: bool = True,
 ) -> list[str]:
     files = []
@@ -246,7 +284,7 @@ def get_files_in(
     return files
 
 
-def yield_files_in(directory: str, ext: str | tuple[str] | None = None, recursive: bool = True):
+def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recursive: bool = True):
     if not recursive:
         for entry in os.scandir(directory):
             if not entry.is_file():
@@ -301,16 +339,3 @@ def assert_paths_exist(files: str | Iterable):
                 raise FileNotFoundError(f"No such file or directory: '{file}'")
     else:
         raise TypeError(type(files))
-
-
-def filename_append(filepath: str, front: str = "", back: str = "") -> str:
-    if len(front) == 0 and len(back) == 0:
-        return filepath
-    dirname, filename = os.path.split(filepath)
-    if "." in filename:
-        ext = "." + filename.split(".")[-1]
-    else:
-        ext = ""
-    filename = ".".join(filename.split(".")[:-1])
-    filename = FilterStr.filename(f"{front}{filename}{back}")
-    return f"{dirname}{os.sep}{filename}{ext}"
