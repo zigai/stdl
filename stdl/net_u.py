@@ -13,6 +13,18 @@ class ProgressBarTQDM(tqdm):
 
 
 def download(url: str, path: str, progressbar: bool = False, overwrite: bool = False):
+    """
+    Download a file
+
+    Args:
+        url (str): File URL
+        path (str): Save path
+        progressbar (bool, optional): Display progress bar in console. Defaults to False.
+        overwrite (bool, optional): Overwrite destination path if it already exists. Defaults to False.
+
+    Raises:
+        FileExistsError: if path already exists and overwrite is False
+    """
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
     if progressbar:

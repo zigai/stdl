@@ -16,8 +16,9 @@ class Timer:
         diff = time.time() - self.start
         if not self.miliseconds:
             diff = round(diff)
-        self.stops.append((diff, label))
-        return timedelta(seconds=diff)
+        delta = timedelta(seconds=diff)
+        self.stops.append((delta, label))
+        return delta
 
 
 def parse_datetime(date: str) -> datetime:

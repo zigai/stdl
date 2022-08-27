@@ -228,12 +228,6 @@ def random_filename(ext: str = "", prefix: str = "file") -> str:
     return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}{ext}"
 
 
-IMAGE_EXT = (".jpg", ".png", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff")
-VIDEO_EXT = (".mp4", ".mkv", ".avi", ".flv", ".mov", ".webm", ".mpg", ".mpeg", ".mpe", ".mpv",
-             ".ogg", ".m4p", ".m4v", ".wmv", ".f4v", ".swf")
-SONG_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
-
-
 def bytes_readable(size_bytes: int) -> str:
     if size_bytes < 0:
         raise ValueError(size_bytes)
