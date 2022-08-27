@@ -14,8 +14,6 @@ from pathlib import Path
 
 import yaml
 
-from stdl.str_util import FilterStr
-
 
 class File:
 
@@ -329,7 +327,7 @@ def yield_dirs_in(directory: str | Path, recursive: bool = True):
                 yield yield_dirs_in(entry.path, recursive=recursive)
 
 
-def assert_paths_exist(files: str | Iterable):
+def assert_paths_exist(files: str | Iterable, *args):
     if isinstance(files, str):
         if not os.path.exists(files):
             raise FileNotFoundError(f"No such file or directory: '{files}'")
@@ -337,5 +335,6 @@ def assert_paths_exist(files: str | Iterable):
         for file in files:
             if not os.path.exists(file):
                 raise FileNotFoundError(f"No such file or directory: '{file}'")
-    else:
-        raise TypeError(type(files))
+    for file in args:
+        if not os.path.exists(file):
+            raise FileNotFoundError(f"No such file or directory: '{files}'")
