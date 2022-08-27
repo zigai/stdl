@@ -1,43 +1,24 @@
 import re
 import textwrap
 
+__CSI = '\033['
 
-def str_with_color(string: str, color: str) -> str:
+
+def ansi_code(n: int):
+    return f"{__CSI}{n}m"
+
+
+def __get_ansi_val(value, handler):
+    if value == "" or value is None:
+        return ""
     try:
-        clr = Color[color]
+        clr = handler[value]
+        return clr
     except KeyError:
-        clr = color
-    return f"{clr}{string}{Color.RESET}"
+        return value
 
 
-class Color:
-    BLACK = "\033[30m"
-    BLINK = "\033[5m"
-    BLUE = "\033[34m"
-    BOLD = "\033[1m"
-    BROWN = "\033[0;33m"
-    CROSSED = "\033[9m"
-    CYAN = "\033[36m"
-    DARK_GRAY = "\033[90m"
-    FAINT = "\033[2m"
-    GREEN = '\033[92m'
-    ITALIC = "\033[3m"
-    LIGHT_BLUE = "\033[94m"
-    LIGHT_CYAN = "\033[96m"
-    LIGHT_GRAY = "\033[37m"
-    LIGHT_GREEN = "\033[92m"
-    LIGHT_PURPLE = "\033[95m"
-    LIGHT_RED = "\033[91m"
-    LIGHT_WHITE = "\033[1;37m"
-    LIGHT_YELLOW = "\033[93m"
-    NEGATIVE = "\033[7m"
-    PURPLE = "\033[0;35m"
-    RED = '\033[91m'
-    RESET = '\033[0m'
-    UNDERLINE = "\033[4m"
-    WHITE = "\033[97m"
-    YELLOW = "\033[33m"
-
+class __ColorANSI:
     # cancel SGR codes if we don't write to a terminal
     if not __import__("sys").stdout.isatty():
         for _ in dir():
@@ -62,7 +43,7 @@ class Color:
     def dict(cls) -> dict[str, str]:
         d = {}
         for i in dir(cls):
-            if i[0] != "_" and i not in ["dict", "print_all"]:
+            if i[0] != "_" and i not in ["dict", "print_all", "get_all"]:
                 d[i] = cls.__class_getitem__(i)
         return d
 
@@ -75,39 +56,97 @@ class Color:
         for k, v in cls.dict.items():
             if k == "RESET":
                 continue
-            print(str_with_color(k, v))
+            print(colored(k, v))
 
 
-class FilterStr:
-    ENG_ALPHABET = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    FILENAME = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
-    ASCII = set(''.join(chr(x) for x in range(128)))
-    NUMBERS = set("0123456789,.")
-    DIGITS = set("0123456789")
+class FG(__ColorANSI):
+    BLACK = ansi_code(30)
+    RED = ansi_code(31)
+    GREEN = ansi_code(32)
+    YELLOW = ansi_code(33)
+    BLUE = ansi_code(34)
+    MAGENTA = ansi_code(35)
+    CYAN = ansi_code(36)
+    WHITE = ansi_code(37)
+    BRIGHT_BLACK = ansi_code(90)
+    BRIGHT_RED = ansi_code(91)
+    BRIGHT_GREEN = ansi_code(92)
+    BRIGHT_YELLOW = ansi_code(93)
+    BRIGHT_BLUE = ansi_code(94)
+    BRIGHT_MAGENTA = ansi_code(95)
+    BRIGHT_CYAN = ansi_code(96)
+    BRIGHT_WHITE = ansi_code(97)
 
-    @classmethod
-    def filter(cls, s: str, allowed_chars: set) -> str:
-        return "".join(filter(allowed_chars.__contains__, s))
 
-    @classmethod
-    def filename(cls, s: str) -> str:
-        return cls.filter(s, cls.FILENAME)
+class BG(__ColorANSI):
+    BLACK = ansi_code(40)
+    RED = ansi_code(41)
+    GREEN = ansi_code(42)
+    YELLOW = ansi_code(43)
+    BLUE = ansi_code(44)
+    MAGENTA = ansi_code(45)
+    CYAN = ansi_code(46)
+    WHITE = ansi_code(47)
+    BRIGHT_BLACK = ansi_code(100)
+    BRIGHT_RED = ansi_code(101)
+    BRIGHT_GREEN = ansi_code(102)
+    BRIGHT_YELLOW = ansi_code(103)
+    BRIGHT_BLUE = ansi_code(104)
+    BRIGHT_MAGENTA = ansi_code(105)
+    BRIGHT_CYAN = ansi_code(106)
+    BRIGHT_WHITE = ansi_code(107)
 
-    @classmethod
-    def ascii(cls, s: str) -> str:
-        return cls.filter(s, cls.ASCII)
 
-    @classmethod
-    def numbers(cls, s: str) -> str:
-        return cls.filter(s, cls.NUMBERS)
+class ST(__ColorANSI):
+    RESET = ansi_code(0)
+    BOLD = ansi_code(1)
+    DIM = ansi_code(2)
+    ITALIC = ansi_code(3)
+    UNDERLINE = ansi_code(4)
+    BLINK = ansi_code(5)
 
-    @classmethod
-    def digits(cls, s: str) -> str:
-        return cls.filter(s, cls.DIGITS)
 
-    @classmethod
-    def eng_alphabet(cls, s: str) -> str:
-        return cls.filter(s, cls.ENG_ALPHABET)
+def colored(text: str, color: str, background: str | None = None, style: str | None = None):
+    color = __get_ansi_val(color, FG)  # type: ignore
+    background = __get_ansi_val(background, BG)  # type: ignore
+    style = __get_ansi_val(style, ST)  # type: ignore
+    return f"{color}{background}{style}{text}{ST.RESET}"
+
+
+def terminal_link(
+    uri: str,
+    label: str | None = None,
+    color: str | None = None,
+    background: str | None = None,
+    style: str | None = None,
+):
+    """
+    Hyperlinks are not supported in some terminals.
+    Learn more at:
+    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    """
+    parameters = ''
+    if label is None:
+        label = uri
+    link = f'\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\'
+    link = colored(link, color, background, style)  # type: ignore
+    return link
+
+
+def filter_str(s: str, chars: set, replace_with: str | None = None) -> str:
+    string = ""
+    for i in s:
+        if i in chars:
+            string = f"{string}{i}"
+        else:
+            if replace_with is not None:
+                string = f"{string}{replace_with}"
+    return string
+
+
+def filter_filename(s: str, replace_with: str | None = None):
+    filename_chars = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
+    return filter_str(s, chars=filename_chars, replace_with=replace_with)
 
 
 def snake_case(s: str) -> str:
@@ -124,12 +163,12 @@ def camel_case(s: str) -> str:
     return s[0].lower() + s[1:]
 
 
-def to_lines(text: str, max_width: int, newline: str = "\n") -> str:
-    s = ""
-    wrapped = textwrap.wrap(text, width=max_width)
+def to_lines(text: str, width: int, newline: str = "\n") -> str:
+    string = ""
+    wrapped = textwrap.wrap(text, width=width)
     for line in wrapped:
-        s = f"{s}{line}{newline}"
-    return s
+        string = f"{string}{line}{newline}"
+    return string
 
 
 def find_urls(s: str) -> list[str]:
@@ -138,17 +177,7 @@ def find_urls(s: str) -> list[str]:
     return list(set(urls))
 
 
-def terminal_link(uri: str, label: str = None, color: str = None):
-    """
-    Hyperlinks may not be supported in your terminal and can cause disfigured text to be printed.
-    
-    Learn more at:
-    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
-    """
-    parameters = ''
-    if label is None:
-        label = uri
-    link = f'\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\'
-    if color is not None:
-        link = str_with_color(link, color)
-    return link
+if __name__ == '__main__':
+    FG.print_all()
+    BG.print_all()
+    ST.print_all()
