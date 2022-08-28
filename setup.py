@@ -8,7 +8,7 @@ REQUIREMENTS = (HERE / "requirements.txt").read_text()
 
 setup(
     name="stdl",
-    version="0.3.5",
+    version="0.4.5",
     description="Extended Python Standard Library",
     long_description=README,
     long_description_content_type="text/markdown",
