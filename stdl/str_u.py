@@ -76,6 +76,7 @@ class FG(__ColorANSI):
     BRIGHT_MAGENTA = ansi_code(95)
     BRIGHT_CYAN = ansi_code(96)
     BRIGHT_WHITE = ansi_code(97)
+    BOLD = ansi_code(1)
 
 
 class BG(__ColorANSI):
