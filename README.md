@@ -1,7 +1,6 @@
 # stdl
-Extended Python standard library
-___
-## Installation
+Extended Python standard library.
+# Installation
 stdl requires Python 3.10+
 ### Using pip
 ```
@@ -11,6 +10,5 @@ pip install stdl
 ```
 git clone https://github.com/zigai/stdl.git && cd stdl && pip install .
 ```
-___
-## License
-Licensed under [MIT License](./LICENSE.txt)
+# License
+[MIT License](https://github.com/zigai/stdl/blob/master/LICENSE)
