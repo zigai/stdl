@@ -16,5 +16,5 @@ def loguru_fmt(record: dict) -> str:
             extras = extras + key + "=" + "{extra[" + key + "]},"
         extras = extras[:-1]
 
-    format = f"{time} [ {level} ] {name}:{func}:{lineno} - {msg} " + extras + "\n"
-    return format
+    fmt = f"{time} [ {level} ] {name}:{func}:{lineno} - {msg} " + extras + "\n"
+    return fmt
