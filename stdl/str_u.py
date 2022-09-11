@@ -172,12 +172,6 @@ def to_lines(text: str, width: int, newline: str = "\n") -> str:
     return string
 
 
-def find_urls(s: str) -> list[str]:
-    urls = re.findall('"((http|ftp)s?://.*?)"', s)
-    urls = [i[0] for i in urls]
-    return list(set(urls))
-
-
 if __name__ == '__main__':
     FG.print_all()
     BG.print_all()
