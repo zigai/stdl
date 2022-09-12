@@ -184,6 +184,35 @@ def json_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
         return json.load(f)
 
 
+def json_append(data: dict | list[dict], filepath: str | Path, encoding="utf-8", default=None, indent=4):
+    file = File(filepath)
+    if not file.exists or file.size() == 0:
+        json_dump(data, filepath)
+        return
+    with open(filepath, 'a+', encoding=encoding) as f:
+        f.seek(0)
+        first_char = f.read(1)
+        if first_char == "[":
+            f.seek(0, os.SEEK_END)
+            f.seek(f.tell() - 2, os.SEEK_SET)
+            f.truncate()
+            f.write(',\n')
+            json.dump(data, f, indent=indent, default=default)
+            f.write(']\n')
+        elif first_char == "{":
+            file_data = first_char + f.read()
+            f.seek(0)
+            f.truncate()
+            f.seek(0)
+            f.write("[\n")
+            f.write(file_data)
+            f.write(",\n")
+            json.dump(data, f, indent=indent, default=default)
+            f.write(']\n')
+        else:
+            raise ValueError(f"Cannot parse '{filepath}' as JSON.")
+
+
 def yaml_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
     with open(path, "r", encoding=encoding) as f:
         return yaml.safe_load(f)
@@ -276,14 +305,16 @@ def get_files_in(
                 if entry.is_file():
                     files.append(os.path.abspath(entry.path))
                 elif entry.is_dir():
-                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
+                    files.extend(get_files_in(
+                        entry.path, ext=ext, recursive=recursive))
         else:
             for entry in os.scandir(directory):
                 if entry.is_file():
                     if entry.path.lower().endswith(ext):
                         files.append(os.path.abspath(entry.path))
                 elif entry.is_dir():
-                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
+                    files.extend(get_files_in(
+                        entry.path, ext=ext, recursive=recursive))
     return files
 
 
