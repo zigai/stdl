@@ -10,7 +10,7 @@ def get_non_unique(l: list) -> list:
 
 
 def get_every_nth(l: list, n: int) -> list:
-    return l[n - 1::n]
+    return l[n - 1 :: n]
 
 
 def count_occurrences(value, l: list) -> int:

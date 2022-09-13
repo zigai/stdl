@@ -15,13 +15,28 @@ from pathlib import Path
 import yaml
 
 IMAGE_EXT = (".jpg", ".png", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff")
-VIDEO_EXT = (".mp4", ".mkv", ".avi", ".flv", ".mov", ".webm", ".mpg", ".mpeg", ".mpe", ".mpv",
-             ".ogg", ".m4p", ".m4v", ".wmv", ".f4v", ".swf")
 SONG_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
+VIDEO_EXT = (
+    ".mp4",
+    ".mkv",
+    ".avi",
+    ".flv",
+    ".mov",
+    ".webm",
+    ".mpg",
+    ".mpeg",
+    ".mpe",
+    ".mpv",
+    ".ogg",
+    ".m4p",
+    ".m4v",
+    ".wmv",
+    ".f4v",
+    ".swf",
+)
 
 
 class File:
-
     def __init__(self, path: str | Path, encoding="utf-8") -> None:
         if isinstance(path, Path):
             path = str(path)
@@ -135,12 +150,12 @@ class File:
         return self
 
     def get_xattr(self, name: str, group="user") -> str:
-        return os.getxattr(self.path, f'{group}.{name}').decode()
+        return os.getxattr(self.path, f"{group}.{name}").decode()
 
     def set_xattr(self, value: str | bytes, name: str, group="user") -> None:
         if isinstance(value, str):
             value = value.encode()
-        os.setxattr(self.path, f'{group}.{name}', value)
+        os.setxattr(self.path, f"{group}.{name}", value)
 
     def with_ext(self, ext: str):
         if not ext.startswith("."):
@@ -184,21 +199,23 @@ def json_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
         return json.load(f)
 
 
-def json_append(data: dict | list[dict], filepath: str | Path, encoding="utf-8", default=None, indent=4):
+def json_append(
+    data: dict | list[dict], filepath: str | Path, encoding="utf-8", default=None, indent=4
+):
     file = File(filepath)
     if not file.exists or file.size() == 0:
         json_dump(data, filepath)
         return
-    with open(filepath, 'a+', encoding=encoding) as f:
+    with open(filepath, "a+", encoding=encoding) as f:
         f.seek(0)
         first_char = f.read(1)
         if first_char == "[":
             f.seek(0, os.SEEK_END)
             f.seek(f.tell() - 2, os.SEEK_SET)
             f.truncate()
-            f.write(',\n')
+            f.write(",\n")
             json.dump(data, f, indent=indent, default=default)
-            f.write(']\n')
+            f.write("]\n")
         elif first_char == "{":
             file_data = first_char + f.read()
             f.seek(0)
@@ -208,7 +225,7 @@ def json_append(data: dict | list[dict], filepath: str | Path, encoding="utf-8",
             f.write(file_data)
             f.write(",\n")
             json.dump(data, f, indent=indent, default=default)
-            f.write(']\n')
+            f.write("]\n")
         else:
             raise ValueError(f"Cannot parse '{filepath}' as JSON.")
 
@@ -219,7 +236,7 @@ def yaml_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
 
 
 def json_dump(data, path: str | Path, encoding="utf-8", default=str, indent=4) -> None:
-    with open(path, 'w', encoding=encoding) as f:
+    with open(path, "w", encoding=encoding) as f:
         json.dump(data, f, indent=indent, default=default)
 
 
@@ -305,16 +322,14 @@ def get_files_in(
                 if entry.is_file():
                     files.append(os.path.abspath(entry.path))
                 elif entry.is_dir():
-                    files.extend(get_files_in(
-                        entry.path, ext=ext, recursive=recursive))
+                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
         else:
             for entry in os.scandir(directory):
                 if entry.is_file():
                     if entry.path.lower().endswith(ext):
                         files.append(os.path.abspath(entry.path))
                 elif entry.is_dir():
-                    files.extend(get_files_in(
-                        entry.path, ext=ext, recursive=recursive))
+                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
     return files
 
 

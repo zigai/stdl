@@ -1,7 +1,7 @@
 import re
 import textwrap
 
-__CSI = '\033['
+__CSI = "\033["
 
 
 def ansi_code(n: int):
@@ -126,10 +126,10 @@ def terminal_link(
     Learn more at:
     https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
     """
-    parameters = ''
+    parameters = ""
     if label is None:
         label = uri
-    link = f'\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\'
+    link = f"\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\"
     link = colored(link, color, background, style)  # type: ignore
     return link
 
@@ -156,7 +156,8 @@ def snake_case(s: str) -> str:
             "([A-Z][a-z]+)",
             r" \1",
             re.sub("([A-Z]+)", r" \1", s.replace("-", " ")),
-        ).split()).lower()
+        ).split()
+    ).lower()
 
 
 def camel_case(s: str) -> str:
@@ -172,7 +173,7 @@ def to_lines(text: str, width: int, newline: str = "\n") -> str:
     return string
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     FG.print_all()
     BG.print_all()
     ST.print_all()

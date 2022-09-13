@@ -6,7 +6,6 @@ from dateutil import parser
 
 
 class Timer:
-
     def __init__(self, miliseconds: bool = True):
         self.start = time.time()
         self.miliseconds = miliseconds
@@ -50,7 +49,7 @@ def fmt_time(t: float | None = None, sep: str = ":", ms: bool = False) -> str:
     if t is None:
         t = time.time()
     tm = datetime.fromtimestamp(t)
-    ts = tm.strftime(f'%H{sep}%M{sep}%S')
+    ts = tm.strftime(f"%H{sep}%M{sep}%S")
     if ms:
         ts = f"{ts}.{int(tm.microsecond / 1000)}"
     return ts

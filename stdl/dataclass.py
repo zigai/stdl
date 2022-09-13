@@ -2,8 +2,7 @@ from dataclasses import asdict, astuple, dataclass
 from pprint import pprint
 
 
-class Data():
-
+class Data:
     def __init__(self) -> None:
         pass
 
