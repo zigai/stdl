@@ -12,9 +12,8 @@ def loguru_fmt(record: dict) -> str:
 
     extras = ""
     if len(record["extra"]):
-        for key, _ in record["extra"].items():
-            extras = extras + key + "=" + "{extra[" + key + "]},"
-        extras = extras[:-1]
-
-    fmt = f"{time} [ {level} ] {name}:{func}:{lineno} - {msg} " + extras + "\n"
+        for key in record["extra"].keys():
+            extras = extras + key + "=" + "{extra[" + key + "]}, "
+        extras = extras[:-2]
+    fmt = f"{time} [ {level} ] {name}:{func}:{lineno} - {msg} {extras}\n"
     return fmt
