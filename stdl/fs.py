@@ -204,8 +204,9 @@ def json_append(
 ):
     file = File(filepath)
     if not file.exists or file.size() == 0:
-        json_dump(data, filepath)
+        json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
         return
+        
     with open(filepath, "a+", encoding=encoding) as f:
         f.seek(0)
         first_char = f.read(1)
