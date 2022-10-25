@@ -6,11 +6,13 @@ import os
 import pickle
 import platform
 import random
+import re
 import shutil
 import sys
 import time
 from collections.abc import Iterable
 from pathlib import Path
+from queue import Queue
 
 import yaml
 
@@ -102,7 +104,9 @@ class File:
             if newline:
                 f.write("\n")
 
-    def __write_iter(self, data: Iterable, mode: str, sep="\n", newline: bool = True) -> None:
+    def __write_iter(
+        self, data: Iterable, mode: str, sep="\n", newline: bool = True
+    ) -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
@@ -200,13 +204,17 @@ def json_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
 
 
 def json_append(
-    data: dict | list[dict], filepath: str | Path, encoding="utf-8", default=None, indent=4
+    data: dict | list[dict],
+    filepath: str | Path,
+    encoding="utf-8",
+    default=None,
+    indent=4,
 ):
     file = File(filepath)
     if not file.exists or file.size() == 0:
         json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
         return
-        
+
     with open(filepath, "a+", encoding=encoding) as f:
         f.seek(0)
         first_char = f.read(1)
@@ -287,10 +295,31 @@ def bytes_readable(size_bytes: int) -> str:
     return f"{s} {size_name[i]}"
 
 
+def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
+    # Based on https://stackoverflow.com/a/42865957/2002471
+    KB_UNITS = {
+        1024: {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40},
+        1000: {"B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12},
+    }
+    if not kb_size in KB_UNITS:
+        raise ValueError(kb_size)
+    if re.fullmatch(r"[\d]+", size):
+        return int(size)
+    size = size.upper()
+    if not re.match(r" ", size):
+        size = re.sub(r"([KMGT]?B)", r" \1", size)
+    number, unit = [string.strip() for string in size.split()]
+    return int(float(number) * KB_UNITS[kb_size][unit])
+
+
 def windows_has_drive(letter: str) -> bool:
     if sys.platform != "win32":
         return False
     return os.path.exists(f"{letter}:{os.sep}")
+
+
+def is_wsl():
+    return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
 def make_dirs(dest: str, dirs: list):
@@ -301,40 +330,9 @@ def make_dirs(dest: str, dirs: list):
             os.mkdir(f"{dest}{os.sep}{i}")
 
 
-def get_files_in(
-    directory: str | Path,
-    ext: str | tuple | None = None,
-    recursive: bool = True,
-) -> list[str]:
-    files = []
-    if not recursive:
-        for entry in os.scandir(directory):
-            if not entry.is_file():
-                continue
-            path = os.path.abspath(entry.path)
-            if ext is None:
-                files.append(path)
-            else:
-                if entry.path.endswith(ext):
-                    files.append(path)
-    else:
-        if ext is None:
-            for entry in os.scandir(directory):
-                if entry.is_file():
-                    files.append(os.path.abspath(entry.path))
-                elif entry.is_dir():
-                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
-        else:
-            for entry in os.scandir(directory):
-                if entry.is_file():
-                    if entry.path.lower().endswith(ext):
-                        files.append(os.path.abspath(entry.path))
-                elif entry.is_dir():
-                    files.extend(get_files_in(entry.path, ext=ext, recursive=recursive))
-    return files
-
-
-def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recursive: bool = True):
+def yield_files_in(
+    directory: str | Path, ext: str | tuple | None = None, recursive: bool = True
+):
     if not recursive:
         for entry in os.scandir(directory):
             if not entry.is_file():
@@ -343,50 +341,66 @@ def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recurs
             if ext is None:
                 yield path
             else:
-                if entry.path.endswith(ext):
+                if path.lower().endswith(ext):
                     yield path
-    else:
-        if ext is None:
-            for entry in os.scandir(directory):
-                if entry.is_file():
+        return
+
+    queue = Queue()
+    queue.put(directory)
+
+    if ext is None:
+        while not queue.empty():
+            next_dir = queue.get()
+            for entry in os.scandir(next_dir):
+                if entry.is_dir():
+                    queue.put(entry.path)
+                elif entry.is_file():
                     yield os.path.abspath(entry.path)
-                elif entry.is_dir():
-                    yield yield_files_in(entry.path, ext=ext, recursive=recursive)
-        else:
-            for entry in os.scandir(directory):
-                if entry.is_file():
-                    if entry.path.lower().endswith(ext):
-                        yield os.path.abspath(entry.path)
-                elif entry.is_dir():
-                    yield yield_files_in(entry.path, ext=ext, recursive=recursive)
+        return
+
+    while not queue.empty():
+        next_dir = queue.get()
+        for entry in os.scandir(next_dir):
+            if entry.is_dir():
+                queue.put(entry.path)
+            elif entry.is_file():
+                path = os.path.abspath(entry.path)
+                if path.lower().endswith(ext):
+                    yield path
 
 
-def get_dirs_in(directory: str | Path, recursive: bool = True) -> list[str]:
-    dirs = []
-    for entry in os.scandir(directory):
-        if entry.is_dir():
-            dirs.append(entry.path)
-            if recursive:
-                dirs.extend(get_dirs_in(entry.path, recursive=recursive))
-    return dirs
+def get_files_in(
+    directory: str | Path,
+    ext: str | tuple | None = None,
+    recursive: bool = True,
+) -> list[str]:
+    return list(yield_files_in(directory, ext, recursive))
 
 
 def yield_dirs_in(directory: str | Path, recursive: bool = True):
+    queue = Queue()
+    queue.put(directory)
     for entry in os.scandir(directory):
         if entry.is_dir():
-            yield entry.path
+            yield os.path.abspath(entry.path)
             if recursive:
-                yield yield_dirs_in(entry.path, recursive=recursive)
+                queue.put(entry.path)
+
+
+def get_dirs_in(directory: str | Path, recursive: bool = True) -> list[str]:
+    return list(get_dirs_in(directory, recursive))
+
+
+def __assert_path_exists(path: str):
+    if not os.path.exists(str(path)):
+        raise FileNotFoundError(f"No such file or directory: '{path}'")
 
 
 def assert_paths_exist(files: str | Iterable, *args):
     if isinstance(files, str):
-        if not os.path.exists(files):
-            raise FileNotFoundError(f"No such file or directory: '{files}'")
+        __assert_path_exists(files)
     elif isinstance(files, Iterable):
         for file in files:
-            if not os.path.exists(file):
-                raise FileNotFoundError(f"No such file or directory: '{file}'")
-    for file in args:
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"No such file or directory: '{files}'")
+            __assert_path_exists(file)
+    for i in args:
+        assert_paths_exist(i)
