@@ -380,11 +380,13 @@ def get_files_in(
 def yield_dirs_in(directory: str | Path, recursive: bool = True):
     queue = Queue()
     queue.put(directory)
-    for entry in os.scandir(directory):
-        if entry.is_dir():
-            yield os.path.abspath(entry.path)
-            if recursive:
-                queue.put(entry.path)
+    while not queue.empty():
+        next_dir = queue.get()
+        for entry in os.scandir(next_dir):
+            if entry.is_dir():
+                yield os.path.abspath(entry.path)
+                if recursive:
+                    queue.put(entry.path)
 
 
 def get_dirs_in(directory: str | Path, recursive: bool = True) -> list[str]:
