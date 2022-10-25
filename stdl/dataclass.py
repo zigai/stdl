@@ -23,3 +23,6 @@ class Data:
     def __iter__(self):
         for i in self.tuple:
             yield i
+
+
+__all__ = ["Data", "dataclass"]

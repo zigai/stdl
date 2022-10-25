@@ -22,7 +22,7 @@ def download(url: str, path: str, progressbar: bool = False, overwrite: bool = F
         overwrite (bool, optional): Overwrite destination path if it already exists. Defaults to False.
 
     Raises:
-        FileExistsError: if path already exists and overwrite is False
+        FileExistsError: if path already exists and overwrite is set to False
     """
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
@@ -33,3 +33,6 @@ def download(url: str, path: str, progressbar: bool = False, overwrite: bool = F
     else:
         r = urlretrieve(url, path)
     return r
+
+
+__all__ = ["download"]

@@ -107,7 +107,9 @@ class ST(__ColorANSI):
     BLINK = ansi_code(5)
 
 
-def colored(text: str, color: str, background: str | None = None, style: str | None = None):
+def colored(
+    text: str, color: str, background: str | None = None, style: str | None = None
+):
     color = __get_ansi_val(color, FG)  # type: ignore
     background = __get_ansi_val(background, BG)  # type: ignore
     style = __get_ansi_val(style, ST)  # type: ignore
@@ -146,8 +148,10 @@ def filter_str(s: str, chars: set, replace_with: str | None = None) -> str:
 
 
 def filter_filename(s: str, replace_with: str | None = None):
-    filename_chars = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
-    return filter_str(s, chars=filename_chars, replace_with=replace_with)
+    ALLOWED_CHARS = set(
+        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()"
+    )
+    return filter_str(s, chars=ALLOWED_CHARS, replace_with=replace_with)
 
 
 def snake_case(s: str) -> str:
@@ -177,3 +181,16 @@ if __name__ == "__main__":
     FG.print_all()
     BG.print_all()
     ST.print_all()
+
+__all__ = [
+    "FG",
+    "BG",
+    "ST",
+    "colored",
+    "terminal_link",
+    "filter_str",
+    "filter_filename",
+    "snake_case",
+    "camel_case",
+    "to_lines",
+]
