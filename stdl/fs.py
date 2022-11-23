@@ -16,8 +16,24 @@ from queue import Queue
 
 import yaml
 
-IMAGE_EXT = (".jpg", ".png", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff")
-SONG_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
+AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
+IMAGE_EXT = (
+    ".jpg",
+    ".png",
+    ".jpeg",
+    ".webp",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".jfif",
+    ".heic",
+    "dib",
+    ".jp2",
+    ".jpx",
+    "j2k",
+    ".jxl",
+)
 VIDEO_EXT = (
     ".mp4",
     ".mkv",
@@ -104,9 +120,7 @@ class File:
             if newline:
                 f.write("\n")
 
-    def __write_iter(
-        self, data: Iterable, mode: str, sep="\n", newline: bool = True
-    ) -> None:
+    def __write_iter(self, data: Iterable, mode: str, sep="\n", newline: bool = True) -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
@@ -330,9 +344,7 @@ def make_dirs(dest: str, dirs: list):
             os.mkdir(f"{dest}{os.sep}{i}")
 
 
-def yield_files_in(
-    directory: str | Path, ext: str | tuple | None = None, recursive: bool = True
-):
+def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recursive: bool = True):
     if not recursive:
         for entry in os.scandir(directory):
             if not entry.is_file():
@@ -410,7 +422,7 @@ def assert_paths_exist(files: str | Iterable, *args):
 
 __all__ = [
     "IMAGE_EXT",
-    "SONG_EXT",
+    "AUDIO_EXT",
     "VIDEO_EXT",
     "File",
     "pickle_load",
