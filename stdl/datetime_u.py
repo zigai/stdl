@@ -34,8 +34,8 @@ def fmt_datetime(
     Args:
         d (str | float | None | datetime, optional): Input datetime. Defaults to None.
         fmt (str, optional): Date format. Defaults to "Ymd".
-        d_sep (str, optional): Date values seperator. Defaults to "-".
-        t_sep (_type_, optional): Time values seperator. Defaults to ":".
+        d_sep (str, optional): Date values separator. Defaults to "-".
+        t_sep (_type_, optional): Time values separator. Defaults to ":".
         utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp. Defaults to True.
 
     Raises:
@@ -76,7 +76,7 @@ def fmt_time(
 
     Args:
         t (float | datetime | int | None, optional): Input time. Defaults to current time if it's not provided.
-        sep (str, optional): Character(s) that seperates hours, minutes, seconds... Defaults to ":".
+        sep (str, optional): Character(s) that separates hours, minutes, seconds... Defaults to ":".
         ms (bool, optional): include miliseconds. Defaults to False.
         utc (bool, optional): Use the UTC timezone when building a time object from a timestamp. Defaults to True.
 
@@ -112,7 +112,7 @@ def fmt_date(
     Args:
         d (float | date | datetime | int | None ): Input date. Defaults to current date if it's not provided.
         fmt (str, optional): Date format. Defaults to "Ymd".
-        sep (str, optional): Character(s) that seperates days, months and years. Defaults to "-".
+        sep (str, optional): Character(s) that separates days, months and years. Defaults to "-".
 
     Raises:
         TypeError: Raises TypeError if the type of ``d`` is not one of the following: float, None, date, datetime, int
