@@ -60,6 +60,8 @@ class __ColorANSI:
 
 
 class FG(__ColorANSI):
+    """Foreground Color"""
+
     BLACK = ansi_code(30)
     RED = ansi_code(31)
     GREEN = ansi_code(32)
@@ -80,6 +82,8 @@ class FG(__ColorANSI):
 
 
 class BG(__ColorANSI):
+    """Background Color"""
+
     BLACK = ansi_code(40)
     RED = ansi_code(41)
     GREEN = ansi_code(42)
@@ -99,6 +103,7 @@ class BG(__ColorANSI):
 
 
 class ST(__ColorANSI):
+    "Style"
     RESET = ansi_code(0)
     BOLD = ansi_code(1)
     DIM = ansi_code(2)
@@ -107,9 +112,7 @@ class ST(__ColorANSI):
     BLINK = ansi_code(5)
 
 
-def colored(
-    text: str, color: str, background: str | None = None, style: str | None = None
-):
+def colored(text: str, color: str, background: str | None = None, style: str | None = None):
     color = __get_ansi_val(color, FG)  # type: ignore
     background = __get_ansi_val(background, BG)  # type: ignore
     style = __get_ansi_val(style, ST)  # type: ignore
@@ -148,13 +151,14 @@ def filter_str(s: str, chars: set, replace_with: str | None = None) -> str:
 
 
 def filter_filename(s: str, replace_with: str | None = None):
-    ALLOWED_CHARS = set(
-        " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()"
-    )
+    ALLOWED_CHARS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
     return filter_str(s, chars=ALLOWED_CHARS, replace_with=replace_with)
 
 
 def snake_case(s: str) -> str:
+    # The following snippet is licensed under the CC-BY-4.0 License.
+    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+
     return "_".join(
         re.sub(
             "([A-Z][a-z]+)",
@@ -165,8 +169,30 @@ def snake_case(s: str) -> str:
 
 
 def camel_case(s: str) -> str:
+    # The following snippet is licensed under the CC-BY-4.0 License.
+    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+
     s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
     return s[0].lower() + s[1:]
+
+
+def kebab_case(s: str) -> str:
+    # The following snippet is licensed under the CC-BY-4.0 License.
+    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+
+    re_words = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
+    re_sep = r"(\s|_|-)+"
+    return "-".join(
+        re.sub(
+            re_sep,
+            " ",
+            re.sub(
+                re_words,
+                lambda mo: " " + mo.group(0).lower(),
+                s,
+            ),
+        ).split()
+    )
 
 
 def to_lines(text: str, width: int, newline: str = "\n") -> str:
@@ -192,5 +218,6 @@ __all__ = [
     "filter_filename",
     "snake_case",
     "camel_case",
+    "kebab_case",
     "to_lines",
 ]
