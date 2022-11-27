@@ -28,10 +28,10 @@ IMAGE_EXT = (
     ".tiff",
     ".jfif",
     ".heic",
-    "dib",
+    ".dib",
     ".jp2",
     ".jpx",
-    "j2k",
+    ".j2k",
     ".jxl",
 )
 VIDEO_EXT = (
