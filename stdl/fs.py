@@ -7,7 +7,9 @@ import pickle
 import platform
 import random
 import re
+import shlex
 import shutil
+import subprocess
 import sys
 import time
 from collections.abc import Iterable
@@ -420,6 +422,46 @@ def assert_paths_exist(files: str | Iterable, *args):
         assert_paths_exist(i)
 
 
+def exec_cmd(
+    cmd: str | list[str],
+    timeout: float = None,
+    shell=False,
+    check=False,
+    stdin=None,
+    stdout=None,
+    stderr=None,
+    capture_output=True,
+    text=True,
+    input: str | bytes = None,
+    env: dict = None,
+    cwd=None,
+    *args,
+    **kwargs,
+):
+    """
+    Wrapper for subprocess.run with nicer default arguments.
+    """
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd)
+
+    return subprocess.run(
+        cmd,
+        timeout=timeout,
+        shell=shell,
+        check=check,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+        capture_output=capture_output,
+        text=text,
+        input=input,
+        env=env,
+        cwd=cwd,
+        *args,
+        **kwargs,
+    )
+
+
 __all__ = [
     "IMAGE_EXT",
     "AUDIO_EXT",
@@ -445,4 +487,5 @@ __all__ = [
     "yield_dirs_in",
     "get_dirs_in",
     "assert_paths_exist",
+    "exec_cmd",
 ]
