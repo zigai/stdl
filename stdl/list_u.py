@@ -1,21 +1,22 @@
 import math
 from collections import Counter
+from typing import Any
 
 
-def get_unique(l: list) -> list:
+def get_unique(l: list[Any]) -> list[Any]:
     return [item for item, count in Counter(l).items() if count == 1]
 
 
-def get_non_unique(l: list) -> list:
+def get_non_unique(l: list[Any]) -> list[Any]:
     return [item for item, count in Counter(l).items() if count > 1]
 
 
-def get_every_nth(l: list, n: int) -> list:
+def get_every_nth(n: int, l: list[Any]) -> list[Any]:
     return l[n - 1 :: n]
 
 
-def count_occurrences(value, l: list) -> int:
-    return len([x for x in l if x == value and type(x) == type(value)])
+def count_occurrences(val, l: list[Any]) -> int:
+    return len([x for x in l if x == val and type(x) == type(val)])
 
 
 def chunks(l: list, chunk_size: int):
