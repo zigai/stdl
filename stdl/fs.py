@@ -15,6 +15,7 @@ import time
 from collections.abc import Iterable
 from pathlib import Path
 from queue import Queue
+from typing import TypeAlias
 
 import yaml
 
@@ -57,9 +58,11 @@ VIDEO_EXT = (
 
 
 class File:
-    def __init__(self, path: str | Path, encoding="utf-8") -> None:
-        if isinstance(path, Path):
+    def __init__(self, path: str | Path | File | bytes, encoding="utf-8") -> None:
+        if isinstance(path, (Path, File)):
             path = str(path)
+        elif isinstance(path, bytes):
+            path = path.decode()
         self.path = os.path.abspath(path)
         self.encoding = encoding
 
@@ -111,6 +114,9 @@ class File:
 
     def to_path(self) -> Path:
         return Path(self.path)
+
+    def to_str(self) -> str:
+        return str(self)
 
     def read(self) -> str:
         with open(self.path, "r", encoding=self.encoding) as f:
@@ -204,24 +210,33 @@ class File:
         return self
 
 
-def pickle_load(filepath: str | Path):
-    with open(filepath, "rb") as f:
+Pathlike: TypeAlias = str | Path | File | bytes
+
+
+def pathlike_to_str(path: Pathlike) -> str:
+    if isinstance(path, bytes):
+        return path.decode()
+    return str(path)
+
+
+def pickle_load(filepath: Pathlike):
+    with open(pathlike_to_str(filepath), "rb") as f:
         return pickle.load(f)
 
 
-def pickle_dump(data, filepath: str | Path) -> None:
-    with open(filepath, "wb") as f:
+def pickle_dump(data, filepath: Pathlike) -> None:
+    with open(pathlike_to_str(filepath), "wb") as f:
         pickle.dump(data, f)
 
 
-def json_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
-    with open(path, "r", encoding=encoding) as f:
+def json_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+    with open(pathlike_to_str(path), "r", encoding=encoding) as f:
         return json.load(f)
 
 
 def json_append(
     data: dict | list[dict],
-    filepath: str | Path,
+    filepath: Pathlike,
     encoding="utf-8",
     default=None,
     indent=4,
@@ -230,8 +245,8 @@ def json_append(
     if not file.exists or file.size() == 0:
         json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
         return
-
-    with open(filepath, "a+", encoding=encoding) as f:
+    path = pathlike_to_str(filepath)
+    with open(path, "a+", encoding=encoding) as f:
         f.seek(0)
         first_char = f.read(1)
         if first_char == "[":
@@ -252,21 +267,21 @@ def json_append(
             json.dump(data, f, indent=indent, default=default)
             f.write("]\n")
         else:
-            raise ValueError(f"Cannot parse '{filepath}' as JSON.")
+            raise ValueError(f"Cannot parse '{path}' as JSON.")
 
 
-def yaml_load(path: str | Path, encoding="utf-8") -> dict | list[dict]:
-    with open(path, "r", encoding=encoding) as f:
+def yaml_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+    with open(pathlike_to_str(path), "r", encoding=encoding) as f:
         return yaml.safe_load(f)
 
 
-def json_dump(data, path: str | Path, encoding="utf-8", default=str, indent=4) -> None:
-    with open(path, "w", encoding=encoding) as f:
+def json_dump(data, path: Pathlike, encoding="utf-8", default=str, indent=4) -> None:
+    with open(pathlike_to_str(path), "w", encoding=encoding) as f:
         json.dump(data, f, indent=indent, default=default)
 
 
-def yaml_dump(data, path: str | Path, encoding="utf-8") -> None:
-    with open(path, "w", encoding=encoding) as f:
+def yaml_dump(data, path: Pathlike, encoding="utf-8") -> None:
+    with open(pathlike_to_str(path), "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
 
@@ -283,17 +298,19 @@ def get_dir_size(directory: str | Path, readable: bool = False) -> str | int:
     return total_size
 
 
-def move_files(files: list, directory: str, mkdir: bool = False) -> None:
+def move_files(files: list[Pathlike], directory: str | Path, mkdir: bool = False) -> None:
+    directory = str(directory)
     if not os.path.exists(directory):
         if mkdir:
-            os.mkdir(directory)
+            os.makedirs(directory)
         else:
             raise FileNotFoundError(f"{directory} is not a directory")
     for file in files:
+        file = pathlike_to_str(file)
         os.rename(file, f"{directory}{os.sep}{os.path.basename(file)}")
 
 
-def random_filename(ext: str = "", prefix: str = "file") -> str:
+def rand_filename(ext: str = "", prefix: str = "file") -> str:
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
     return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}{ext}"
@@ -338,7 +355,7 @@ def is_wsl():
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
-def make_dirs(dest: str, dirs: list):
+def make_dirs(dest: str, dirs: list[str]):
     if not os.path.exists(dest):
         os.makedirs(dest)
     for i in dirs:
@@ -404,22 +421,21 @@ def yield_dirs_in(directory: str | Path, recursive: bool = True):
 
 
 def get_dirs_in(directory: str | Path, recursive: bool = True) -> list[str]:
-    return list(get_dirs_in(directory, recursive))
+    return list(yield_dirs_in(directory, recursive))
 
 
-def __assert_path_exists(path: str):
-    if not os.path.exists(str(path)):
+def __assert_path_exists(path: Pathlike):
+    if not os.path.exists(pathlike_to_str(path)):
         raise FileNotFoundError(f"No such file or directory: '{path}'")
 
 
-def assert_paths_exist(files: str | Iterable, *args):
-    if isinstance(files, str):
-        __assert_path_exists(files)
-    elif isinstance(files, Iterable):
-        for file in files:
-            __assert_path_exists(file)
-    for i in args:
-        assert_paths_exist(i)
+def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]):
+    for path in args:
+        if isinstance(path, (str, bytes)):
+            __assert_path_exists(path)
+        elif isinstance(path, Iterable):
+            for i in path:
+                __assert_path_exists(i)
 
 
 def exec_cmd(
@@ -467,6 +483,8 @@ __all__ = [
     "AUDIO_EXT",
     "VIDEO_EXT",
     "File",
+    "Pathlike",
+    "pathlike_to_str",
     "pickle_load",
     "pickle_dump",
     "json_load",
@@ -476,7 +494,7 @@ __all__ = [
     "yaml_dump",
     "get_dir_size",
     "move_files",
-    "random_filename",
+    "rand_filename",
     "bytes_readable",
     "readable_size_to_bytes",
     "windows_has_drive",
