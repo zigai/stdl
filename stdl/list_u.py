@@ -1,6 +1,34 @@
-import math
+import random
 from collections import Counter
+from copy import deepcopy
 from typing import Any
+
+
+def chunks(l: list[Any], size: int, rand: bool = False) -> list[list[Any]]:
+    if size < 1 or size > len(l):
+        raise ValueError(size)
+    if rand:
+        l = deepcopy(l)
+        random.shuffle(l)
+    return [l[i : i + size] for i in range(0, len(l), size)]
+
+
+def split(l: list[Any], parts: int, rand: bool = False) -> list[list[Any]]:
+    if parts < 1 or parts > len(l):
+        raise ValueError(parts)
+    if rand:
+        l = deepcopy(l)
+        random.shuffle(l)
+
+    def inner(l: list[Any], parts: int) -> list[list[Any]]:
+        length = len(l)
+        si = length // parts
+        if length - si > 0:
+            return [l[:si]] + inner(l[si:], parts - 1)
+        else:
+            return [l]
+
+    return inner(l, parts)
 
 
 def get_unique(l: list[Any]) -> list[Any]:
@@ -11,21 +39,12 @@ def get_non_unique(l: list[Any]) -> list[Any]:
     return [item for item, count in Counter(l).items() if count > 1]
 
 
-def get_every_nth(n: int, l: list[Any]) -> list[Any]:
+def get_every_nth(l: list[Any], n: int) -> list[Any]:
     return l[n - 1 :: n]
 
 
-def count_occurrences(val, l: list[Any]) -> int:
+def count_occurrences(l: list[Any], val: Any) -> int:
     return len([x for x in l if x == val and type(x) == type(val)])
-
-
-def chunks(l: list, chunk_size: int):
-    return [l[i : i + chunk_size] for i in range(0, len(l), chunk_size)]
-
-
-def split(l: list, n: int):
-    chunk_size = math.ceil(len(l) / n)
-    return chunks(l, chunk_size)
 
 
 __all__ = [
