@@ -1,32 +1,35 @@
 import re
 import textwrap
+from platform import system
+from sys import stdout
 
-__CSI = "\033["
-
-
-def ansi_code(n: int):
-    return f"{__CSI}{n}m"
+CSI_RESET = "\033["
 
 
-def __get_ansi_val(value, handler):
-    if value == "" or value is None:
+def ansi_code(n: int) -> str:
+    return f"{CSI_RESET}{n}m"
+
+
+def __get_ansi_val(val: str | None, handler) -> str:
+    if val == "" or val is None:
         return ""
     try:
-        clr = handler[value]
+        clr = handler[val]
         return clr
     except KeyError:
-        return value
+        return val
 
 
-class __ColorANSI:
+class ColorANSI:
+
     # cancel SGR codes if we don't write to a terminal
-    if not __import__("sys").stdout.isatty():
+    if not stdout.isatty():
         for _ in dir():
             if isinstance(_, str) and _[0] != "_":
                 locals()[_] = ""
     else:
         # set Windows console in VT mode
-        if __import__("platform").system() == "Windows":
+        if system() == "Windows":
             kernel32 = __import__("ctypes").windll.kernel32
             kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
             del kernel32
@@ -42,8 +45,9 @@ class __ColorANSI:
     @property
     def dict(cls) -> dict[str, str]:
         d = {}
+        ignored = ["dict", "print_all", "get_all"]
         for i in dir(cls):
-            if i[0] != "_" and i not in ["dict", "print_all", "get_all"]:
+            if i[0] != "_" and i not in ignored:
                 d[i] = cls.__class_getitem__(i)
         return d
 
@@ -59,7 +63,7 @@ class __ColorANSI:
             print(colored(k, v))
 
 
-class FG(__ColorANSI):
+class FG(ColorANSI):
     """Foreground Color"""
 
     BLACK = ansi_code(30)
@@ -81,7 +85,7 @@ class FG(__ColorANSI):
     BOLD = ansi_code(1)
 
 
-class BG(__ColorANSI):
+class BG(ColorANSI):
     """Background Color"""
 
     BLACK = ansi_code(40)
@@ -102,7 +106,7 @@ class BG(__ColorANSI):
     LIGHT_WHITE = ansi_code(107)
 
 
-class ST(__ColorANSI):
+class ST(ColorANSI):
     "Style"
     RESET = ansi_code(0)
     BOLD = ansi_code(1)
@@ -113,16 +117,16 @@ class ST(__ColorANSI):
 
 
 def colored(text: str, color: str, background: str | None = None, style: str | None = None):
-    color = __get_ansi_val(color, FG)  # type: ignore
-    background = __get_ansi_val(background, BG)  # type: ignore
-    style = __get_ansi_val(style, ST)  # type: ignore
+    color = __get_ansi_val(color, FG)
+    background = __get_ansi_val(background, BG)
+    style = __get_ansi_val(style, ST)
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
 def terminal_link(
     uri: str,
     label: str | None = None,
-    color: str | None = None,
+    color: str = FG.WHITE,
     background: str | None = None,
     style: str | None = None,
 ):
@@ -131,11 +135,10 @@ def terminal_link(
     Learn more at:
     https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
     """
-    parameters = ""
     if label is None:
         label = uri
-    link = f"\033]8;{parameters};{uri}\033\\{label}\033]8;;\033\\"
-    link = colored(link, color, background, style)  # type: ignore
+    link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
+    link = colored(link, color, background, style)
     return link
 
 
@@ -195,12 +198,8 @@ def kebab_case(s: str) -> str:
     )
 
 
-def to_lines(text: str, width: int, newline: str = "\n") -> str:
-    string = ""
-    wrapped = textwrap.wrap(text, width=width)
-    for line in wrapped:
-        string = f"{string}{line}{newline}"
-    return string
+def wrapped(text: str, width: int, newline: str = "\n"):
+    return newline.join(textwrap.wrap(text, width=width))
 
 
 if __name__ == "__main__":
@@ -219,5 +218,5 @@ __all__ = [
     "snake_case",
     "camel_case",
     "kebab_case",
-    "to_lines",
+    "wrapped",
 ]
