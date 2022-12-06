@@ -32,18 +32,30 @@ def split(l: list[Any], parts: int, rand: bool = False) -> list[list[Any]]:
 
 
 def get_unique(l: list[Any]) -> list[Any]:
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
     return [item for item, count in Counter(l).items() if count == 1]
 
 
 def get_non_unique(l: list[Any]) -> list[Any]:
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
     return [item for item, count in Counter(l).items() if count > 1]
 
 
 def get_every_nth(l: list[Any], n: int) -> list[Any]:
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
     return l[n - 1 :: n]
 
 
 def count_occurrences(l: list[Any], val: Any) -> int:
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
     return len([x for x in l if x == val and type(x) == type(val)])
 
 

@@ -205,8 +205,9 @@ class StringFilter:
 
 
 def snake_case(s: str) -> str:
-    # The following snippet is licensed under the CC-BY-4.0 License.
-    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
 
     return "_".join(
         re.sub(
@@ -218,16 +219,18 @@ def snake_case(s: str) -> str:
 
 
 def camel_case(s: str) -> str:
-    # The following snippet is licensed under the CC-BY-4.0 License.
-    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
 
     s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
     return s[0].lower() + s[1:]
 
 
 def kebab_case(s: str) -> str:
-    # The following snippet is licensed under the CC-BY-4.0 License.
-    # Its source can be found at: https://github.com/30-seconds/30-seconds-of-python
+    # The code inside this function is from a modified snippet from
+    # https://www.30secondsofcode.org/python and is licensed under
+    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
 
     re_words = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
     re_sep = r"(\s|_|-)+"
