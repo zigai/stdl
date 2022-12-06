@@ -1,3 +1,4 @@
+import os
 import re
 import textwrap
 from platform import system
@@ -142,20 +143,65 @@ def terminal_link(
     return link
 
 
-def filter_str(s: str, chars: set, replace_with: str | None = None) -> str:
-    string = ""
-    for i in s:
-        if i in chars:
-            string = f"{string}{i}"
+def remove(s: str, chrs: str | set, replacement: str = "") -> str:
+    """Remove or replace characters in a string.
+
+    Args:
+        s (str): Input string.
+        chrs (str | set): Characters to remove
+        replacement (str, optional): If provided, replace the characters with this value.
+
+    """
+    string = []
+    chrs = set(chrs)
+    for c in s:
+        if not c in chrs:
+            string.append(c)
         else:
-            if replace_with is not None:
-                string = f"{string}{replace_with}"
-    return string
+            if replacement:
+                string.append(replacement)
+    return "".join(string)
 
 
-def filter_filename(s: str, replace_with: str | None = None):
-    ALLOWED_CHARS = set(" abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.[]-_()")
-    return filter_str(s, chars=ALLOWED_CHARS, replace_with=replace_with)
+def keep(s: str, chrs: str | set, replacement: str = "") -> str:
+    """Keep provided characters in a string. Remove or replace others.
+
+    Args:
+        s (str): Input string
+        chrs (str | set): Characters to keep
+        replacement (str, optional): If provided, replace other characters with this value.
+
+    """
+    # return re.compile("[^" + "".join(set(chrs)) + "]").sub(replacement, s)
+    string = []
+    chrs = set(chrs)
+    for c in s:
+        if c in chrs:
+            string.append(c)
+        else:
+            if replacement:
+                string.append(replacement)
+    return "".join(string)
+
+
+ASCII = set("".join(chr(x) for x in range(128)))
+
+
+class StringFilter:
+    @classmethod
+    def filename(cls, filename: str, replacement: str = "") -> str:
+        return remove(filename, chrs='|?*<>:"\\', replacement=replacement)
+
+    @classmethod
+    def filepath(cls, filepath: str, replacement: str = "") -> str:
+        dn, fn = os.path.split(filepath)
+        fn = StringFilter.filename(fn, replacement)
+        dn = remove(dn, '|?*<>:"\\')
+        return f"{dn}{os.sep}{fn}"
+
+    @classmethod
+    def ascii(cls, s: str, replacement: str = ""):
+        return keep(s, ASCII, replacement)
 
 
 def snake_case(s: str) -> str:
@@ -198,7 +244,7 @@ def kebab_case(s: str) -> str:
     )
 
 
-def wrapped(text: str, width: int, newline: str = "\n"):
+def wrapped(text: str, width: int, newline: str = "\n") -> str:
     return newline.join(textwrap.wrap(text, width=width))
 
 
@@ -213,8 +259,10 @@ __all__ = [
     "ST",
     "colored",
     "terminal_link",
-    "filter_str",
-    "filter_filename",
+    "remove",
+    "keep",
+    "ASCII",
+    "StringFilter",
     "snake_case",
     "camel_case",
     "kebab_case",
