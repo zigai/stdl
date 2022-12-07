@@ -1,3 +1,6 @@
+from os import get_terminal_size
+
+
 def color_tag(text: str, c: str):
     return f"<{c}>" + text + f"</{c}>"
 
@@ -19,4 +22,12 @@ def loguru_format(record: dict) -> str:
     return fmt
 
 
-__all__ = ["loguru_format"]
+def br(c: str = "_", length: int = None, *, newline=False) -> None:
+    length = length if length is not None else get_terminal_size().columns
+    s = c * length
+    if newline:
+        s += "\n"
+    print(s)
+
+
+__all__ = ["loguru_format", "br"]

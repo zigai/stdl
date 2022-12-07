@@ -1,3 +1,4 @@
+import random
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Generator
@@ -159,6 +160,17 @@ def date_range(start: date, end: date) -> Generator[date, None, None]:
         yield start + timedelta(n)
 
 
+def sleep(lo: float, hi: float | None = None) -> float:
+    if hi is None:
+        time.sleep(lo)
+        return lo
+    if lo < hi:
+        raise ValueError(f"Minimum sleep time is higher that maximum. {(lo,hi)}")
+    t = random.uniform(lo, hi)
+    time.sleep(t)
+    return t
+
+
 __all__ = [
     "Timer",
     "parse_datetime_str",
@@ -166,6 +178,7 @@ __all__ = [
     "fmt_time",
     "fmt_date",
     "date_range",
+    "sleep",
     "local_tz",
     "timezone",
     "date",
