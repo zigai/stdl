@@ -141,10 +141,10 @@ class File:
     def append(self, data, *, newline: bool = True) -> None:
         self.__write(data, "a", newline=newline)
 
-    def write_iter(self, data: Iterable, sep="\n", newline: bool = True) -> None:
+    def write_iter(self, data: Iterable, sep="\n", *, newline: bool = True) -> None:
         self.__write_iter(data, "w", sep=sep, newline=newline)
 
-    def append_iter(self, data: Iterable, sep="\n", newline: bool = True) -> None:
+    def append_iter(self, data: Iterable, sep="\n", *, newline: bool = True) -> None:
         self.__write_iter(data, "a", sep=sep, newline=newline)
 
     def readlines(self) -> list[str]:
@@ -162,7 +162,7 @@ class File:
         self.path = mv_path
         return self
 
-    def copy_to(self, directory, mkdir=False, *, overwrite=True):
+    def copy_to(self, directory, *, mkdir=False, overwrite=True):
         if not os.path.isdir(directory):
             if mkdir:
                 os.mkdir(directory)
