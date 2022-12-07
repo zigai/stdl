@@ -11,7 +11,7 @@ class ProgressBarTQDM(tqdm):
         self.update(b * bsize - self.n)
 
 
-def download(url: str, path: str, progressbar: bool = False, overwrite: bool = False):
+def download(url: str, path: str, *, progressbar: bool = False, overwrite: bool = False):
     """
     Download a file
 

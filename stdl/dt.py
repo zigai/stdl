@@ -9,14 +9,14 @@ local_tz = datetime.now().astimezone().tzinfo
 
 
 class Timer:
-    def __init__(self, miliseconds: bool = True):
+    def __init__(self, *, ms: bool = True):
         self.start = time.time()
-        self.miliseconds = miliseconds
+        self.ms = ms
         self.stops = []
 
     def stop(self, label: str | None = None) -> timedelta:
         diff = time.time() - self.start
-        if not self.miliseconds:
+        if not self.ms:
             diff = round(diff)
         delta = timedelta(seconds=diff)
         self.stops.append((delta, label))
@@ -28,6 +28,7 @@ def fmt_datetime(
     fmt: str = "Ymd",
     d_sep: str = "-",
     t_sep: str = ":",
+    *,
     utc: bool = True,
 ) -> str:
     """Format date and time
@@ -70,7 +71,7 @@ def fmt_datetime(
 
 
 def fmt_time(
-    t: float | datetime | int | None = None, sep: str = ":", ms: bool = False, utc: bool = True
+    t: float | datetime | int | None = None, sep: str = ":", *, ms: bool = False, utc: bool = True
 ) -> str:
     """
     Format time

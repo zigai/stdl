@@ -122,23 +122,23 @@ class File:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
-    def __write(self, data, mode: str, newline: bool = True):
+    def __write(self, data, mode: str, *, newline: bool = True):
         with open(self.path, mode, encoding=self.encoding) as f:
             f.write(data)
             if newline:
                 f.write("\n")
 
-    def __write_iter(self, data: Iterable, mode: str, sep="\n", newline: bool = True) -> None:
+    def __write_iter(self, data: Iterable, mode: str, sep="\n", *, newline: bool = True) -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
             if newline:
                 f.write("\n")
 
-    def write(self, data, newline: bool = True) -> None:
+    def write(self, data, *, newline: bool = True) -> None:
         self.__write(data, "w", newline=newline)
 
-    def append(self, data, newline: bool = True) -> None:
+    def append(self, data, *, newline: bool = True) -> None:
         self.__write(data, "a", newline=newline)
 
     def write_iter(self, data: Iterable, sep="\n", newline: bool = True) -> None:
@@ -154,7 +154,7 @@ class File:
     def splitlines(self) -> list[str]:
         return self.read().splitlines()
 
-    def move_to(self, directory: str, overwrite=True):
+    def move_to(self, directory: str, *, overwrite=True):
         mv_path = f"{directory}{os.sep}{os.path.basename(self.path)}"
         if os.path.exists(mv_path) and not overwrite:
             raise FileExistsError(mv_path)
@@ -162,7 +162,7 @@ class File:
         self.path = mv_path
         return self
 
-    def copy_to(self, directory, mkdir=False, overwrite=True):
+    def copy_to(self, directory, mkdir=False, *, overwrite=True):
         if not os.path.isdir(directory):
             if mkdir:
                 os.mkdir(directory)
@@ -285,7 +285,7 @@ def yaml_dump(data, path: Pathlike, encoding="utf-8") -> None:
         yaml.safe_dump(data, f)
 
 
-def get_dir_size(directory: str | Path, readable: bool = False) -> str | int:
+def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
     total_size = 0
     for dirpath, _, filenames in os.walk(directory):
         for f in filenames:
@@ -298,7 +298,7 @@ def get_dir_size(directory: str | Path, readable: bool = False) -> str | int:
     return total_size
 
 
-def move_files(files: list[Pathlike], directory: str | Path, mkdir: bool = False) -> None:
+def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = False) -> None:
     directory = str(directory)
     if not os.path.exists(directory):
         if mkdir:
@@ -363,7 +363,9 @@ def make_dirs(dest: str, dirs: list[str]):
             os.mkdir(f"{dest}{os.sep}{i}")
 
 
-def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recursive: bool = True):
+def yield_files_in(
+    directory: str | Path, ext: str | tuple | None = None, *, recursive: bool = True
+):
     if not recursive:
         for entry in os.scandir(directory):
             if not entry.is_file():
@@ -403,12 +405,13 @@ def yield_files_in(directory: str | Path, ext: str | tuple | None = None, recurs
 def get_files_in(
     directory: str | Path,
     ext: str | tuple | None = None,
+    *,
     recursive: bool = True,
 ) -> list[str]:
-    return list(yield_files_in(directory, ext, recursive))
+    return list(yield_files_in(directory, ext, recursive=recursive))
 
 
-def yield_dirs_in(directory: str | Path, recursive: bool = True):
+def yield_dirs_in(directory: str | Path, *, recursive: bool = True):
     queue = Queue()
     queue.put(directory)
     while not queue.empty():
@@ -420,8 +423,8 @@ def yield_dirs_in(directory: str | Path, recursive: bool = True):
                     queue.put(entry.path)
 
 
-def get_dirs_in(directory: str | Path, recursive: bool = True) -> list[str]:
-    return list(yield_dirs_in(directory, recursive))
+def get_dirs_in(directory: str | Path, *, recursive: bool = True) -> list[str]:
+    return list(yield_dirs_in(directory, recursive=recursive))
 
 
 def __assert_path_exists(path: Pathlike):

@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 
-def chunks(l: list[Any], size: int, rand: bool = False) -> list[list[Any]]:
+def chunks(l: list[Any], size: int, *, rand: bool = False) -> list[list[Any]]:
     if size < 1 or size > len(l):
         raise ValueError(size)
     if rand:
@@ -13,7 +13,7 @@ def chunks(l: list[Any], size: int, rand: bool = False) -> list[list[Any]]:
     return [l[i : i + size] for i in range(0, len(l), size)]
 
 
-def split(l: list[Any], parts: int, rand: bool = False) -> list[list[Any]]:
+def split(l: list[Any], parts: int, *, rand: bool = False) -> list[list[Any]]:
     if parts < 1 or parts > len(l):
         raise ValueError(parts)
     if rand:
