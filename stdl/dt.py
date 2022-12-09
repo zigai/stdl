@@ -29,6 +29,7 @@ def fmt_datetime(
     d_sep: str = "-",
     t_sep: str = ":",
     *,
+    ms: bool = False,
     utc: bool = True,
 ) -> str:
     """Format date and time
@@ -38,6 +39,7 @@ def fmt_datetime(
         fmt (str, optional): Date format. Defaults to "Ymd".
         d_sep (str, optional): Date values separator. Defaults to "-".
         t_sep (_type_, optional): Time values separator. Defaults to ":".
+        ms (bool, optional): include miliseconds. Defaults to False.
         utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp. Defaults to True.
 
     Raises:
@@ -57,6 +59,7 @@ def fmt_datetime(
     """
     if d is None:
         d = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
+
     elif isinstance(d, str):
         d = parse_datetime_str(d)
     elif isinstance(d, (float, int)):
@@ -65,9 +68,12 @@ def fmt_datetime(
         pass
     else:
         raise TypeError(type(d))
-    d_fmt = f"%{fmt[0]}{d_sep}%{fmt[1]}{d_sep}%{fmt[2]}"
-    t_fmt = f"%H{t_sep}%M{t_sep}%S"
-    return d.strftime(f"{d_fmt} {t_fmt}")
+    date_fmt = f"%{fmt[0]}{d_sep}%{fmt[1]}{d_sep}%{fmt[2]}"
+    time_fmt = f"%H{t_sep}%M{t_sep}%S"
+    if ms:
+        time_fmt += ".%f"
+    dt_str = d.strftime(f"{date_fmt} {time_fmt}")
+    return dt_str[:-3] if ms else dt_str
 
 
 def fmt_time(
