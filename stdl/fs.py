@@ -19,6 +19,8 @@ from typing import TypeAlias
 
 import yaml
 
+from stdl.dt import fmt_datetime
+
 AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
 IMAGE_EXT = (
     ".jpg",
@@ -117,6 +119,16 @@ class File:
 
     def to_str(self) -> str:
         return str(self)
+
+    def create(self):
+        if self.exists:
+            return
+        open(self.path, "a", encoding=self.encoding).close()
+
+    def clear(self):
+        if not self.exists:
+            return
+        open(self.path, "w", encoding=self.encoding).close()
 
     def read(self) -> str:
         with open(self.path, "r", encoding=self.encoding) as f:
@@ -313,7 +325,8 @@ def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = Fa
 def rand_filename(ext: str = "", prefix: str = "file") -> str:
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
-    return f"{prefix}.{time.time()}.{random.randrange(1000000, 9999999)}{ext}"
+    creation_time = fmt_datetime(d_sep="-", t_sep="-", ms=True).replace(" ", ".")
+    return f"{prefix}.{creation_time}.{random.randrange(1000000, 9999999)}{ext}"
 
 
 def bytes_readable(size_bytes: int) -> str:
