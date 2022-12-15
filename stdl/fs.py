@@ -11,7 +11,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import time
 from collections.abc import Iterable
 from pathlib import Path
 from queue import Queue
@@ -20,6 +19,8 @@ from typing import TypeAlias
 import yaml
 
 from stdl.dt import fmt_datetime
+
+SEP = os.sep
 
 AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
 IMAGE_EXT = (
@@ -60,12 +61,13 @@ VIDEO_EXT = (
 
 
 class File:
-    def __init__(self, path: str | Path | File | bytes, encoding="utf-8") -> None:
+    def __init__(self, path: str | Path | File | bytes, encoding="utf-8", *, abspath=True) -> None:
         if isinstance(path, (Path, File)):
             path = str(path)
         elif isinstance(path, bytes):
             path = path.decode()
-        self.path = os.path.abspath(path)
+        if abspath:
+            self.path = os.path.abspath(path)
         self.encoding = encoding
 
     def __str__(self):
@@ -125,6 +127,11 @@ class File:
             return
         open(self.path, "a", encoding=self.encoding).close()
 
+    def remove(self):
+        if not self.exists:
+            return
+        os.remove(self.path)
+
     def clear(self):
         if not self.exists:
             return
@@ -140,12 +147,10 @@ class File:
             if newline:
                 f.write("\n")
 
-    def __write_iter(self, data: Iterable, mode: str, sep="\n", *, newline: bool = True) -> None:
+    def __write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
-            if newline:
-                f.write("\n")
 
     def write(self, data, *, newline: bool = True) -> None:
         self.__write(data, "w", newline=newline)
@@ -153,11 +158,11 @@ class File:
     def append(self, data, *, newline: bool = True) -> None:
         self.__write(data, "a", newline=newline)
 
-    def write_iter(self, data: Iterable, sep="\n", *, newline: bool = True) -> None:
-        self.__write_iter(data, "w", sep=sep, newline=newline)
+    def write_iter(self, data: Iterable, sep="\n") -> None:
+        self.__write_iter(data, "w", sep=sep)
 
-    def append_iter(self, data: Iterable, sep="\n", *, newline: bool = True) -> None:
-        self.__write_iter(data, "a", sep=sep, newline=newline)
+    def append_iter(self, data: Iterable, sep="\n") -> None:
+        self.__write_iter(data, "a", sep=sep)
 
     def readlines(self) -> list[str]:
         with open(self.path, "r", encoding=self.encoding) as f:
@@ -167,7 +172,7 @@ class File:
         return self.read().splitlines()
 
     def move_to(self, directory: str, *, overwrite=True):
-        mv_path = f"{directory}{os.sep}{os.path.basename(self.path)}"
+        mv_path = f"{directory}{SEP}{self.basename}"
         if os.path.exists(mv_path) and not overwrite:
             raise FileExistsError(mv_path)
         os.rename(self.path, mv_path)
@@ -180,10 +185,9 @@ class File:
                 os.mkdir(directory)
             else:
                 raise FileNotFoundError(f"No such directory: '{directory}'")
-        copy_path = f"{directory}{os.sep}{self.basename}"
+        copy_path = f"{directory}{SEP}{self.basename}"
         if os.path.exists(copy_path) and not overwrite:
             raise FileExistsError(copy_path)
-
         self.path = shutil.copy2(self.path, directory)
         return self
 
@@ -195,10 +199,13 @@ class File:
             value = value.encode()
         os.setxattr(self.path, f"{group}.{name}", value)
 
+    def remove_xattr(self, name: str, group="user") -> None:
+        os.removexattr(self.path, f"{group}.{name}")
+
     def with_ext(self, ext: str):
         if not ext.startswith("."):
-            ext = f",{ext}"
-        self.path = f"{self.dirname}{os.sep}{self.stem}{ext}"
+            ext = f".{ext}"
+        self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
         return self
 
     def with_suffix(self, suffix: str):
@@ -208,7 +215,7 @@ class File:
         else:
             ext = f".{ext}"
         filename = f"{self.stem}{suffix}{ext}"
-        self.path = f"{self.dirname}{os.sep}{filename}"
+        self.path = f"{self.dirname}{SEP}{filename}"
         return self
 
     def with_prefix(self, prefix: str):
@@ -218,8 +225,12 @@ class File:
         else:
             ext = f".{ext}"
         filename = f"{prefix}{self.stem}{ext}"
-        self.path = f"{self.dirname}{os.sep}{filename}"
+        self.path = f"{self.dirname}{SEP}{filename}"
         return self
+
+    @classmethod
+    def rand(cls, prefix: str = "file", ext: str = ""):
+        return File(rand_filename(prefix, ext))
 
 
 Pathlike: TypeAlias = str | Path | File | bytes
@@ -319,14 +330,15 @@ def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = Fa
             raise FileNotFoundError(f"{directory} is not a directory")
     for file in files:
         file = pathlike_to_str(file)
-        os.rename(file, f"{directory}{os.sep}{os.path.basename(file)}")
+        os.rename(file, f"{directory}{SEP}{os.path.basename(file)}")
 
 
-def rand_filename(ext: str = "", prefix: str = "file") -> str:
+def rand_filename(prefix: str = "file", ext: str = "") -> str:
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
     creation_time = fmt_datetime(d_sep="-", t_sep="-", ms=True).replace(" ", ".")
-    return f"{prefix}.{creation_time}.{random.randrange(1000000, 9999999)}{ext}"
+    num = str(random.randrange(10000000, 99999999)).zfill(8)
+    return f"{prefix}.{creation_time}.{num}{ext}"
 
 
 def bytes_readable(size_bytes: int) -> str:
@@ -361,7 +373,7 @@ def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
 def windows_has_drive(letter: str) -> bool:
     if sys.platform != "win32":
         return False
-    return os.path.exists(f"{letter}:{os.sep}")
+    return os.path.exists(f"{letter}:{SEP}")
 
 
 def is_wsl():
@@ -373,7 +385,7 @@ def make_dirs(dest: str, dirs: list[str]):
         os.makedirs(dest)
     for i in dirs:
         if not os.path.exists(i):
-            os.mkdir(f"{dest}{os.sep}{i}")
+            os.mkdir(f"{dest}{SEP}{i}")
 
 
 def yield_files_in(
@@ -522,4 +534,6 @@ __all__ = [
     "get_dirs_in",
     "assert_paths_exist",
     "exec_cmd",
+    "SEP",
+    "os",
 ]
