@@ -8,7 +8,7 @@ pip install stdl
 ```
 #### From source
 ```
-git clone https://github.com/zigai/stdl.git && cd stdl && pip install .
+pip install git+https://github.com/zigai/stdl
 ```
 # License
 stdl is released under the [MIT License](https://github.com/zigai/stdl/blob/master/LICENSE). Some parts are released under other licenses as specified.
