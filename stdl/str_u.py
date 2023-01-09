@@ -11,7 +11,7 @@ def ansi_code(n: int) -> str:
     return f"{CSI_RESET}{n}m"
 
 
-def __get_ansi_val(val: str | None, handler) -> str:
+def _get_ansi_val(val: str | None, handler) -> str:
     if val == "" or val is None:
         return ""
     try:
@@ -117,10 +117,15 @@ class ST(ColorANSI):
     BLINK = ansi_code(5)
 
 
-def colored(text: str, color: str, background: str | None = None, style: str | None = None):
-    color = __get_ansi_val(color, FG)
-    background = __get_ansi_val(background, BG)
-    style = __get_ansi_val(style, ST)
+def colored(
+    text: str,
+    color: str | None = None,
+    background: str | None = None,
+    style: str | None = None,
+):
+    color = _get_ansi_val(color, FG)
+    background = _get_ansi_val(background, BG)
+    style = _get_ansi_val(style, ST)
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
@@ -196,7 +201,7 @@ class StringFilter:
     def filepath(cls, filepath: str, replacement: str = "") -> str:
         dn, fn = os.path.split(filepath)
         fn = StringFilter.filename(fn, replacement)
-        dn = remove(dn, '|?*<>:"\\')
+        dn = remove(dn, '|?*<>:"')
         return f"{dn}{os.sep}{fn}"
 
     @classmethod

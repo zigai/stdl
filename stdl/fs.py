@@ -19,8 +19,15 @@ from typing import TypeAlias
 import yaml
 
 from stdl.dt import fmt_datetime
+from stdl.str_u import StringFilter
 
 SEP = os.sep
+HOME = os.path.expanduser("~")
+abspath = os.path.abspath
+basename = os.path.basename
+dirname = os.path.dirname
+joinpath = os.path.join
+splitpath = os.path.split
 
 AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
 IMAGE_EXT = (
@@ -534,6 +541,12 @@ __all__ = [
     "get_dirs_in",
     "assert_paths_exist",
     "exec_cmd",
-    "SEP",
     "os",
+    "SEP",
+    "HOME",
+    "abspath",
+    "basename",
+    "dirname",
+    "joinpath",
+    "splitpath",
 ]

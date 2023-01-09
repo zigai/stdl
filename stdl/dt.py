@@ -12,7 +12,7 @@ class Timer:
     def __init__(self, *, ms: bool = True):
         self.start = time.time()
         self.ms = ms
-        self.stops = []
+        self.stops: list[tuple[timedelta, str | None]] = []
 
     def stop(self, label: str | None = None) -> timedelta:
         diff = time.time() - self.start
@@ -168,6 +168,20 @@ def date_range(start: date, end: date) -> Generator[date, None, None]:
 
 
 def sleep(lo: float, hi: float | None = None) -> float:
+    """
+    Sleeps for a random duration within a specified range.
+
+    Args:
+        lo (float): The lower bound of the sleep duration range (inclusive).
+        hi (float, optional): The upper bound of the sleep duration range (inclusive). If not provided, the function will sleep for the exact duration specified by `lo`.
+
+    Returns:
+        float: The actual sleep duration.
+
+    Raises:
+        ValueError: If `hi` is provided and `lo` is greater than `hi`.
+    """
+
     if hi is None:
         time.sleep(lo)
         return lo
