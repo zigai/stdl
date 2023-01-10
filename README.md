@@ -11,4 +11,4 @@ pip install stdl
 pip install git+https://github.com/zigai/stdl
 ```
 # License
-stdl is released under the [MIT License](https://github.com/zigai/stdl/blob/master/LICENSE). Some parts are released under other licenses as specified.
+[MIT License](https://github.com/zigai/stdl/blob/master/LICENSE)
