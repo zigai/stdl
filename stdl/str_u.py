@@ -22,15 +22,12 @@ def _get_ansi_val(val: str | None, handler) -> str:
 
 
 class ColorANSI:
-
-    # cancel SGR codes if we don't write to a terminal
-    if not stdout.isatty():
+    if not stdout.isatty():  # Cancel SGR codes if we don't write to a terminal
         for _ in dir():
             if isinstance(_, str) and _[0] != "_":
                 locals()[_] = ""
     else:
-        # set Windows console in VT mode
-        if system() == "Windows":
+        if system() == "Windows":  # Enable VT mode
             kernel32 = __import__("ctypes").windll.kernel32
             kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
             del kernel32
@@ -123,6 +120,19 @@ def colored(
     background: str | None = None,
     style: str | None = None,
 ):
+
+    """
+    Returns the text with ansi color, background color and text style codes.
+
+    Args:
+        text (str): The text that should be colorized.
+        color (str, optional): The color to use for the text.
+        background (str, optional): The color to use for the background.
+        style (str, optional): The style to use for the text.
+
+    Returns:
+        str: The colorized text.
+    """
     color = _get_ansi_val(color, FG)
     background = _get_ansi_val(background, BG)
     style = _get_ansi_val(style, ST)
@@ -137,9 +147,20 @@ def terminal_link(
     style: str | None = None,
 ):
     """
-    Hyperlinks are not supported in some terminals.
-    Learn more at:
+    Returns a hyperlink that can be used in terminals.
+
+    Hyperlinks are not supported in all terminals, for more information visit
     https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
+    Args:
+        uri (str): The URI of the link.
+        label (str, optional): The label of the link. Defaults to the URI.
+        color (str, optional): The color of the link. Defaults to white.
+        background (str, optional): The background color of the link.
+        style (str, optional): The style of the link.
+
+    Returns:
+        str: The link as a string.
     """
     if label is None:
         label = uri
@@ -149,7 +170,8 @@ def terminal_link(
 
 
 def remove(s: str, chrs: str | set, replacement: str = "") -> str:
-    """Remove or replace characters in a string.
+    """
+    Remove or replace characters in a string.
 
     Args:
         s (str): Input string.
@@ -169,7 +191,8 @@ def remove(s: str, chrs: str | set, replacement: str = "") -> str:
 
 
 def keep(s: str, chrs: str | set, replacement: str = "") -> str:
-    """Keep provided characters in a string. Remove or replace others.
+    """
+    Keep provided characters in a string. Remove or replace others.
 
     Args:
         s (str): Input string
@@ -193,12 +216,22 @@ ASCII = set("".join(chr(x) for x in range(128)))
 
 
 class StringFilter:
+    """
+    A collection of functions that can be used to filter strings.
+    """
+
     @classmethod
     def filename(cls, filename: str, replacement: str = "") -> str:
+        """
+        Removes or replaces characters that are not allowed to be in a filename.
+        """
         return remove(filename, chrs='|?*<>:"\\', replacement=replacement)
 
     @classmethod
     def filepath(cls, filepath: str, replacement: str = "") -> str:
+        """
+        Removes or replaces characters that are not allowed to be in a filepath.
+        """
         dn, fn = os.path.split(filepath)
         fn = StringFilter.filename(fn, replacement)
         dn = remove(dn, '|?*<>:"')
@@ -206,14 +239,14 @@ class StringFilter:
 
     @classmethod
     def ascii(cls, s: str, replacement: str = ""):
+        """
+        Removes or replaces non-ASCII characters from the string.
+        """
         return keep(s, ASCII, replacement)
 
 
 def snake_case(s: str) -> str:
-    # The code inside this function is from a modified snippet from
-    # https://www.30secondsofcode.org/python and is licensed under
-    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
-
+    """Converts a given string to snake_case."""
     return "_".join(
         re.sub(
             "([A-Z][a-z]+)",
@@ -224,27 +257,21 @@ def snake_case(s: str) -> str:
 
 
 def camel_case(s: str) -> str:
-    # The code inside this function is from a modified snippet from
-    # https://www.30secondsofcode.org/python and is licensed under
-    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
-
+    """Converts a given string to camelCase."""
     s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
     return s[0].lower() + s[1:]
 
 
 def kebab_case(s: str) -> str:
-    # The code inside this function is from a modified snippet from
-    # https://www.30secondsofcode.org/python and is licensed under
-    # CC-BY-4.0 License (https://creativecommons.org/licenses/by/4.0/)
-
-    re_words = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
-    re_sep = r"(\s|_|-)+"
+    """Converts a given string to kebab-case."""
+    RE_WORDS = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
+    RE_SEP = r"(\s|_|-)+"
     return "-".join(
         re.sub(
-            re_sep,
+            RE_SEP,
             " ",
             re.sub(
-                re_words,
+                RE_WORDS,
                 lambda mo: " " + mo.group(0).lower(),
                 s,
             ),
@@ -253,6 +280,7 @@ def kebab_case(s: str) -> str:
 
 
 def wrapped(text: str, width: int, newline: str = "\n") -> str:
+    """Wraps the given text to a specified width and separates lines with the given newline character."""
     return newline.join(textwrap.wrap(text, width=width))
 
 

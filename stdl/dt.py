@@ -9,18 +9,34 @@ local_tz = datetime.now().astimezone().tzinfo
 
 
 class Timer:
+    """A simple timer class that keeps track of all the stops."""
+
     def __init__(self, *, ms: bool = True):
         self.start = time.time()
         self.ms = ms
         self.stops: list[tuple[timedelta, str | None]] = []
 
     def stop(self, label: str | None = None) -> timedelta:
+        """
+        Get the elapsed time since the timer was started.
+
+        Args:
+            label (str | None, optional): An optional label for the stop. Defaults to None.
+
+        Returns:
+            timedelta: The elapsed time since the timer was started.
+        """
         diff = time.time() - self.start
         if not self.ms:
             diff = round(diff)
         delta = timedelta(seconds=diff)
         self.stops.append((delta, label))
         return delta
+
+    def reset(self) -> None:
+        """Reset the timer."""
+        self.start = time.time()
+        self.stops = []
 
 
 def fmt_datetime(
@@ -38,7 +54,7 @@ def fmt_datetime(
         d (str | float | None | datetime, optional): Input datetime. Defaults to None.
         fmt (str, optional): Date format. Defaults to "Ymd".
         d_sep (str, optional): Date values separator. Defaults to "-".
-        t_sep (_type_, optional): Time values separator. Defaults to ":".
+        t_sep (str, optional): Time values separator. Defaults to ":".
         ms (bool, optional): include miliseconds. Defaults to False.
         utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp. Defaults to True.
 

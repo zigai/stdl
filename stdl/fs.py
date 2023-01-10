@@ -19,7 +19,6 @@ from typing import IO, Any, Generator, TypeAlias
 import yaml
 
 from stdl.dt import fmt_datetime
-from stdl.str_u import StringFilter
 
 SEP = os.sep
 HOME = os.path.expanduser("~")
@@ -646,17 +645,17 @@ def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]) -> None:
 
 def exec_cmd(
     cmd: str | list[str],
-    timeout: float = None,
+    timeout: float = None,  # type:ignore
     shell=False,
     check=False,
     capture_output=True,
     text=True,
-    env: dict = None,
+    env: dict = None,  # type:ignore
     cwd=None,
-    stdin: IO = None,
-    stdout: IO = None,
-    stderr: IO = None,
-    input: str | bytes = None,
+    stdin: IO = None,  # type:ignore
+    stdout: IO = None,  # type:ignore
+    stderr: IO = None,  # type:ignore
+    input: str | bytes = None,  # type:ignore
     *args,
     **kwargs,
 ) -> subprocess.CompletedProcess:
