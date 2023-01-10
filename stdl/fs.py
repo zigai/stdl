@@ -14,7 +14,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from queue import Queue
-from typing import TypeAlias
+from typing import IO, Any, Generator, TypeAlias
 
 import yaml
 
@@ -244,22 +244,35 @@ Pathlike: TypeAlias = str | Path | File | bytes
 
 
 def pathlike_to_str(path: Pathlike) -> str:
+    """Converts a pathlike object to a string."""
     if isinstance(path, bytes):
         return path.decode()
     return str(path)
 
 
 def pickle_load(filepath: Pathlike):
+    """Loads a pickled file."""
     with open(pathlike_to_str(filepath), "rb") as f:
         return pickle.load(f)
 
 
-def pickle_dump(data, filepath: Pathlike) -> None:
+def pickle_dump(data: Any, filepath: Pathlike) -> None:
+    """Dumps an object to the specified filepath."""
+
     with open(pathlike_to_str(filepath), "wb") as f:
         pickle.dump(data, f)
 
 
 def json_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+    """Load a JSON file from the given path.
+
+    Args:
+        path (Pathlike): The path of the JSON file to load.
+        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
+
+    Returns:
+        dict | list[dict]: The JSON data loaded from the file.
+    """
     with open(pathlike_to_str(path), "r", encoding=encoding) as f:
         return json.load(f)
 
@@ -271,6 +284,16 @@ def json_append(
     default=None,
     indent=4,
 ):
+    """Appends data to a JSON file.
+    Args:
+        data (Union[dict, List[dict]]): The data to be appended
+        filepath (Pathlike): The path of the JSON file
+        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
+        default : A function that gets called for objects that can’t otherwise be serialized.
+                  See json.dump() documentation for more information.
+        indent (int, optional): The number of spaces to use for indentation. Defaults to 4.
+    """
+
     file = File(filepath)
     if not file.exists or file.size() == 0:
         json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
@@ -301,21 +324,57 @@ def json_append(
 
 
 def yaml_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+    """Load a YAML file from the given path.
+
+    Args:
+        path (Pathlike): The path of the YAML file to load.
+        encoding (str, optional): The encoding of the file. Defaults to "utf-8".
+
+    Returns:
+        dict | list[dict]: The YAML data loaded from the file.
+    """
     with open(pathlike_to_str(path), "r", encoding=encoding) as f:
         return yaml.safe_load(f)
 
 
 def json_dump(data, path: Pathlike, encoding="utf-8", default=str, indent=4) -> None:
+    """
+    Dumps data to a JSON file
+
+    Args:
+        data: data to be dumped
+        path (Pathlike): path to the output file
+        encoding (str): encoding of the output file. Default: 'utf-8'
+        default: A function that gets called on objects that cannot be serialized. Default: str
+        indent (int): number of spaces to use when indenting the output json. Default: 4
+    """
     with open(pathlike_to_str(path), "w", encoding=encoding) as f:
         json.dump(data, f, indent=indent, default=default)
 
 
 def yaml_dump(data, path: Pathlike, encoding="utf-8") -> None:
+    """
+    Dumps data to a YAML file
+    Args:
+        data: data to be dumped
+        path (Pathlike): path to the output file
+        encoding (str): encoding of the output file. Default: 'utf-8'
+    """
     with open(pathlike_to_str(path), "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
 
 def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
+    """Moves files to a specified directory
+
+    Args:
+        files (list): List of files to be moved
+        directory (str, Path): target directory
+        mkdir (bool, optional): whether to create the directory if it doesn't exist. Default: False
+
+    Raises:
+        FileNotFoundError : if the target directory does not exist and mkdir is False
+    """
     total_size = 0
     for dirpath, _, filenames in os.walk(directory):
         for f in filenames:
@@ -329,6 +388,16 @@ def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
 
 
 def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = False) -> None:
+    """Moves files to a specified directory
+
+    Args:
+        files (list[Pathlike]): List of files to be moved
+        directory (str | Path): target directory
+        mkdir (bool): whether to create the directory if it doesn't exist. Default: False
+
+    Raises:
+        FileNotFoundError : if the target directory does not exist and mkdir is False.
+    """
     directory = str(directory)
     if not os.path.exists(directory):
         if mkdir:
@@ -341,6 +410,15 @@ def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = Fa
 
 
 def rand_filename(prefix: str = "file", ext: str = "") -> str:
+    """
+    Generates a random filename with the given prefix and extension.
+    Current date and time are also included in the filename.
+    Args:
+        prefix (str, optional): Filename prefix. Defaults to "file".
+        ext (str, optional): Filename extension. Defaults to "".
+    Returns:
+        str: The generated random filename.
+    """
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
     creation_time = fmt_datetime(d_sep="-", t_sep="-", ms=True).replace(" ", ".")
@@ -349,6 +427,12 @@ def rand_filename(prefix: str = "file", ext: str = "") -> str:
 
 
 def bytes_readable(size_bytes: int) -> str:
+    """Convert bytes to a human-readable string.
+    Args:
+        size_bytes (int): The number of bytes
+    Returns:
+        str : The number of bytes in a human-readable format
+    """
     if size_bytes < 0:
         raise ValueError(size_bytes)
     if size_bytes == 0:
@@ -361,6 +445,13 @@ def bytes_readable(size_bytes: int) -> str:
 
 
 def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
+    """Convert human-readable string to bytes.
+    Args:
+        size (str): The number of bytes in human-readable format
+        kb_size (int, optional): The byte size of a kilobyte (1000 or 1024). Defaults to 1024.
+    Returns:
+        int: The number of bytes
+    """
     # Based on https://stackoverflow.com/a/42865957/2002471
     KB_UNITS = {
         1024: {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40},
@@ -378,16 +469,32 @@ def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
 
 
 def windows_has_drive(letter: str) -> bool:
+    """
+    Check if a drive letter exists on Windows.
+    Will always return False if the platform is not Windows.
+    Args:
+        letter (str): The letter of the drive.
+    Returns:
+        bool: Whether the drive exists.
+    """
     if sys.platform != "win32":
         return False
     return os.path.exists(f"{letter}:{SEP}")
 
 
-def is_wsl():
+def is_wsl() -> bool:
+    """
+    Check if the current platform is Windows Subsystem for Linux (WSL)
+    """
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
-def make_dirs(dest: str, dirs: list[str]):
+def make_dirs(dest: str, dirs: list[str]) -> None:
+    """Creates directories recursively.
+    Args:
+        dest (str): The destination directory.
+        dirs (list[str]): A list of directories to be created in the destination directory.
+    """
     if not os.path.exists(dest):
         os.makedirs(dest)
     for i in dirs:
@@ -397,7 +504,23 @@ def make_dirs(dest: str, dirs: list[str]):
 
 def yield_files_in(
     directory: str | Path, ext: str | tuple | None = None, *, recursive: bool = True
-):
+) -> Generator[str, None, None]:
+    """
+    Yields the paths of files in a directory.
+
+    This function searches for files in a directory and yields their paths.
+    If the `ext` parameter is provided, only files with that extension are yielded. The `ext` parameter is case-insensitive.
+    If the `recursive` parameter is set to `True`, the function will search for files in subdirectories recursively.
+    Yielded paths are converted to absolute paths.
+
+    Args:
+        directory (str | Path): The directory to search.
+        ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
+        recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+    Yields:
+        Generator[str, None, None]: The absolute paths of the files in the directory, matching the provided extension.
+    """
     if not recursive:
         for entry in os.scandir(directory):
             if not entry.is_file():
@@ -440,10 +563,38 @@ def get_files_in(
     *,
     recursive: bool = True,
 ) -> list[str]:
+    """
+    Returns the paths of files in a directory.
+
+    This function searches for files in a directory and yields their paths.
+    If the `ext` parameter is provided, only files with that extension are returned. The `ext` parameter is case-insensitive.
+    If the `recursive` parameter is set to `True`, the function will search for files in subdirectories recursively.
+    Returned paths are converted to absolute paths.
+
+    Args:
+        directory (Union[str, Path]): The directory to search.
+        ext (Union[str, Tuple[str, ...]], optional): If provided, only yield files with provided extensions. Defaults to None.
+        recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+    Returns:
+        list[str]: The absolute path of the files in the directory, matching the provided extension.
+    """
+
     return list(yield_files_in(directory, ext, recursive=recursive))
 
 
-def yield_dirs_in(directory: str | Path, *, recursive: bool = True):
+def yield_dirs_in(directory: str | Path, *, recursive: bool = True) -> Generator[str, None, None]:
+    """
+    Yields paths to all directories in the specified directory.
+    Yielded paths are converted to absolute paths.
+
+    Args:
+        directory (str | Path): The directory to search.
+        recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+    Yields:
+        Generator[str, None, None]: The paths of the directories that are found during travelsal.
+    """
     queue = Queue()
     queue.put(directory)
     while not queue.empty():
@@ -456,15 +607,35 @@ def yield_dirs_in(directory: str | Path, *, recursive: bool = True):
 
 
 def get_dirs_in(directory: str | Path, *, recursive: bool = True) -> list[str]:
+    """
+    Returns all directories in the specified directory.
+    Returned paths are converted to absolute paths.
+
+
+    Args:
+        directory (str | Path): The directory to search.
+        recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+    Returns:
+        list[str]: The paths of the directories that are found during travelsal.
+    """
     return list(yield_dirs_in(directory, recursive=recursive))
 
 
-def __assert_path_exists(path: Pathlike):
+def __assert_path_exists(path: Pathlike) -> None:
     if not os.path.exists(pathlike_to_str(path)):
         raise FileNotFoundError(f"No such file or directory: '{path}'")
 
 
-def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]):
+def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]) -> None:
+    """Asserts that the specified paths exist.
+
+    Args:
+        *args : one or more strings representing the paths to check. Can also include an Iterable of paths.
+
+    Raises:
+        FileNotFoundError : if one of the provided paths does not exist.
+    """
     for path in args:
         if isinstance(path, (str, bytes)):
             __assert_path_exists(path)
@@ -482,15 +653,34 @@ def exec_cmd(
     text=True,
     env: dict = None,
     cwd=None,
-    stdin=None,
-    stdout=None,
-    stderr=None,
+    stdin: IO = None,
+    stdout: IO = None,
+    stderr: IO = None,
     input: str | bytes = None,
     *args,
     **kwargs,
-):
+) -> subprocess.CompletedProcess:
     """
     Wrapper for subprocess.run with nicer default arguments.
+
+    Args:
+        cmd (str | list[str]): command to run. A list of strings or a single string.
+        timeout (float, optional): the time after which the command is killed.
+        shell (bool): whether or not to run the command in a shell.
+        check (bool): whether or not to raise an exception on a non-zero exit code.
+        capture_output (bool): whether or not to capture the output to stdout and stderr.
+        text (bool): whether or not to return output as text or bytes.
+        env (dict, optional]): environment variables to pass to the new process.
+        cwd (str, optional): current working directory to run the command in.
+        stdin (IO, optional): file object to read stdin from.
+        stdout (IO, optional): file object to write stdout to.
+        stderr (IO, optional): file object to write stderr to.
+        input (str | bytes): input to send to the command.
+        *args : additional arguments to pass to subprocess.run.
+        **kwargs : additional keyword arguments to pass to subprocess.run.
+
+    Returns:
+        subprocess.CompletedProcess : the completed process.
     """
     if isinstance(cmd, str):
         cmd = shlex.split(cmd)
