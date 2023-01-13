@@ -17,7 +17,7 @@ def chunks(l: list[Any], size: int, *, rand: bool = False) -> list[list[Any]]:
         list : a list containing the chunks.
 
     Raises:
-        ValueError : if the size is less than 1 or greater than the size of the list
+        ValueError : if the size is less than 1 or greater than the length of the list
     """
     if size < 1 or size > len(l):
         raise ValueError(size)
@@ -40,7 +40,7 @@ def split(l: list[Any], parts: int, *, rand: bool = False) -> list[list[Any]]:
         list : a list containing the split parts.
 
     Raises:
-        ValueError : if the parts is less than 1 or greater than the size of the list.
+        ValueError : if the parts is less than 1 or greater than the length of the list.
     """
     if parts < 1 or parts > len(l):
         raise ValueError(parts)
