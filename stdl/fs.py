@@ -68,6 +68,13 @@ VIDEO_EXT = (
 
 class File:
     def __init__(self, path: str | Path | File | bytes, encoding="utf-8", *, abspath=True) -> None:
+        """Initialize a File object.
+
+        Args:
+            path (str | Path | bytes): File path.
+            encoding (str, optional): The file's encoding. Defaults to "utf-8".
+            abspath (bool, keyword-only): Whether to use the absolute path. Defaults to True.
+        """
         if isinstance(path, (Path, File)):
             path = str(path)
         elif isinstance(path, bytes):
@@ -85,65 +92,79 @@ class File:
 
     @property
     def dirname(self) -> str:
+        """The file's directory name."""
         return os.path.dirname(self.path)
 
     @property
     def created(self) -> float:
+        """The time when the file was created as a UNIX timestamp."""
         return os.path.getctime(self.path)
 
     @property
     def modified(self) -> float:
+        """The time when the file was last modified as a UNIX timestamp."""
         return os.path.getmtime(self.path)
 
     @property
     def basename(self) -> str:
+        """The file's base name (without the directory)."""
         return os.path.basename(self.path)
 
     @property
     def ext(self) -> str | None:
+        """The file's extension (without the dot).
+        Returns None if the file has no extension."""
         if "." in self.basename:
             return self.basename.split(".")[-1]
         return None
 
     @property
     def abspath(self) -> str:
+        """The file's absolute path."""
         return os.path.abspath(self.path)
 
     @property
     def stem(self):
+        """The file's stem (base name without extension)."""
         base = self.basename
         if "." not in base:
             return base
         return ".".join(base.split(".")[:-1])
 
     def size(self, readable: bool = False) -> int | str:
+        """The file's size in bytes or a human-readable format if readable is set to True."""
         size = os.path.getsize(self.path)
         if readable:
             return bytes_readable(size)
         return size
 
     def to_path(self) -> Path:
+        """Convert to  pathlib.Path"""
         return Path(self.path)
 
     def to_str(self) -> str:
         return str(self)
 
     def create(self):
+        """Create an empty file if it doesn't exist."""
         if self.exists:
             return
         open(self.path, "a", encoding=self.encoding).close()
 
     def remove(self):
+        """Remove the file."""
         if not self.exists:
             return
         os.remove(self.path)
 
     def clear(self):
+        """Clear the contents of a file if it exists"""
         if not self.exists:
             return
         open(self.path, "w", encoding=self.encoding).close()
 
     def read(self) -> str:
+        """Read the contents of a file."""
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
@@ -159,25 +180,60 @@ class File:
                 f.write(f"{entry}{sep}")
 
     def write(self, data, *, newline: bool = True) -> None:
+        """
+        Write data to a file, overwriting any existing data.
+
+        Args:
+            data (Any): The data to write.
+            newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
+        """
         self.__write(data, "w", newline=newline)
 
     def append(self, data, *, newline: bool = True) -> None:
+        """
+        Append data to a file.
+
+        Args:
+            data (Any): The data to append.
+            newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
+        """
         self.__write(data, "a", newline=newline)
 
     def write_iter(self, data: Iterable, sep="\n") -> None:
+        """Write data from an iterable to a file, overwriting any existing data.
+
+        Args:
+            data (Iterable): The data to write.
+            sep (str, optional): The separator to use between items. Defaults to "\\n".
+        """
         self.__write_iter(data, "w", sep=sep)
 
     def append_iter(self, data: Iterable, sep="\n") -> None:
+        """Append data from an iterable to a file.
+
+        Args:
+            data (Iterable): The data to append.
+            sep (str, optional): The separator to use between items. Defaults to "\\n".
+        """
         self.__write_iter(data, "a", sep=sep)
 
     def readlines(self) -> list[str]:
+        """Equivalent to TextIOWrapper.readlines()"""
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.readlines()
 
     def splitlines(self) -> list[str]:
+        """Equivalent to File.read().splitlines()"""
         return self.read().splitlines()
 
     def move_to(self, directory: str, *, overwrite=True):
+        """
+        Move the file to a new directory.
+
+        Args:
+            directory (str): The destination directory.
+            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
+        """
         mv_path = f"{directory}{SEP}{self.basename}"
         if os.path.exists(mv_path) and not overwrite:
             raise FileExistsError(mv_path)
@@ -186,6 +242,13 @@ class File:
         return self
 
     def copy_to(self, directory, *, mkdir=False, overwrite=True):
+        """
+        Copy the file to a new directory.
+
+        Args:
+            directory (str): The destination directory.
+            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
+        """
         if not os.path.isdir(directory):
             if mkdir:
                 os.mkdir(directory)
@@ -198,23 +261,54 @@ class File:
         return self
 
     def get_xattr(self, name: str, group="user") -> str:
+        """Retrieve the value of an extended attribute for the file.
+
+        Args:
+            name (str): The name of the extended attribute.
+            group (str, optional): The group of the extended attribute. Defaults to "user".
+
+        Returns:
+            str: The value of the extended attribute.
+        """
         return os.getxattr(self.path, f"{group}.{name}").decode()
 
     def set_xattr(self, value: str | bytes, name: str, group="user") -> None:
+        """Set an extended attribute for the file.
+
+        Args:
+            value (str | bytes): The value of the extended attribute.
+            name (str): The name of the extended attribute.
+            group (str, optional): The group of the extended attribute. Defaults to "user".
+        """
         if isinstance(value, str):
             value = value.encode()
         os.setxattr(self.path, f"{group}.{name}", value)
 
     def remove_xattr(self, name: str, group="user") -> None:
+        """Remove an extended attribute from the file.
+
+        Args:
+            name (str): The name of the extended attribute.
+            group (str, optional): The group of the extended attribute. Defaults to "user".
+        """
         os.removexattr(self.path, f"{group}.{name}")
 
     def with_ext(self, ext: str):
+        """Change the extension of the file and return the new File object
+
+        Args:
+            ext (str): The new extension of the file.
+
+        Returns:
+            File: The File object with the new extension.
+        """
         if not ext.startswith("."):
             ext = f".{ext}"
         self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
         return self
 
     def with_suffix(self, suffix: str):
+        """Add a suffix to the file's name and return the new File object."""
         ext = self.ext
         if ext is None:
             ext = ""
@@ -225,6 +319,7 @@ class File:
         return self
 
     def with_prefix(self, prefix: str):
+        """Add a prefix to the file's name and return the new File object."""
         ext = self.ext
         if ext is None:
             ext = ""
@@ -236,6 +331,16 @@ class File:
 
     @classmethod
     def rand(cls, prefix: str = "file", ext: str = ""):
+        """
+        Create a new random file with a specified prefix and extension.
+
+        Args:
+            prefix (str, optional): The prefix for the file name. Defaults to "file".
+            ext (str, optional): The extension for the file name. Defaults to "".
+
+        Returns:
+            File: A new File object with a random name.
+        """
         return File(rand_filename(prefix, ext))
 
 

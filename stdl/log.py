@@ -7,6 +7,11 @@ def color_tag(text: str, c: str):
 
 
 def loguru_formater(record: dict) -> str:
+    """
+    Example:
+    >>> from loguru import logger as log
+    >>> log.add(sys.stdout, level="DEBUG", format=loguru_formater)
+    """
     time = color_tag("{time:YYYY-MM-DD HH:mm:ss.SSS}", "light-black")
     level = color_tag("{level: <8}", "level")
     msg = color_tag("{message:<24}", "level")
