@@ -588,22 +588,28 @@ def windows_has_drive(letter: str) -> bool:
 
 def is_wsl() -> bool:
     """
-    Check if the current platform is Windows Subsystem for Linux (WSL)
+    Check if the current platform is Windows Subsystem for Linux (WSL).
     """
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
-def make_dirs(dest: str, dirs: list[str]) -> None:
-    """Creates directories recursively.
+def make_dirs(dest: str, directories: list[str]) -> None:
+    """Creates directories inside a destination directory.
     Args:
         dest (str): The destination directory.
         dirs (list[str]): A list of directories to be created in the destination directory.
     """
     if not os.path.exists(dest):
         os.makedirs(dest)
-    for i in dirs:
+    for i in directories:
         if not os.path.exists(i):
             os.mkdir(f"{dest}{SEP}{i}")
+
+
+def make_dir(directory: str):
+    """Creates a directory if it doesn't exist."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
 
 def yield_files_in(
@@ -813,6 +819,7 @@ __all__ = [
     "VIDEO_EXT",
     "File",
     "Pathlike",
+    "make_dir",
     "pathlike_to_str",
     "pickle_load",
     "pickle_dump",
