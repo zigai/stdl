@@ -1,4 +1,4 @@
-from stdl.datetime_u import *
+from stdl.dt import *
 
 
 def test_fmt_time():
