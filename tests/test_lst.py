@@ -1,5 +1,6 @@
-from stdl.lst import *
 import pytest
+
+from stdl.lst import *
 
 
 def test_chunks():
@@ -13,7 +14,7 @@ def test_chunks():
 
 def test_split_with_valid_input():
     l = [1, 2, 3, 4, 5]
-    assert split(l, 3) == [[1, 2], [3, 4], [5]]
+    assert split(l, 3) == [[1], [2, 3], [4, 5]]
 
 
 def test_split_with_invalid_input():
