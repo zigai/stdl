@@ -5,38 +5,66 @@ from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
+from stdl.dataclass import Data, dataclass
+
 local_tz = datetime.now().astimezone().tzinfo
+
+
+@dataclass
+class TimerStop(Data):
+    total: timedelta
+    since_last: timedelta
+    at: float
+    label: str | None = None
 
 
 class Timer:
     """A simple timer class that keeps track of all the stops."""
 
     def __init__(self, *, ms: bool = True):
-        self.start = time.time()
         self.ms = ms
-        self.stops: list[tuple[timedelta, str | None]] = []
+        self.reset()
 
-    def stop(self, label: str | None = None) -> timedelta:
+    def stop(self, label: str | None = None) -> TimerStop:
         """
-        Get the elapsed time since the timer was started.
+        Stop the timer.
 
         Args:
-            label (str | None, optional): An optional label for the stop. Defaults to None.
+            label (str | None, optional): Label for the stop. Defaults to None.
 
         Returns:
-            timedelta: The elapsed time since the timer was started.
+            TimerStop: The stop data
         """
-        diff = time.time() - self.start
+        t = time.time()
+        elapsed_total = t - self.start
+        since_last = t - self.stops[-1].at
         if not self.ms:
-            diff = round(diff)
-        delta = timedelta(seconds=diff)
-        self.stops.append((delta, label))
-        return delta
+            elapsed_total = round(elapsed_total)
+            since_last = round(since_last)
+
+        elapsed_total = timedelta(seconds=elapsed_total)
+        since_last = timedelta(seconds=since_last)
+
+        timer_stop = TimerStop(
+            total=elapsed_total,
+            since_last=since_last,
+            at=t,
+            label=label,
+        )
+        self.stops.append(timer_stop)
+        return timer_stop
 
     def reset(self) -> None:
         """Reset the timer."""
         self.start = time.time()
-        self.stops = []
+        self.stops: list[TimerStop] = [
+            TimerStop(
+                total=timedelta(seconds=0),
+                since_last=timedelta(seconds=0),
+                at=self.start,
+                label="start",
+            )
+        ]
 
 
 def fmt_datetime(
