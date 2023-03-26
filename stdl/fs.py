@@ -330,6 +330,13 @@ class File:
         self.path = f"{self.dirname}{SEP}{filename}"
         return self
 
+    def rename(self, name: str):
+        """Rename the file and return the new File object."""
+        new_path = f"{self.dirname}{SEP}{name}"
+        os.rename(self.path, new_path)
+        self.path = new_path
+        return self
+
     @classmethod
     def rand(cls, prefix: str = "file", ext: str = ""):
         """
