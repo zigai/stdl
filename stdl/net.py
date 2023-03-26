@@ -1,7 +1,9 @@
 import os
-from urllib.request import urlretrieve
+from urllib.request import urlopen, urlretrieve
 
 from tqdm import tqdm
+
+from stdl.fs import readable_size_to_bytes
 
 
 class ProgressBarTQDM(tqdm):
@@ -11,21 +13,37 @@ class ProgressBarTQDM(tqdm):
         self.update(b * bsize - self.n)
 
 
-def download(url: str, path: str, *, progressbar: bool = False, overwrite: bool = False):
+def download(
+    url: str,
+    path: str,
+    *,
+    maxsize: int | str | None = None,
+    progressbar: bool = False,
+    overwrite: bool = False,
+):
     """
     Download a file
 
     Args:
         url (str): File URL
         path (str): Save path
+        maxsize (int | str | None, optional): Maximum file size in bytes or human readable format. Defaults to None.
         progressbar (bool, optional): Display progress bar in console. Defaults to False.
         overwrite (bool, optional): Overwrite destination path if it already exists. Defaults to False.
 
     Raises:
         FileExistsError: if path already exists and overwrite is set to False
     """
+    if maxsize is not None:
+        if isinstance(maxsize, str):
+            maxsize = readable_size_to_bytes(maxsize)
+        filesize = int(urlopen(url).headers.get("Content-Length", 0))
+        if filesize > maxsize:
+            raise ValueError(f"File is too large to download: {filesize} > {maxsize}")
+
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
+
     if progressbar:
         with ProgressBarTQDM(unit="B", unit_scale=True, unit_divisor=1024) as t:
             r = urlretrieve(url, path, reporthook=t.update_to, data=None)
