@@ -14,6 +14,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from queue import Queue
+from select import select
 from typing import IO, Any, Generator, TypeAlias
 
 import yaml
@@ -813,6 +814,21 @@ def exec_cmd(
     )
 
 
+def read_stdin(timeout: float = 0.25) -> list[str]:
+    """
+    Reads lines from stdin.
+
+    Args:
+        timeout (float, optional): The time to wait for input. Defaults to 0.25.
+
+    Returns:
+        list[str]: The lines read from stdin.
+    """
+    if select([sys.stdin], [], [], timeout)[0]:
+        return sys.stdin.read().strip().splitlines()
+    return []
+
+
 __all__ = [
     "IMAGE_EXT",
     "AUDIO_EXT",
@@ -850,4 +866,5 @@ __all__ = [
     "dirname",
     "joinpath",
     "splitpath",
+    "read_stdin",
 ]
