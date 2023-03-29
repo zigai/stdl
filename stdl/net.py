@@ -3,7 +3,7 @@ from urllib.request import urlopen, urlretrieve
 
 from tqdm import tqdm
 
-from stdl.fs import readable_size_to_bytes
+from stdl.fs import bytes_readable, readable_size_to_bytes
 
 
 class ProgressBarTQDM(tqdm):
@@ -11,6 +11,15 @@ class ProgressBarTQDM(tqdm):
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
+
+
+class DownloadSizeExceededError(Exception):
+    def __init__(self, filesize: int, maxsize: int):
+        self.filesize = filesize
+        self.maxsize = maxsize
+
+    def __str__(self):
+        return f"File size {self.filesize} ({bytes_readable(self.filesize)}) exceeds maximum size limit of {self.maxsize} bytes ({bytes_readable(self.maxsize)})"
 
 
 def download(
@@ -33,13 +42,14 @@ def download(
 
     Raises:
         FileExistsError: if path already exists and overwrite is set to False
+        DownloadSizeExceededError: if file size exceeds maxsize
     """
     if maxsize is not None:
         if isinstance(maxsize, str):
             maxsize = readable_size_to_bytes(maxsize)
         filesize = int(urlopen(url).headers.get("Content-Length", 0))
         if filesize > maxsize:
-            raise ValueError(f"File is too large to download: {filesize} > {maxsize}")
+            raise DownloadSizeExceededError(filesize, maxsize)
 
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
