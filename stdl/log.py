@@ -3,14 +3,15 @@ from typing import Callable
 
 
 def color_tag(text: str, c: str):
-    return f"<{c}>" + text + f"</{c}>"
+    return f"<{c}>{text}</{c}>"
 
 
 def loguru_formater(record: dict) -> str:
     """
     Example:
-    >>> from loguru import logger as log
-    >>> log.add(sys.stdout, level="DEBUG", format=loguru_formater)
+    >>> import sys
+    >>> from loguru import logger
+    >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
     """
     time = color_tag("{time:YYYY-MM-DD HH:mm:ss.SSS}", "light-black")
     level = color_tag("{level: <8}", "level")
@@ -28,15 +29,21 @@ def loguru_formater(record: dict) -> str:
     return fmt
 
 
-def br(c: str = "_", length: int = None, handler: Callable = print, *, newline=False) -> None:
+def br(
+    c: str = "_",
+    length: int = None,  # type: ignore
+    handler: Callable = print,
+    *,
+    newline=False,
+) -> None:
     try:
         length = length or get_terminal_size().columns
     except OSError:  # OSError: [Errno 25] Inappropriate ioctl for device
         length = 80
-    s = c * length
+    line = c * length
     if newline:
-        s += "\n"
-    handler(s)
+        line += "\n"
+    handler(line)
 
 
 __all__ = ["loguru_formater", "br"]
