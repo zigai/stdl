@@ -1,8 +1,9 @@
-from stdl import fs
 import tempfile
 from pathlib import Path
 
 import pytest
+
+from stdl import fs
 
 
 def test_yield_files_in_without_ext():
