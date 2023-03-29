@@ -149,20 +149,23 @@ class File:
     def create(self):
         """Create an empty file if it doesn't exist."""
         if self.exists:
-            return
+            return self
         open(self.path, "a", encoding=self.encoding).close()
+        return self
 
     def remove(self):
         """Remove the file."""
         if not self.exists:
-            return
+            return self
         os.remove(self.path)
+        return self
 
     def clear(self):
         """Clear the contents of a file if it exists"""
         if not self.exists:
             return
         open(self.path, "w", encoding=self.encoding).close()
+        return self
 
     def read(self) -> str:
         """Read the contents of a file."""
@@ -190,7 +193,7 @@ class File:
         """
         self.__write(data, "w", newline=newline)
 
-    def append(self, data, *, newline: bool = True) -> None:
+    def append(self, data, *, newline: bool = True):
         """
         Append data to a file.
 
@@ -199,8 +202,9 @@ class File:
             newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
         """
         self.__write(data, "a", newline=newline)
+        return self
 
-    def write_iter(self, data: Iterable, sep="\n") -> None:
+    def write_iter(self, data: Iterable, sep="\n"):
         """Write data from an iterable to a file, overwriting any existing data.
 
         Args:
@@ -208,8 +212,9 @@ class File:
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
         self.__write_iter(data, "w", sep=sep)
+        return self
 
-    def append_iter(self, data: Iterable, sep="\n") -> None:
+    def append_iter(self, data: Iterable, sep="\n"):
         """Append data from an iterable to a file.
 
         Args:
@@ -217,6 +222,7 @@ class File:
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
         self.__write_iter(data, "a", sep=sep)
+        return self
 
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()"""
@@ -273,7 +279,7 @@ class File:
         """
         return os.getxattr(self.path, f"{group}.{name}").decode()
 
-    def set_xattr(self, value: str | bytes, name: str, group="user") -> None:
+    def set_xattr(self, value: str | bytes, name: str, group="user"):
         """Set an extended attribute for the file.
 
         Args:
@@ -284,6 +290,7 @@ class File:
         if isinstance(value, str):
             value = value.encode()
         os.setxattr(self.path, f"{group}.{name}", value)
+        return self
 
     def remove_xattr(self, name: str, group="user") -> None:
         """Remove an extended attribute from the file.
