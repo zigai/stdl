@@ -17,6 +17,11 @@ class TimerStop(Data):
     at: float
     label: str | None = None
 
+    def __str__(self) -> str:
+        if self.label is None:
+            return f"total={self.total}, since_last=({self.since_last}), at={fmt_datetime(self.at)}"
+        return f"{self.label} | total={self.total}, since_last={self.since_last}, at={fmt_datetime(self.at)}"
+
 
 class Timer:
     """A simple timer class that keeps track of all the stops."""
@@ -65,6 +70,10 @@ class Timer:
                 label="start",
             )
         ]
+
+    def print_stops(self) -> None:
+        for stop in self.stops:
+            print(stop)
 
 
 def fmt_datetime(
