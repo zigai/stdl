@@ -30,7 +30,7 @@ keywords = [
     "standard library",
 ]
 
-dependencies = ["PyYAML>=6.0", "tqdm"]
+dependencies = ["PyYAML>=6.0", "tqdm", "python-dateutil==2.6.2"]
 
 [project.optional-dependencies]
 test = ["pytest"]
