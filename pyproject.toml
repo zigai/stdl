@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 keywords = [
-    "utilites",
+    "python utilites",
     "filesystem",
     "string manipulation",
     "logging configuration",
@@ -30,8 +30,10 @@ keywords = [
     "standard library",
 ]
 
-
 dependencies = ["PyYAML>=6.0", "tqdm"]
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [project.urls]
 repository = "https://github.com/zigai/stdl"
