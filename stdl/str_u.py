@@ -120,7 +120,6 @@ def colored(
     background: str | None = None,
     style: str | None = None,
 ):
-
     """
     Returns the text with ansi color, background color and text style codes.
 
