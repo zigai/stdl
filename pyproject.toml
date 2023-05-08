@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stdl"
+version = "0.4.3"
+description = "Extended Python Standard Library"
+authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
+license = { file = "LICENSE.txt" }
+readme = "README.md"
+requires-python = ">=3.10"
+
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+keywords = [
+    "utilites",
+    "filesystem",
+    "string manipulation",
+    "logging configuration",
+    "list utils",
+    "standard library",
+]
+
+
+dependencies = ["PyYAML>=6.0", "tqdm"]
+
+[project.urls]
+repository = "https://github.com/zigai/stdl"
+homepage = "https://github.com/zigai/stdl"
+
+[tool.black]
+line-length = 100
+target_version = ['py310']
