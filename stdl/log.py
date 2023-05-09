@@ -29,6 +29,53 @@ def loguru_formater(record: dict) -> str:
     return fmt
 
 
+def get_logging_config(
+    format: str | None = None,
+    level: str = "INFO",
+    filename: str | None = None,
+    backup_count: int = 0,
+    disable_existing: bool = False,
+    console_handler: str = "logging.StreamHandler",
+    file_handler: str = "logging.handlers.TimedRotatingFileHandler",
+    style: str = "{",
+):
+    format = (
+        format or "{asctime} [{levelname:<8s}] [{module}.{funcName}:{lineno}] {name} - {message}"
+    )
+
+    config = {
+        "version": 1,
+        "disable_existing_loggers": disable_existing,
+        "formatters": {
+            "standard": {
+                "format": format,
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+                "style": style,
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": console_handler,
+                "level": level,
+                "formatter": "standard",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "root": {"level": level, "handlers": ["console"]},
+    }
+    if filename:
+        config["handlers"]["file"] = {
+            "class": file_handler,
+            "level": level,
+            "formatter": "standard",
+            "backupCount": backup_count,
+            "filename": filename,
+        }
+        config["root"]["handlers"].append("file")
+
+    return config
+
+
 def br(
     c: str = "_",
     length: int = None,  # type: ignore
