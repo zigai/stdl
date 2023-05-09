@@ -6,13 +6,7 @@ def color_tag(text: str, c: str):
     return f"<{c}>{text}</{c}>"
 
 
-def loguru_formater(record: dict) -> str:
-    """
-    Example:
-    >>> import sys
-    >>> from loguru import logger
-    >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
-    """
+class LoguruFormatter:
     time = color_tag("{time:YYYY-MM-DD HH:mm:ss.SSS}", "light-black")
     level = color_tag("{level: <8}", "level")
     msg = color_tag("{message:<24}", "level")
@@ -20,13 +14,23 @@ def loguru_formater(record: dict) -> str:
     func = color_tag("{function}", "light-blue")
     lineno = color_tag("{line}", "light-blue")
 
-    extras = ""
-    if len(record["extra"]):
-        for key in record["extra"].keys():
-            extras = extras + key + "=" + "{extra[" + key + "]}, "
-        extras = extras[:-2]
-    fmt = f"{time} [ {level} ] {name}:{func}:{lineno} - {msg} {extras}\n"
-    return fmt
+    def format(self, record: dict) -> str:
+        """
+        Example:
+        >>> import sys
+        >>> from loguru import logger
+        >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
+        """
+        extras = ""
+        if len(record["extra"]):
+            for key in record["extra"].keys():
+                extras = extras + key + "=" + "{extra[" + key + "]}, "
+            extras = extras[:-2]
+        fmt = f"{self.time} [ {self.level} ] {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
+        return fmt
+
+
+loguru_formater = LoguruFormatter().format
 
 
 def get_logging_config(
@@ -93,4 +97,4 @@ def br(
     handler(line)
 
 
-__all__ = ["loguru_formater", "br"]
+__all__ = ["loguru_formater", "br", "get_logging_config", "LoguruFormatter"]
