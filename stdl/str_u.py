@@ -181,7 +181,7 @@ def remove(s: str, chrs: str | set, replacement: str = "") -> str:
     string = []
     chrs = set(chrs)
     for c in s:
-        if not c in chrs:
+        if c not in chrs:
             string.append(c)
         else:
             if replacement:

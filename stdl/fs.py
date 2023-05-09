@@ -576,7 +576,7 @@ def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
         1024: {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40},
         1000: {"B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12},
     }
-    if not kb_size in KB_UNITS:
+    if kb_size not in KB_UNITS:
         raise ValueError(kb_size)
     if re.fullmatch(r"[\d]+", size):
         return int(size)
