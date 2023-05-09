@@ -1,17 +1,16 @@
 import random
 import time
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
-from stdl.dataclass import Data, dataclass
-
 local_tz = datetime.now().astimezone().tzinfo
 
 
 @dataclass
-class TimerStop(Data):
+class TimerStop:
     total: timedelta
     since_last: timedelta
     at: float
