@@ -38,7 +38,6 @@ dev = ["black", "pytest", "flake8"]
 
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
-Homepage = "https://github.com/zigai/stdl"
 
 [tool.black]
 line-length = 100
