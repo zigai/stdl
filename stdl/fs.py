@@ -202,7 +202,6 @@ class File:
             newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
         """
         self.__write(data, "a", newline=newline)
-        return self
 
     def write_iter(self, data: Iterable, sep="\n"):
         """Write data from an iterable to a file, overwriting any existing data.
@@ -212,7 +211,6 @@ class File:
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
         self.__write_iter(data, "w", sep=sep)
-        return self
 
     def append_iter(self, data: Iterable, sep="\n"):
         """Append data from an iterable to a file.
@@ -222,7 +220,6 @@ class File:
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
         self.__write_iter(data, "a", sep=sep)
-        return self
 
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()"""
