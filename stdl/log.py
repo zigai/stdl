@@ -26,8 +26,10 @@ class LoguruFormatter:
             for key in record["extra"].keys():
                 extras = extras + key + "=" + "{extra[" + key + "]}, "
             extras = extras[:-2]
-        fmt = f"{self.time} [ {self.level} ] {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
-        return fmt
+
+        if title := record.get("title"):
+            return f"{self.time} [ {self.level} ] [ {title} ] {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
+        return f"{self.time} [ {self.level} ] {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
 
 
 loguru_formater = LoguruFormatter().format
