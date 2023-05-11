@@ -1,4 +1,5 @@
 # stdl
+[![Tests](https://github.com/zigai/stdl/actions/workflows/tests.yml/badge.svg)](https://github.com/zigai/stdl/actions/workflows/tests.yml)
 [![PyPI version](https://badge.fury.io/py/stdl.svg)](https://badge.fury.io/py/stdl)
 ![Supported versions](https://img.shields.io/badge/python-3.10+-blue.svg)
 [![Downloads](https://static.pepy.tech/badge/stdl)](https://pepy.tech/project/stdl)
