@@ -23,8 +23,8 @@ def _get_ansi_val(val: str | None, handler) -> str:
 
 
 class ColorANSI:
-    # Cancel SGR codes if we don't write to a terminal or NO_COLOR is set
-    if not stdout.isatty() or NO_COLOR:
+    # Cancel SGR codes if we don't write to a terminal
+    if not stdout.isatty():
         for _ in dir():
             if isinstance(_, str) and _[0] != "_":
                 locals()[_] = ""
