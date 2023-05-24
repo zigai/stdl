@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools", "setuptools-scm"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "stdl"
 version = "0.4.5"
@@ -10,6 +6,7 @@ authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE.txt" }
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0", "tqdm", "python-dateutil==2.8.2"]
 
 classifiers = [
     "Intended Audience :: Developers",
@@ -30,7 +27,6 @@ keywords = [
     "standard library",
 ]
 
-dependencies = ["PyYAML>=6.0", "tqdm", "python-dateutil==2.8.2"]
 
 [project.optional-dependencies]
 test = ["pytest"]
@@ -72,3 +68,7 @@ exclude = [
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401", "E402"]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
