@@ -5,6 +5,7 @@ from platform import system
 from sys import stdout
 
 CSI_RESET = "\033["
+NO_COLOR = bool(os.environ.get("NO_COLOR", False))
 
 
 def ansi_code(n: int) -> str:
@@ -22,7 +23,8 @@ def _get_ansi_val(val: str | None, handler) -> str:
 
 
 class ColorANSI:
-    if not stdout.isatty():  # Cancel SGR codes if we don't write to a terminal
+    # Cancel SGR codes if we don't write to a terminal or NO_COLOR is set
+    if not stdout.isatty() or NO_COLOR:
         for _ in dir():
             if isinstance(_, str) and _[0] != "_":
                 locals()[_] = ""
@@ -46,7 +48,7 @@ class ColorANSI:
         ignored = ["dict", "print_all", "get_all"]
         for i in dir(cls):
             if i[0] != "_" and i not in ignored:
-                d[i] = cls.__class_getitem__(i)
+                d[i] = cls[i]
         return d
 
     @classmethod
@@ -132,6 +134,8 @@ def colored(
     Returns:
         str: The colorized text.
     """
+    if NO_COLOR:
+        return text
     color = _get_ansi_val(color, FG)
     background = _get_ansi_val(background, BG)
     style = _get_ansi_val(style, ST)
@@ -199,7 +203,6 @@ def keep(s: str, chrs: str | set, replacement: str = "") -> str:
         replacement (str, optional): If provided, replace other characters with this value.
 
     """
-    # return re.compile("[^" + "".join(set(chrs)) + "]").sub(replacement, s)
     string = []
     chrs = set(chrs)
     for c in s:
