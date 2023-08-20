@@ -1,7 +1,7 @@
 from os import get_terminal_size
 from typing import Callable
 
-from stdl.str_u import colored
+from stdl.st import colored
 
 IGNORE_BREAKS = False
 
