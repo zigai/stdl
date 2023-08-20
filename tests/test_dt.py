@@ -11,8 +11,8 @@ def test_fmt_datetime():
     assert fmt_datetime(0.0, utc=True) == "1970-01-01 00:00:00"
     assert fmt_datetime(0) == "1970-01-01 00:00:00"
     assert fmt_datetime(0, fmt="dmY") == "01-01-1970 00:00:00"
-    assert fmt_datetime(0, fmt="dmY", d_sep="/") == "01/01/1970 00:00:00"
-    assert fmt_datetime(0, fmt="dmY", d_sep="/", t_sep=".") == "01/01/1970 00.00.00"
+    assert fmt_datetime(0, fmt="dmY", dsep="/") == "01/01/1970 00:00:00"
+    assert fmt_datetime(0, fmt="dmY", dsep="/", tsep=".") == "01/01/1970 00.00.00"
     # assert fmt_datetime(0.0, utc=False) == "1970-01-01 01:00:00"
 
 

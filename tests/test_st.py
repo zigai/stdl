@@ -1,4 +1,4 @@
-from stdl.str_u import *
+from stdl.st import *
 
 
 def test_snake_case():
