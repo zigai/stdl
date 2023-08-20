@@ -21,8 +21,11 @@ class TimerStop:
             return f"total={self.total}, since_last=({self.since_last}), at={fmt_datetime(self.at)}"
         return f"{self.label} | total={self.total}, since_last={self.since_last}, at={fmt_datetime(self.at)}"
 
-    def total_seconds(self) -> float:
-        return self.total.total_seconds()
+    def total_seconds(self, *, r: int | None = None) -> float:
+        seconds = self.total.total_seconds()
+        if r is not None:
+            return round(seconds, r)
+        return seconds
 
 
 class Timer:
@@ -61,8 +64,8 @@ class Timer:
         self.stops.append(timer_stop)
         return timer_stop
 
-    def taken_seconds(self) -> float:
-        return self.stop().total_seconds()
+    def taken_seconds(self, r: int | None = None) -> float:
+        return self.stop().total_seconds(r=r)
 
     def taken(self) -> timedelta:
         return self.stop().total
