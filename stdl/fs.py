@@ -28,6 +28,10 @@ basename = os.path.basename
 dirname = os.path.dirname
 joinpath = os.path.join
 splitpath = os.path.split
+isdir = os.path.isdir
+isfile = os.path.isfile
+islink = os.path.islink
+exists = os.path.exists
 
 AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
 IMAGE_EXT = (
@@ -172,13 +176,13 @@ class File:
         with open(self.path, "r", encoding=self.encoding) as f:
             return f.read()
 
-    def __write(self, data, mode: str, *, newline: bool = True):
+    def _write(self, data, mode: str, *, newline: bool = True):
         with open(self.path, mode, encoding=self.encoding) as f:
             f.write(data)
             if newline:
                 f.write("\n")
 
-    def __write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
+    def _write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
@@ -191,7 +195,7 @@ class File:
             data (Any): The data to write.
             newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
         """
-        self.__write(data, "w", newline=newline)
+        self._write(data, "w", newline=newline)
 
     def append(self, data, *, newline: bool = True):
         """
@@ -201,7 +205,7 @@ class File:
             data (Any): The data to append.
             newline (bool, optional): Whether to add a newline at the end of the data. Defaults to True.
         """
-        self.__write(data, "a", newline=newline)
+        self._write(data, "a", newline=newline)
 
     def write_iter(self, data: Iterable, sep="\n"):
         """Write data from an iterable to a file, overwriting any existing data.
@@ -210,7 +214,7 @@ class File:
             data (Iterable): The data to write.
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
-        self.__write_iter(data, "w", sep=sep)
+        self._write_iter(data, "w", sep=sep)
 
     def append_iter(self, data: Iterable, sep="\n"):
         """Append data from an iterable to a file.
@@ -219,7 +223,7 @@ class File:
             data (Iterable): The data to append.
             sep (str, optional): The separator to use between items. Defaults to "\\n".
         """
-        self.__write_iter(data, "a", sep=sep)
+        self._write_iter(data, "a", sep=sep)
 
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()"""
@@ -537,9 +541,12 @@ def rand_filename(prefix: str = "file", ext: str = "") -> str:
     """
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
-    creation_time = fmt_datetime(d_sep="-", t_sep="-", ms=True).replace(" ", ".")
-    num = str(random.randrange(10000000, 99999999)).zfill(8)
-    return f"{prefix}.{creation_time}.{num}{ext}"
+    creation_time = fmt_datetime(dsep="-", tsep="-", ms=True).replace(" ", ".")
+    num = str(random.randrange(1000000000, 9999999999)).zfill(10)
+    filename = f"{prefix}.{num}.{creation_time}{ext}"
+    if exists(filename):
+        return rand_filename(prefix, ext)
+    return filename
 
 
 def bytes_readable(size_bytes: int) -> str:
@@ -744,7 +751,7 @@ def get_dirs_in(directory: str | Path, *, recursive: bool = True) -> list[str]:
     return list(yield_dirs_in(directory, recursive=recursive))
 
 
-def __assert_path_exists(path: Pathlike) -> None:
+def _assert_path_exists(path: Pathlike) -> None:
     if not os.path.exists(pathlike_to_str(path)):
         raise FileNotFoundError(f"No such file or directory: '{path}'")
 
@@ -760,10 +767,10 @@ def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]) -> None:
     """
     for path in args:
         if isinstance(path, (str, bytes)):
-            __assert_path_exists(path)
+            _assert_path_exists(path)
         elif isinstance(path, Iterable):
             for i in path:
-                __assert_path_exists(i)
+                _assert_path_exists(i)
 
 
 def exec_cmd(
@@ -840,6 +847,20 @@ def read_stdin(timeout: float = 0.25) -> list[str]:
     return []
 
 
+def start_file(path: Pathlike) -> None:
+    path = pathlike_to_str(path)
+    if is_wsl():
+        exec_cmd(f"cmd.exe /C start '{path}'")
+    elif sys.platform == "win32":
+        os.startfile(path)
+    elif sys.platform == "darwin":
+        exec_cmd(f"open {path}")
+    elif sys.platform == "linux":
+        exec_cmd(f"xdg-open '{path}'")
+    else:
+        raise NotImplementedError(f"Unsupported platform: {sys.platform}")
+
+
 __all__ = [
     "IMAGE_EXT",
     "AUDIO_EXT",
@@ -878,4 +899,9 @@ __all__ = [
     "joinpath",
     "splitpath",
     "read_stdin",
+    "start_file",
+    "isdir",
+    "isfile",
+    "islink",
+    "exists",
 ]
