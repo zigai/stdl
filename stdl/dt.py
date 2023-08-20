@@ -65,9 +65,15 @@ class Timer:
         return timer_stop
 
     def taken_seconds(self, r: int | None = None) -> float:
+        """
+        Returns the total time taken by the timer in seconds.
+        """
         return self.stop().total_seconds(r=r)
 
     def taken(self) -> timedelta:
+        """
+        Returns the total time taken by the timer as timedelta.
+        """
         return self.stop().total
 
     def reset(self) -> None:
