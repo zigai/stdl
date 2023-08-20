@@ -21,6 +21,9 @@ class TimerStop:
             return f"total={self.total}, since_last=({self.since_last}), at={fmt_datetime(self.at)}"
         return f"{self.label} | total={self.total}, since_last={self.since_last}, at={fmt_datetime(self.at)}"
 
+    def total_seconds(self) -> float:
+        return self.total.total_seconds()
+
 
 class Timer:
     """A simple timer class that keeps track of all the stops."""
@@ -58,6 +61,12 @@ class Timer:
         self.stops.append(timer_stop)
         return timer_stop
 
+    def taken_seconds(self) -> float:
+        return self.stop().total_seconds()
+
+    def taken(self) -> timedelta:
+        return self.stop().total
+
     def reset(self) -> None:
         """Reset the timer."""
         self.start = time.time()
@@ -78,8 +87,8 @@ class Timer:
 def fmt_datetime(
     d: str | float | int | None | datetime = None,
     fmt: str = "Ymd",
-    d_sep: str = "-",
-    t_sep: str = ":",
+    dsep: str = "-",
+    tsep: str = ":",
     *,
     ms: bool = False,
     utc: bool = True,
@@ -89,8 +98,8 @@ def fmt_datetime(
     Args:
         d (str | float | None | datetime, optional): Input datetime. Defaults to None.
         fmt (str, optional): Date format. Defaults to "Ymd".
-        d_sep (str, optional): Date values separator. Defaults to "-".
-        t_sep (str, optional): Time values separator. Defaults to ":".
+        dsep (str, optional): Date values separator. Defaults to "-".
+        tsep (str, optional): Time values separator. Defaults to ":".
         ms (bool, optional): include miliseconds. Defaults to False.
         utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp. Defaults to True.
 
@@ -106,7 +115,7 @@ def fmt_datetime(
     '2022-11-22 22:40:04' # current date and time
     >>> fmt_datetime(0)
     "1970-01-01 00:00:00"
-    >>> fmt_datetime(0, fmt="dmY", d_sep="/")
+    >>> fmt_datetime(0, fmt="dmY", dsep="/")
     "01/01/1970 00:00:00"
     """
     if d is None:
@@ -120,8 +129,8 @@ def fmt_datetime(
         pass
     else:
         raise TypeError(type(d))
-    date_fmt = f"%{fmt[0]}{d_sep}%{fmt[1]}{d_sep}%{fmt[2]}"
-    time_fmt = f"%H{t_sep}%M{t_sep}%S"
+    date_fmt = f"%{fmt[0]}{dsep}%{fmt[1]}{dsep}%{fmt[2]}"
+    time_fmt = f"%H{tsep}%M{tsep}%S"
     if ms:
         time_fmt += ".%f"
     dt_str = d.strftime(f"{date_fmt} {time_fmt}")
