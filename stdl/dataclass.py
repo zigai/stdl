@@ -34,8 +34,9 @@ class Data:
     def parse_obj(cls, obj: Mapping[str, Any]):
         return cls(**obj)
 
-    def parse_file(self, filepath: Pathlike):
-        return self.parse_obj(json_load(filepath))  # type:ignore
+    @classmethod
+    def parse_file(cls, filepath: Pathlike):
+        return cls.parse_obj(json_load(filepath))  # type:ignore
 
     def print(self):
         pprint(self.dict)
