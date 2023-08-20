@@ -3,6 +3,8 @@ from typing import Callable
 
 from stdl.str_u import colored
 
+IGNORE_BREAKS = False
+
 
 def color_tag(text: str, c: str):
     return f"<{c}>{text}</{c}>"
@@ -104,6 +106,8 @@ def br(
     *,
     newline=False,
 ) -> None:
+    if IGNORE_BREAKS:
+        return
     try:
         length = length or get_terminal_size().columns
     except OSError:  # OSError: [Errno 25] Inappropriate ioctl for device
