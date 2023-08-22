@@ -78,7 +78,7 @@ class Timer:
 
     def reset(self) -> None:
         """Reset the timer."""
-        self.start = time.time()
+        self.start = time.perf_counter()
         self.stops: list[TimerStop] = [
             TimerStop(
                 total=timedelta(seconds=0),
