@@ -81,6 +81,7 @@ class TestRetryDecorator:
     def test_retry_failure(self):
         counter = [0]
 
+        @retry(attempts=3)
         def failing_func():
             counter[0] += 1
             raise Exception("Failure")
