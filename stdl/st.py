@@ -286,6 +286,43 @@ def wrapped(text: str, width: int, newline: str = "\n") -> str:
     return newline.join(textwrap.wrap(text, width=width))
 
 
+def len_without_ansi(s: str) -> int:
+    """Returns the length of the string without the ANSI codes."""
+    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
+    codes_len = sum(len(code) for code in ascii_codes)
+    return len(s) - codes_len
+
+
+def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:
+    """
+    ljust function that takes into account the length of the ANSI codes in the string.
+
+    Args:
+        s (str): The string to be left justified.
+        width (int): The width of the string.
+        fillchar (str, optional): The character to fill the string with. Defaults to " ".
+    """
+    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
+    codes_len = sum(len(code) for code in ascii_codes)
+    new_width = width + codes_len
+    return s.ljust(new_width, fillchar)
+
+
+def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
+    """
+    rjust function that takes into account the length of the ANSI codes in the string.
+
+    Args:
+        s (str): The string to be right justified.
+        width (int): The width of the string.
+        fillchar (str, optional): The character to fill the string with. Defaults to " ".
+    """
+    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
+    codes_len = sum(len(code) for code in ascii_codes)
+    new_width = width + codes_len
+    return s.rjust(new_width, fillchar)
+
+
 if __name__ == "__main__":
     FG.print_all()
     BG.print_all()
@@ -305,4 +342,7 @@ __all__ = [
     "camel_case",
     "kebab_case",
     "wrapped",
+    "len_without_ansi",
+    "ansi_ljust",
+    "ansi_rjust",
 ]
