@@ -47,7 +47,7 @@ class Timer:
         """
         t = time.time()
         elapsed_total = t - self.start
-        since_last = t - self.stops[-1].at
+        since_last = t - self.stops[-1].at if self.stops else 0
         if not self.ms:
             elapsed_total = round(elapsed_total)
             since_last = round(since_last)
@@ -78,7 +78,7 @@ class Timer:
 
     def reset(self) -> None:
         """Reset the timer."""
-        self.start = time.perf_counter()
+        self.start = time.time()
         self.stops: list[TimerStop] = [
             TimerStop(
                 total=timedelta(seconds=0),
