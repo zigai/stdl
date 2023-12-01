@@ -4,14 +4,14 @@ from dataclasses import asdict, astuple, dataclass
 from pprint import pprint
 from typing import Any, Mapping
 
-from stdl.fs import Pathlike, json_load
+from stdl.fs import pathlike, json_load
 
 
 class Data:
     def __init__(self) -> None:
         pass
 
-    def __getitem__(self, key):
+    def __getitem__(self, key:str):
         return self.dict()[key]
 
     def __iter__(self):
@@ -35,7 +35,7 @@ class Data:
         return cls(**obj)
 
     @classmethod
-    def parse_file(cls, filepath: Pathlike):
+    def parse_file(cls, filepath: pathlike):
         return cls.parse_obj(json_load(filepath))  # type:ignore
 
     def print(self):

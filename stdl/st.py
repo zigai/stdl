@@ -12,14 +12,13 @@ def ansi_code(n: int) -> str:
     return f"{CSI_RESET}{n}m"
 
 
-def _get_ansi_val(val: str | None, handler) -> str:
-    if val == "" or val is None:
+def _get_ansi_value(value: str | None, handler) -> str:
+    if not value:
         return ""
     try:
-        clr = handler[val]
-        return clr
+        return handler[value]
     except KeyError:
-        return val
+        return value
 
 
 class ColorANSI:
@@ -134,11 +133,11 @@ def colored(
     Returns:
         str: The colorized text.
     """
-    if NO_COLOR:
+    if NO_COLOR or not stdout.isatty():
         return text
-    color = _get_ansi_val(color, FG)
-    background = _get_ansi_val(background, BG)
-    style = _get_ansi_val(style, ST)
+    color = _get_ansi_value(color, FG)
+    background = _get_ansi_value(background, BG)
+    style = _get_ansi_value(style, ST)
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
@@ -152,7 +151,9 @@ def terminal_link(
     """
     Returns a hyperlink that can be used in terminals.
 
-    Hyperlinks are not supported in all terminals, for more information visit
+    Hyperlinks are not supported in all terminals. for more information visit
+    https://github.com/Alhadis/OSC8-Adoption/
+    and
     https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
     Args:
@@ -167,12 +168,16 @@ def terminal_link(
     """
     if label is None:
         label = uri
-    link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
+
+    if stdout.isatty():
+        link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
+    else:
+        link = uri
     link = colored(link, color, background, style)
     return link
 
 
-def remove(s: str, chrs: str | set, replacement: str = "") -> str:
+def remove(s: str, chars: str | set, replacement: str = "") -> str:
     """
     Remove or replace characters in a string.
 
@@ -183,9 +188,9 @@ def remove(s: str, chrs: str | set, replacement: str = "") -> str:
 
     """
     string = []
-    chrs = set(chrs)
+    chars = set(chars)
     for c in s:
-        if c not in chrs:
+        if c not in chars:
             string.append(c)
         else:
             if replacement:
@@ -193,7 +198,7 @@ def remove(s: str, chrs: str | set, replacement: str = "") -> str:
     return "".join(string)
 
 
-def keep(s: str, chrs: str | set, replacement: str = "") -> str:
+def keep(s: str, chars: str | set, replacement: str = "") -> str:
     """
     Keep provided characters in a string. Remove or replace others.
 
@@ -204,9 +209,9 @@ def keep(s: str, chrs: str | set, replacement: str = "") -> str:
 
     """
     string = []
-    chrs = set(chrs)
+    chars = set(chars)
     for c in s:
-        if c in chrs:
+        if c in chars:
             string.append(c)
         else:
             if replacement:
@@ -217,7 +222,7 @@ def keep(s: str, chrs: str | set, replacement: str = "") -> str:
 ASCII = set("".join(chr(x) for x in range(128)))
 
 
-class StringFilter:
+class sf:
     """
     A collection of functions that can be used to filter strings.
     """
@@ -227,17 +232,17 @@ class StringFilter:
         """
         Removes or replaces characters that are not allowed to be in a filename.
         """
-        return remove(filename, chrs='|?*<>:"\\', replacement=replacement)
+        return remove(filename, chars='|?*<>:"\\', replacement=replacement)
 
     @classmethod
     def filepath(cls, filepath: str, replacement: str = "") -> str:
         """
         Removes or replaces characters that are not allowed to be in a filepath.
         """
-        dn, fn = os.path.split(filepath)
-        fn = StringFilter.filename(fn, replacement)
-        dn = remove(dn, '|?*<>:"')
-        return f"{dn}{os.sep}{fn}"
+        dirname, filename = os.path.split(filepath)
+        filename = sf.filename(filename, replacement)
+        dirname = remove(dirname, '|?*<>:"')
+        return f"{dirname}{os.sep}{filename}"
 
     @classmethod
     def ascii(cls, s: str, replacement: str = ""):
@@ -337,7 +342,7 @@ __all__ = [
     "remove",
     "keep",
     "ASCII",
-    "StringFilter",
+    "sf",
     "snake_case",
     "camel_case",
     "kebab_case",

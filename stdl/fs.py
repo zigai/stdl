@@ -33,42 +33,44 @@ isfile = os.path.isfile
 islink = os.path.islink
 exists = os.path.exists
 
-AUDIO_EXT = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
-IMAGE_EXT = (
-    ".jpg",
-    ".png",
-    ".jpeg",
-    ".webp",
-    ".gif",
-    ".bmp",
-    ".tif",
-    ".tiff",
-    ".jfif",
-    ".heic",
-    ".dib",
-    ".jp2",
-    ".jpx",
-    ".j2k",
-    ".jxl",
-)
-VIDEO_EXT = (
-    ".mp4",
-    ".mkv",
-    ".avi",
-    ".flv",
-    ".mov",
-    ".webm",
-    ".mpg",
-    ".mpeg",
-    ".mpe",
-    ".mpv",
-    ".ogg",
-    ".m4p",
-    ".m4v",
-    ".wmv",
-    ".f4v",
-    ".swf",
-)
+
+class EXT:
+    AUDIO = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
+    IMAGE = (
+        ".jpg",
+        ".png",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".jfif",
+        ".heic",
+        ".dib",
+        ".jp2",
+        ".jpx",
+        ".j2k",
+        ".jxl",
+    )
+    VIDEO = (
+        ".mp4",
+        ".mkv",
+        ".avi",
+        ".flv",
+        ".mov",
+        ".webm",
+        ".mpg",
+        ".mpeg",
+        ".mpe",
+        ".mpv",
+        ".ogg",
+        ".m4p",
+        ".m4v",
+        ".wmv",
+        ".f4v",
+        ".swf",
+    )
 
 
 class File:
@@ -164,6 +166,8 @@ class File:
         os.remove(self.path)
         return self
 
+    delete = remove
+
     def clear(self):
         """Clear the contents of a file if it exists"""
         if not self.exists:
@@ -249,7 +253,7 @@ class File:
         self.path = mv_path
         return self
 
-    def copy_to(self, directory, *, mkdir=False, overwrite=True):
+    def copy_to(self, directory: str, *, mkdir=False, overwrite=True):
         """
         Copy the file to a new directory.
 
@@ -267,40 +271,6 @@ class File:
             raise FileExistsError(copy_path)
         self.path = shutil.copy2(self.path, directory)
         return self
-
-    def get_xattr(self, name: str, group="user") -> str:
-        """Retrieve the value of an extended attribute for the file.
-
-        Args:
-            name (str): The name of the extended attribute.
-            group (str, optional): The group of the extended attribute. Defaults to "user".
-
-        Returns:
-            str: The value of the extended attribute.
-        """
-        return os.getxattr(self.path, f"{group}.{name}").decode()
-
-    def set_xattr(self, value: str | bytes, name: str, group="user"):
-        """Set an extended attribute for the file.
-
-        Args:
-            value (str | bytes): The value of the extended attribute.
-            name (str): The name of the extended attribute.
-            group (str, optional): The group of the extended attribute. Defaults to "user".
-        """
-        if isinstance(value, str):
-            value = value.encode()
-        os.setxattr(self.path, f"{group}.{name}", value)
-        return self
-
-    def remove_xattr(self, name: str, group="user") -> None:
-        """Remove an extended attribute from the file.
-
-        Args:
-            name (str): The name of the extended attribute.
-            group (str, optional): The group of the extended attribute. Defaults to "user".
-        """
-        os.removexattr(self.path, f"{group}.{name}")
 
     def with_ext(self, ext: str):
         """Change the extension of the file and return the new File object
@@ -359,31 +329,71 @@ class File:
         """
         return File(rand_filename(prefix, ext))
 
+    if sys.platform != "win32":
 
-Pathlike: TypeAlias = str | Path | File | bytes
+        def get_xattr(self, name: str, group="user") -> str:
+            """Retrieve the value of an extended attribute for the file.
+
+            Args:
+                name (str): The name of the extended attribute.
+                group (str, optional): The group of the extended attribute. Defaults to "user".
+
+            Returns:
+                str: The value of the extended attribute.
+            """
+            return os.getxattr(self.path, f"{group}.{name}").decode()
+
+    if sys.platform != "win32":
+
+        def set_xattr(self, value: str | bytes, name: str, group="user"):
+            """Set an extended attribute for the file.
+
+            Args:
+                value (str | bytes): The value of the extended attribute.
+                name (str): The name of the extended attribute.
+                group (str, optional): The group of the extended attribute. Defaults to "user".
+            """
+            if isinstance(value, str):
+                value = value.encode()
+            os.setxattr(self.path, f"{group}.{name}", value)
+            return self
+
+    if sys.platform != "win32":
+
+        def remove_xattr(self, name: str, group="user") -> None:
+            """Remove an extended attribute from the file.
+
+            Args:
+                name (str): The name of the extended attribute.
+                group (str, optional): The group of the extended attribute. Defaults to "user".
+            """
+            os.removexattr(self.path, f"{group}.{name}")
 
 
-def pathlike_to_str(path: Pathlike) -> str:
+pathlike: TypeAlias = str | Path | File | bytes
+
+
+def pathlike_to_str(path: pathlike) -> str:
     """Converts a pathlike object to a string."""
     if isinstance(path, bytes):
         return path.decode()
     return str(path)
 
 
-def pickle_load(filepath: Pathlike):
+def pickle_load(filepath: pathlike):
     """Loads a pickled file."""
     with open(pathlike_to_str(filepath), "rb") as f:
         return pickle.load(f)
 
 
-def pickle_dump(data: Any, filepath: Pathlike) -> None:
+def pickle_dump(data: Any, filepath: pathlike) -> None:
     """Dumps an object to the specified filepath."""
 
     with open(pathlike_to_str(filepath), "wb") as f:
         pickle.dump(data, f)
 
 
-def json_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+def json_load(path: pathlike, encoding="utf-8") -> dict | list[dict]:
     """Load a JSON file from the given path.
 
     Args:
@@ -399,10 +409,10 @@ def json_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
 
 def json_append(
     data: dict | list[dict],
-    filepath: Pathlike,
-    encoding="utf-8",
+    filepath: pathlike,
+    encoding: str = "utf-8",
     default=None,
-    indent=4,
+    indent: int = 4,
 ):
     """Appends data to a JSON file.
     Args:
@@ -443,7 +453,7 @@ def json_append(
             raise ValueError(f"Cannot parse '{path}' as JSON.")
 
 
-def yaml_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
+def yaml_load(path: pathlike, encoding: str = "utf-8") -> dict | list[dict]:
     """Load a YAML file from the given path.
 
     Args:
@@ -457,7 +467,7 @@ def yaml_load(path: Pathlike, encoding="utf-8") -> dict | list[dict]:
         return yaml.safe_load(f)
 
 
-def json_dump(data, path: Pathlike, encoding="utf-8", default=str, indent=4) -> None:
+def json_dump(data, path: pathlike, encoding: str = "utf-8", default=str, indent=4) -> None:
     """
     Dumps data to a JSON file
 
@@ -472,7 +482,7 @@ def json_dump(data, path: Pathlike, encoding="utf-8", default=str, indent=4) -> 
         json.dump(data, f, indent=indent, default=default)
 
 
-def yaml_dump(data, path: Pathlike, encoding="utf-8") -> None:
+def yaml_dump(data, path: pathlike, encoding: str = "utf-8") -> None:
     """
     Dumps data to a YAML file
     Args:
@@ -507,7 +517,7 @@ def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
     return total_size
 
 
-def move_files(files: list[Pathlike], directory: str | Path, *, mkdir: bool = False) -> None:
+def move_files(files: list[pathlike], directory: str | Path, *, mkdir: bool = False) -> None:
     """Moves files to a specified directory
 
     Args:
@@ -751,12 +761,12 @@ def get_dirs_in(directory: str | Path, *, recursive: bool = True) -> list[str]:
     return list(yield_dirs_in(directory, recursive=recursive))
 
 
-def _assert_path_exists(path: Pathlike) -> None:
+def _assert_path_exists(path: pathlike) -> None:
     if not os.path.exists(pathlike_to_str(path)):
         raise FileNotFoundError(f"No such file or directory: '{path}'")
 
 
-def assert_paths_exist(*args: Pathlike | Iterable[Pathlike]) -> None:
+def assert_paths_exist(*args: pathlike | Iterable[pathlike]) -> None:
     """Asserts that the specified paths exist.
 
     Args:
@@ -847,7 +857,7 @@ def read_stdin(timeout: float = 0.25) -> list[str]:
     return []
 
 
-def start_file(path: Pathlike) -> None:
+def startfile(path: pathlike) -> None:
     path = pathlike_to_str(path)
     if is_wsl():
         exec_cmd(f"cmd.exe /C start '{path}'")
@@ -866,7 +876,7 @@ __all__ = [
     "AUDIO_EXT",
     "VIDEO_EXT",
     "File",
-    "Pathlike",
+    "pathlike",
     "make_dir",
     "pathlike_to_str",
     "pickle_load",
@@ -899,7 +909,7 @@ __all__ = [
     "joinpath",
     "splitpath",
     "read_stdin",
-    "start_file",
+    "startfile",
     "isdir",
     "isfile",
     "islink",
