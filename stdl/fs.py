@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from queue import Queue
@@ -20,6 +21,10 @@ from typing import IO, Any, Generator, TypeAlias
 import yaml
 
 from stdl.dt import fmt_datetime
+
+stat = os.stat
+link = os.link
+getcwd = os.getcwd
 
 SEP = os.sep
 HOME = os.path.expanduser("~")
@@ -32,6 +37,15 @@ isdir = os.path.isdir
 isfile = os.path.isfile
 islink = os.path.islink
 exists = os.path.exists
+
+chdir = os.chdir
+chmod = os.chmod
+remove = os.remove
+rename = os.rename
+
+copy = shutil.copy2
+move = shutil.move
+chown = shutil.chown
 
 
 class EXT:
@@ -83,11 +97,12 @@ class File:
             abspath (bool, keyword-only): Whether to use the absolute path. Defaults to True.
         """
         if isinstance(path, (Path, File)):
-            path = str(path)
+            self.path: str = str(path)
         elif isinstance(path, bytes):
-            path = path.decode()
+            self.path: str = path.decode()
+
         if abspath:
-            self.path = os.path.abspath(path)
+            self.path = os.path.abspath(self.path)
         self.encoding = encoding
 
     def __str__(self):
@@ -113,17 +128,26 @@ class File:
         return os.path.getmtime(self.path)
 
     @property
+    def accessed(self) -> float:
+        """The time when the file was last accessed as a UNIX timestamp."""
+        return os.path.getatime(self.path)
+
+    @property
     def basename(self) -> str:
         """The file's base name (without the directory)."""
         return os.path.basename(self.path)
 
+    ctime = created
+    mtime = modified
+    atime = accessed
+
     @property
-    def ext(self) -> str | None:
+    def ext(self) -> str:
         """The file's extension (without the dot).
-        Returns None if the file has no extension."""
+        Returns empty string if the file has no extension."""
         if "." in self.basename:
             return self.basename.split(".")[-1]
-        return None
+        return ""
 
     @property
     def abspath(self) -> str:
@@ -174,6 +198,9 @@ class File:
             return
         open(self.path, "w", encoding=self.encoding).close()
         return self
+
+    def parent(self) -> Path:
+        return self.to_path().parent
 
     def read(self) -> str:
         """Read the contents of a file."""
@@ -246,11 +273,11 @@ class File:
             directory (str): The destination directory.
             overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
         """
-        mv_path = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(mv_path) and not overwrite:
-            raise FileExistsError(mv_path)
-        os.rename(self.path, mv_path)
-        self.path = mv_path
+        move_path = f"{directory}{SEP}{self.basename}"
+        if os.path.exists(move_path) and not overwrite:
+            raise FileExistsError(move_path)
+        os.rename(self.path, move_path)
+        self.path = move_path
         return self
 
     def copy_to(self, directory: str, *, mkdir=False, overwrite=True):
@@ -289,9 +316,7 @@ class File:
     def with_suffix(self, suffix: str):
         """Add a suffix to the file's name and return the new File object."""
         ext = self.ext
-        if ext is None:
-            ext = ""
-        else:
+        if ext:
             ext = f".{ext}"
         filename = f"{self.stem}{suffix}{ext}"
         self.path = f"{self.dirname}{SEP}{filename}"
@@ -300,9 +325,7 @@ class File:
     def with_prefix(self, prefix: str):
         """Add a prefix to the file's name and return the new File object."""
         ext = self.ext
-        if ext is None:
-            ext = ""
-        else:
+        if ext:
             ext = f".{ext}"
         filename = f"{prefix}{self.stem}{ext}"
         self.path = f"{self.dirname}{SEP}{filename}"
@@ -313,6 +336,38 @@ class File:
         new_path = f"{self.dirname}{SEP}{name}"
         os.rename(self.path, new_path)
         self.path = new_path
+        return self
+
+    def chmod(self, mode: int):
+        """Change the file's permissions."""
+        os.chmod(self.path, mode)
+        return self
+
+    def chown(self, user: str, group: str):
+        """Change the file's owner and group."""
+        shutil.chown(self.path, user, group)
+        return self
+
+    def link(self, target: str):
+        """Create a hard link to the file."""
+        os.link(self.path, target)
+        return self
+
+    def symlink(self, target: str):
+        """Create a symbolic link to the file."""
+        os.symlink(self.path, target)
+        return self
+
+    def should_exist(self):
+        """Raise FileNotFoundError if the file does not exist."""
+        if not self.exists:
+            raise FileNotFoundError(f"No such file: '{self.path}'")
+        return self
+
+    def should_not_exist(self):
+        """Raise FileExistsError if the file exists."""
+        if self.exists:
+            raise FileExistsError(f"File already exists: '{self.path}'")
         return self
 
     @classmethod
@@ -343,8 +398,6 @@ class File:
             """
             return os.getxattr(self.path, f"{group}.{name}").decode()
 
-    if sys.platform != "win32":
-
         def set_xattr(self, value: str | bytes, name: str, group="user"):
             """Set an extended attribute for the file.
 
@@ -357,8 +410,6 @@ class File:
                 value = value.encode()
             os.setxattr(self.path, f"{group}.{name}", value)
             return self
-
-    if sys.platform != "win32":
 
         def remove_xattr(self, name: str, group="user") -> None:
             """Remove an extended attribute from the file.
@@ -517,7 +568,7 @@ def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
     return total_size
 
 
-def move_files(files: list[pathlike], directory: str | Path, *, mkdir: bool = False) -> None:
+def move_files(files: list[pathlike], directory: str | Path, *, make_dir: bool = False) -> None:
     """Moves files to a specified directory
 
     Args:
@@ -529,9 +580,9 @@ def move_files(files: list[pathlike], directory: str | Path, *, mkdir: bool = Fa
         FileNotFoundError : if the target directory does not exist and mkdir is False.
     """
     directory = str(directory)
-    if not os.path.exists(directory):
-        if mkdir:
-            os.makedirs(directory)
+    if exists(directory):
+        if make_dir:
+            mkdir(directory)
         else:
             raise FileNotFoundError(f"{directory} is not a directory")
     for file in files:
@@ -622,23 +673,27 @@ def is_wsl() -> bool:
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
-def make_dirs(dest: str, directories: list[str]) -> None:
+def mkdir(path: pathlike, mode: int = 511, exist_ok: bool = True) -> None:
+    """Creates a directory.
+    Args:
+        path (str | Path): The path of the directory to create.
+        exist_ok (bool, optional): Whether to raise an exception if the directory already exists. Defaults to True.
+    """
+    os.makedirs(pathlike_to_str(path), exist_ok=exist_ok, mode=mode)
+
+
+def mkdirs(dest: str, names: list[str]) -> None:
     """Creates directories inside a destination directory.
     Args:
         dest (str): The destination directory.
-        dirs (list[str]): A list of directories to be created in the destination directory.
+        names (list[str]): A list of directory names to be created in the destination directory.
     """
-    if not os.path.exists(dest):
-        os.makedirs(dest)
-    for i in directories:
-        if not os.path.exists(i):
-            os.mkdir(f"{dest}{SEP}{i}")
-
-
-def make_dir(directory: str):
-    """Creates a directory if it doesn't exist."""
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if exists(dest):
+        mkdir(dest)
+    for i in names:
+        if not exists(i):
+            path = f"{dest}{SEP}{i}"
+            mkdir(path)
 
 
 def yield_files_in(
@@ -783,19 +838,53 @@ def assert_paths_exist(*args: pathlike | Iterable[pathlike]) -> None:
                 _assert_path_exists(i)
 
 
-def exec_cmd(
+class CompletedCommand(subprocess.CompletedProcess):
+    def __init__(
+        self,
+        args,
+        returncode: int,
+        time_taken: float,
+        stdout: Any | None = None,
+        stderr: Any | None = None,
+    ) -> None:
+        super().__init__(args, returncode, stdout, stderr)
+        self.time_taken = time_taken
+
+    def __repr__(self):
+        args = [
+            "args={!r}".format(self.args),
+            "returncode={!r}".format(self.returncode),
+            f"time_taken={self.time_taken}s",
+        ]
+        if self.stdout is not None:
+            args.append("stdout={!r}".format(self.stdout))
+        if self.stderr is not None:
+            args.append("stderr={!r}".format(self.stderr))
+        return "{}({})".format(type(self).__name__, ", ".join(args))
+
+    def dict(self) -> dict:
+        return {
+            "args": self.args,
+            "returncode": self.returncode,
+            "time_taken": self.time_taken,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+        }
+
+
+def execmd(
     cmd: str | list[str],
     timeout: float = None,  # type:ignore
     shell=False,
-    check=False,
     capture_output=True,
-    text=True,
-    env: dict = None,  # type:ignore
+    check=False,
     cwd=None,
     stdin: IO = None,  # type:ignore
     stdout: IO = None,  # type:ignore
     stderr: IO = None,  # type:ignore
     input: str | bytes = None,  # type:ignore
+    env: dict = None,  # type:ignore
+    text=True,
     *args,
     **kwargs,
 ) -> subprocess.CompletedProcess:
@@ -806,15 +895,15 @@ def exec_cmd(
         cmd (str | list[str]): command to run. A list of strings or a single string.
         timeout (float, optional): the time after which the command is killed.
         shell (bool): whether or not to run the command in a shell.
-        check (bool): whether or not to raise an exception on a non-zero exit code.
         capture_output (bool): whether or not to capture the output to stdout and stderr.
-        text (bool): whether or not to return output as text or bytes.
-        env (dict, optional]): environment variables to pass to the new process.
+        check (bool): whether or not to raise an exception on a non-zero exit code.
         cwd (str, optional): current working directory to run the command in.
         stdin (IO, optional): file object to read stdin from.
         stdout (IO, optional): file object to write stdout to.
         stderr (IO, optional): file object to write stderr to.
         input (str | bytes): input to send to the command.
+        env (dict, optional]): environment variables to pass to the new process.
+        text (bool): whether or not to return output as text or bytes.
         *args : additional arguments to pass to subprocess.run.
         **kwargs : additional keyword arguments to pass to subprocess.run.
 
@@ -824,7 +913,9 @@ def exec_cmd(
     if isinstance(cmd, str):
         cmd = shlex.split(cmd)
 
-    return subprocess.run(
+    start_time = time.time()
+
+    result = subprocess.run(
         cmd,
         timeout=timeout,
         shell=shell,
@@ -840,14 +931,22 @@ def exec_cmd(
         *args,
         **kwargs,
     )
+    time_taken = time.time() - start_time
+    return CompletedCommand(
+        result.args,
+        result.returncode,
+        time_taken,
+        result.stdout,
+        result.stderr,
+    )
 
 
-def read_stdin(timeout: float = 0.25) -> list[str]:
+def read_stdin(timeout: float = 0.0) -> list[str]:
     """
     Reads lines from stdin.
 
     Args:
-        timeout (float, optional): The time to wait for input. Defaults to 0.25.
+        timeout (float, optional): The time to wait for input. Defaults to 0.
 
     Returns:
         list[str]: The lines read from stdin.
@@ -860,24 +959,22 @@ def read_stdin(timeout: float = 0.25) -> list[str]:
 def startfile(path: pathlike) -> None:
     path = pathlike_to_str(path)
     if is_wsl():
-        exec_cmd(f"cmd.exe /C start '{path}'")
+        execmd(f"cmd.exe /C start '{path}'")
     elif sys.platform == "win32":
         os.startfile(path)
     elif sys.platform == "darwin":
-        exec_cmd(f"open {path}")
+        execmd(f"open {path}")
     elif sys.platform == "linux":
-        exec_cmd(f"xdg-open '{path}'")
+        execmd(f"xdg-open '{path}'")
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 
 __all__ = [
-    "IMAGE_EXT",
-    "AUDIO_EXT",
-    "VIDEO_EXT",
+    "EXT",
     "File",
     "pathlike",
-    "make_dir",
+    "mkdir",
     "pathlike_to_str",
     "pickle_load",
     "pickle_dump",
@@ -893,14 +990,13 @@ __all__ = [
     "readable_size_to_bytes",
     "windows_has_drive",
     "is_wsl",
-    "make_dirs",
+    "mkdirs",
     "yield_files_in",
     "get_files_in",
     "yield_dirs_in",
     "get_dirs_in",
     "assert_paths_exist",
-    "exec_cmd",
-    "os",
+    "execmd",
     "SEP",
     "HOME",
     "abspath",
@@ -914,4 +1010,14 @@ __all__ = [
     "isfile",
     "islink",
     "exists",
+    "stat",
+    "link",
+    "getcwd",
+    "chdir",
+    "chmod",
+    "remove",
+    "rename",
+    "copy",
+    "move",
+    "chown",
 ]
