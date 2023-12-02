@@ -1,4 +1,4 @@
-from os import get_terminal_size
+from shutil import get_terminal_size
 from typing import Callable
 
 from stdl.st import colored
@@ -108,10 +108,7 @@ def br(
 ) -> None:
     if IGNORE_BREAKS:
         return
-    try:
-        length = length or get_terminal_size().columns
-    except OSError:  # OSError: [Errno 25] Inappropriate ioctl for device
-        length = 80
+    length = length or get_terminal_size().columns
     line = c * length
     if newline:
         line += "\n"
