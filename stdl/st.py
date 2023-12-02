@@ -229,14 +229,14 @@ def terminal_link(
     return link
 
 
-def remove(s: str, chars: str | set, replacement: str = "") -> str:
+def remove(s: str, chars: str | set, replace_with: str = "") -> str:
     """
     Remove or replace characters in a string.
 
     Args:
         s (str): Input string.
         chrs (str | set): Characters to remove
-        replacement (str, optional): If provided, replace the characters with this value.
+        replace_with (str, optional): If provided, replace the characters with this value.
 
     """
     string = []
@@ -245,19 +245,19 @@ def remove(s: str, chars: str | set, replacement: str = "") -> str:
         if c not in chars:
             string.append(c)
         else:
-            if replacement:
-                string.append(replacement)
+            if replace_with:
+                string.append(replace_with)
     return "".join(string)
 
 
-def keep(s: str, chars: str | set, replacement: str = "") -> str:
+def keep(s: str, chars: str | set, replace_with: str = "") -> str:
     """
     Keep provided characters in a string. Remove or replace others.
 
     Args:
         s (str): Input string
         chrs (str | set): Characters to keep
-        replacement (str, optional): If provided, replace other characters with this value.
+        replace_with (str, optional): If provided, replace other characters with this value.
 
     """
     string = []
@@ -266,8 +266,8 @@ def keep(s: str, chars: str | set, replacement: str = "") -> str:
         if c in chars:
             string.append(c)
         else:
-            if replacement:
-                string.append(replacement)
+            if replace_with:
+                string.append(replace_with)
     return "".join(string)
 
 
@@ -280,28 +280,28 @@ class sf:
     """
 
     @classmethod
-    def filename(cls, filename: str, replacement: str = "") -> str:
+    def filename(cls, filename: str, replace_with: str = "") -> str:
         """
         Removes or replaces characters that are not allowed to be in a filename.
         """
-        return remove(filename, chars='|?*<>:"\\', replacement=replacement)
+        return remove(filename, chars='|?*<>:"\\', replace_with=replace_with)
 
     @classmethod
-    def filepath(cls, filepath: str, replacement: str = "") -> str:
+    def filepath(cls, filepath: str, replace_with: str = "") -> str:
         """
         Removes or replaces characters that are not allowed to be in a filepath.
         """
         dirname, filename = os.path.split(filepath)
-        filename = sf.filename(filename, replacement)
+        filename = sf.filename(filename, replace_with)
         dirname = remove(dirname, '|?*<>:"')
         return f"{dirname}{os.sep}{filename}"
 
     @classmethod
-    def ascii(cls, s: str, replacement: str = ""):
+    def ascii(cls, s: str, replace_with: str = ""):
         """
         Removes or replaces non-ASCII characters from the string.
         """
-        return keep(s, ASCII, replacement)
+        return keep(s, ASCII, replace_with)
 
 
 def snake_case(s: str) -> str:
