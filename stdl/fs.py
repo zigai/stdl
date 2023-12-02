@@ -96,14 +96,14 @@ class File:
             encoding (str, optional): The file's encoding. Defaults to "utf-8".
             abspath (bool, keyword-only): Whether to use the absolute path. Defaults to True.
         """
-        if isinstance(path, (Path, File)):
-            self.path: str = str(path)
-        elif isinstance(path, bytes):
-            self.path: str = path.decode()
-
-        if abspath:
-            self.path = os.path.abspath(self.path)
         self.encoding = encoding
+        self.path: str = path  # type:ignore
+        if isinstance(self.path, (Path, File)):
+            self.path: str = str(path)
+        elif isinstance(self.path, bytes):
+            self.path: str = self.path.decode()
+        if abspath:
+            self.path = os.path.abspath(self.path)  # type:ignore
 
     def __str__(self):
         return self.path
