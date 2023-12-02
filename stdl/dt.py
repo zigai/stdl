@@ -6,7 +6,7 @@ from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
-local_tz = datetime.now().astimezone().tzinfo
+local_timezone = datetime.now().astimezone().tzinfo
 
 
 @dataclass
@@ -18,8 +18,8 @@ class TimerStop:
 
     def __str__(self) -> str:
         if self.label is None:
-            return f"total={self.total}, since_last=({self.since_last}), at={fmt_datetime(self.at)}"
-        return f"{self.label} | total={self.total}, since_last={self.since_last}, at={fmt_datetime(self.at)}"
+            return f"total={self.total}, since_last=({self.since_last}), at={datetime_fmt(self.at)}"
+        return f"{self.label} | total={self.total}, since_last={self.since_last}, at={datetime_fmt(self.at)}"
 
     def total_seconds(self, *, r: int | None = None) -> float:
         seconds = self.total.total_seconds()
@@ -93,7 +93,7 @@ class Timer:
             print(stop)
 
 
-def fmt_datetime(
+def datetime_fmt(
     d: str | float | int | None | datetime = None,
     fmt: str = "Ymd",
     dsep: str = "-",
@@ -146,7 +146,7 @@ def fmt_datetime(
     return dt_str[:-3] if ms else dt_str
 
 
-def fmt_time(
+def time_fmt(
     t: float | datetime | int | None = None, sep: str = ":", *, ms: bool = False, utc: bool = True
 ) -> str:
     """
@@ -179,7 +179,7 @@ def fmt_time(
     return ts
 
 
-def fmt_date(
+def date_fmt(
     d: float | date | datetime | int | None = None,
     fmt: str = "Ymd",
     sep: str = "-",
@@ -265,12 +265,12 @@ def sleep(lo: float, hi: float | None = None) -> float:
 __all__ = [
     "Timer",
     "parse_datetime_str",
-    "fmt_datetime",
-    "fmt_time",
-    "fmt_date",
+    "datetime_fmt",
+    "time_fmt",
+    "date_fmt",
     "date_range",
     "sleep",
-    "local_tz",
+    "local_timezone",
     "timezone",
     "date",
     "datetime",
