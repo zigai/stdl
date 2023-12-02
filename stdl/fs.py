@@ -20,7 +20,7 @@ from typing import IO, Any, Generator, TypeAlias
 
 import yaml
 
-from stdl.dt import fmt_datetime
+from stdl.dt import datetime_fmt
 
 stat = os.stat
 link = os.link
@@ -602,7 +602,7 @@ def rand_filename(prefix: str = "file", ext: str = "") -> str:
     """
     if len(ext) and not ext.startswith("."):
         ext = f".{ext}"
-    creation_time = fmt_datetime(dsep="-", tsep="-", ms=True).replace(" ", ".")
+    creation_time = datetime_fmt(dsep="-", tsep="-", ms=True).replace(" ", ".")
     num = str(random.randrange(1000000000, 9999999999)).zfill(10)
     filename = f"{prefix}.{num}.{creation_time}{ext}"
     if exists(filename):
@@ -817,7 +817,7 @@ def get_dirs_in(directory: str | Path, *, recursive: bool = True) -> list[str]:
 
 
 def _assert_path_exists(path: pathlike) -> None:
-    if not os.path.exists(pathlike_to_str(path)):
+    if not exists(pathlike_to_str(path)):
         raise FileNotFoundError(f"No such file or directory: '{path}'")
 
 
@@ -862,6 +862,24 @@ class CompletedCommand(subprocess.CompletedProcess):
             args.append("stderr={!r}".format(self.stderr))
         return "{}({})".format(type(self).__name__, ", ".join(args))
 
+    @property
+    def stdout_lines(self) -> list[str]:
+        """
+        Returns the stdout as a list of lines.
+        """
+        if self.stdout is None:
+            return []
+        return self.stdout.splitlines()
+
+    @property
+    def stderr_lines(self) -> list[str]:
+        """
+        Returns the stderr as a list of lines.
+        """
+        if self.stderr is None:
+            return []
+        return self.stderr.splitlines()
+
     def dict(self) -> dict:
         return {
             "args": self.args,
@@ -872,7 +890,7 @@ class CompletedCommand(subprocess.CompletedProcess):
         }
 
 
-def execmd(
+def exec_cmd(
     cmd: str | list[str],
     timeout: float = None,  # type:ignore
     shell=False,
@@ -887,7 +905,7 @@ def execmd(
     text=True,
     *args,
     **kwargs,
-) -> subprocess.CompletedProcess:
+) -> CompletedCommand:
     """
     Wrapper for subprocess.run with nicer default arguments.
 
@@ -959,13 +977,13 @@ def read_stdin(timeout: float = 0.0) -> list[str]:
 def startfile(path: pathlike) -> None:
     path = pathlike_to_str(path)
     if is_wsl():
-        execmd(f"cmd.exe /C start '{path}'")
+        exec_cmd(f"cmd.exe /C start '{path}'")
     elif sys.platform == "win32":
         os.startfile(path)
     elif sys.platform == "darwin":
-        execmd(f"open {path}")
+        exec_cmd(f"open {path}")
     elif sys.platform == "linux":
-        execmd(f"xdg-open '{path}'")
+        exec_cmd(f"xdg-open '{path}'")
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
@@ -996,7 +1014,7 @@ __all__ = [
     "yield_dirs_in",
     "get_dirs_in",
     "assert_paths_exist",
-    "execmd",
+    "exec_cmd",
     "SEP",
     "HOME",
     "abspath",
