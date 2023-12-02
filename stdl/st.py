@@ -1,6 +1,7 @@
 import os
 import re
 import textwrap
+import typing as T
 from platform import system
 from sys import stdout
 
@@ -12,46 +13,44 @@ def ansi_code(n: int) -> str:
     return f"{CSI_RESET}{n}m"
 
 
-def _get_ansi_value(value: str | None, handler) -> str:
-    if not value:
-        return ""
-    try:
-        return handler[value]
-    except KeyError:
-        return value
-
-
 class ColorANSI:
     # Cancel SGR codes if we don't write to a terminal
     if not stdout.isatty():
-        for _ in dir():
-            if isinstance(_, str) and _[0] != "_":
-                locals()[_] = ""
+        for attr in dir():
+            if isinstance(attr, str) and attr[0] != "_":
+                locals()[attr] = ""
     else:
-        if system() == "Windows":  # Enable VT mode
-            kernel32 = __import__("ctypes").windll.kernel32
-            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+        # Enable VT mode on Windows
+        if system() == "Windows":
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.GetStdHandle(-11)
+            if handle:
+                kernel32.SetConsoleMode(handle, 7)
             del kernel32
+            del handle
+            del ctypes
 
     @classmethod
-    def __class_getitem__(cls, name: str) -> str:
-        name = name.upper().replace(" ", "_")
-        if name in dir(cls):
-            return getattr(cls, name)
-        raise KeyError(name)
+    def __class_getitem__(cls, key: str) -> str:
+        key = key.upper().replace(" ", "_")
+        if key in dir(cls):
+            return getattr(cls, key)
+        raise KeyError(key)
 
     @classmethod
     @property
     def dict(cls) -> dict[str, str]:
-        d = {}
-        ignored = ["dict", "print_all", "get_all"]
-        for i in dir(cls):
-            if i[0] != "_" and i not in ignored:
-                d[i] = cls[i]
-        return d
+        ignored = ["dict", "print_all", "get_names"]
+        data = {}
+        for attr in dir(cls):
+            if attr[0] != "_" and attr not in ignored:
+                data[attr] = cls[attr]
+        return data
 
     @classmethod
-    def get_all(cls) -> list[str]:
+    def get_names(cls) -> list[str]:
         return [i for i in cls.dict.keys()]
 
     @classmethod
@@ -59,7 +58,7 @@ class ColorANSI:
         for k, v in cls.dict.items():
             if k == "RESET":
                 continue
-            print(colored(k, v))
+            print(colored(k, v))  # type:ignore
 
 
 class FG(ColorANSI):
@@ -106,7 +105,8 @@ class BG(ColorANSI):
 
 
 class ST(ColorANSI):
-    "Style"
+    """ "Style"""
+
     RESET = ansi_code(0)
     BOLD = ansi_code(1)
     DIM = ansi_code(2)
@@ -115,11 +115,63 @@ class ST(ColorANSI):
     BLINK = ansi_code(5)
 
 
+ForegroundColor = T.Literal[
+    "black",
+    "blue",
+    "bold",
+    "cyan",
+    "gray",
+    "green",
+    "light_blue",
+    "light_cyan",
+    "light_green",
+    "light_magenta",
+    "light_red",
+    "light_white",
+    "light_yellow",
+    "magenta",
+    "red",
+    "white",
+    "yellow",
+]
+
+
+BackgroundColor = T.Literal[
+    "black",
+    "blue",
+    "cyan",
+    "gray",
+    "green",
+    "light_blue",
+    "light_cyan",
+    "light_green",
+    "light_magenta",
+    "light_red",
+    "light_white",
+    "light_yellow",
+    "magenta",
+    "red",
+    "white",
+    "yellow",
+]
+
+Style = T.Literal["blink", "bold", "dim", "italic", "reset", "underline"]
+
+
+def _get_ansi_value(value: str | None, handler) -> str:
+    if not value:
+        return ""
+    try:
+        return handler[value]
+    except KeyError:
+        return value
+
+
 def colored(
     text: str,
-    color: str | None = None,
-    background: str | None = None,
-    style: str | None = None,
+    color: ForegroundColor | None = None,
+    background: BackgroundColor | None = None,
+    style: Style | None = None,
 ):
     """
     Returns the text with ansi color, background color and text style codes.
@@ -135,18 +187,18 @@ def colored(
     """
     if NO_COLOR or not stdout.isatty():
         return text
-    color = _get_ansi_value(color, FG)
-    background = _get_ansi_value(background, BG)
-    style = _get_ansi_value(style, ST)
+    color = _get_ansi_value(color, FG)  # type: ignore
+    background = _get_ansi_value(background, BG)  # type: ignore
+    style = _get_ansi_value(style, ST)  # type: ignore
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
 def terminal_link(
     uri: str,
     label: str | None = None,
-    color: str = FG.WHITE,
-    background: str | None = None,
-    style: str | None = None,
+    color: ForegroundColor = "white",
+    background: BackgroundColor | None = None,
+    style: Style | None = None,
 ):
     """
     Returns a hyperlink that can be used in terminals.
@@ -333,6 +385,7 @@ if __name__ == "__main__":
     BG.print_all()
     ST.print_all()
 
+
 __all__ = [
     "FG",
     "BG",
@@ -350,4 +403,7 @@ __all__ = [
     "len_without_ansi",
     "ansi_ljust",
     "ansi_rjust",
+    "Style",
+    "ForegroundColor",
+    "BackgroundColor",
 ]
