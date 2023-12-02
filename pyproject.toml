@@ -32,7 +32,7 @@ keywords = [
 
 [project.optional-dependencies]
 test = ["pytest"]
-dev = ["black", "pytest", "flake8"]
+dev = ["black", "pytest", "ruff"]
 
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
