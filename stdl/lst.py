@@ -1,17 +1,14 @@
-import random
 from collections import Counter
-from copy import deepcopy
 from typing import Any
 
 
-def chunks(l: list[Any], size: int, *, rand: bool = False) -> list[list[Any]]:
+def chunks(l: list[Any], size: int) -> list[list[Any]]:
     """
     Splits a list into chunks of a specified size.
 
     Args:
         l (list): list to be split
         size (int): Size of each chunk.
-        rand (bool): Whether to shuffle the list before splitting. Default: False.
 
     Returns:
         list : a list containing the chunks.
@@ -21,20 +18,16 @@ def chunks(l: list[Any], size: int, *, rand: bool = False) -> list[list[Any]]:
     """
     if size < 1 or size > len(l):
         raise ValueError(size)
-    if rand:
-        l = deepcopy(l)
-        random.shuffle(l)
     return [l[i : i + size] for i in range(0, len(l), size)]
 
 
-def split(l: list[Any], parts: int, *, rand: bool = False) -> list[list[Any]]:
+def split(l: list[Any], parts: int) -> list[list[Any]]:
     """
     Splits a list into a specified number of parts
 
     Args:
         l (list): List to be split
         parts (int): Number of parts to split the list into.
-        rand (bool): Whether to shuffle the list before splitting. Default: False
 
     Returns:
         list : a list containing the split parts.
@@ -44,9 +37,6 @@ def split(l: list[Any], parts: int, *, rand: bool = False) -> list[list[Any]]:
     """
     if parts < 1 or parts > len(l):
         raise ValueError(parts)
-    if rand:
-        l = deepcopy(l)
-        random.shuffle(l)
 
     def inner(l: list[Any], parts: int) -> list[list[Any]]:
         length = len(l)
