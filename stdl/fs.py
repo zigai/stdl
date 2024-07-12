@@ -471,7 +471,7 @@ def json_append(
     default=str,
     indent: int = 4,
 ):
-    """Appends data to a JSON file.
+    """Append data to a JSON file.
     Args:
         data (dict | list[dict]): The data to be appended
         filepath (str | PathLike): The path of the JSON file
@@ -647,7 +647,7 @@ def bytes_readable(size_bytes: int) -> str:
     return f"{s} {size_name[i]}"
 
 
-def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
+def readable_size_to_bytes(size: str, kb_size: T.Literal[1000, 1024] = 1024) -> int:
     """Convert human-readable string to bytes.
     Args:
         size (str): The number of bytes in human-readable format
@@ -655,20 +655,25 @@ def readable_size_to_bytes(size: str, kb_size: int = 1024) -> int:
     Returns:
         int: The number of bytes
     """
-    # Based on https://stackoverflow.com/a/42865957/2002471
-    KB_UNITS = {
-        1024: {"B": 1, "KB": 2**10, "MB": 2**20, "GB": 2**30, "TB": 2**40},
-        1000: {"B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12},
-    }
-    if kb_size not in KB_UNITS:
-        raise ValueError(kb_size)
-    if re.fullmatch(r"[\d]+", size):
+    if kb_size not in (1000, 1024):
+        raise ValueError(f"Invalid kb_size: {kb_size}. Must be 1000 or 1024.")
+
+    size = size.upper().replace(" ", "")
+    if size.isdigit():
         return int(size)
-    size = size.upper()
-    if not re.match(r" ", size):
-        size = re.sub(r"([KMGT]?B)", r" \1", size)
-    number, unit = [string.strip() for string in size.split()]
-    return int(float(number) * KB_UNITS[kb_size][unit])
+
+    match = re.match(r"^(\d+(\.\d+)?)(B|KB|MB|GB|TB)$", size)
+    if not match:
+        raise ValueError(f"Invalid size format: {size}")
+
+    number, unit = float(match.group(1)), match.group(3)
+
+    units = {"B": 1, "KB": kb_size, "MB": kb_size**2, "GB": kb_size**3, "TB": kb_size**4}
+
+    if unit not in units:
+        raise ValueError(f"Invalid unit: {unit}")
+
+    return int(number * units[unit])
 
 
 def windows_has_drive(letter: str) -> bool:
@@ -742,6 +747,7 @@ def yield_files_in(
         for entry in os.scandir(directory):
             if not entry.is_file():
                 continue
+            path = entry.path
             if abs:
                 path = os.path.abspath(entry.path)
             if ext is None:
@@ -789,8 +795,8 @@ def get_files_in(
     If the `recursive` parameter is set to `True`, the function will search for files in subdirectories recursively.
 
     Args:
-        directory (Union[str, Path]): The directory to search.
-        ext (Union[str, Tuple[str, ...]], optional): If provided, only yield files with provided extensions. Defaults to None.
+        directory (str | Path): The directory to search.
+        ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
         recursive (bool, optional): Whether to search recursively. Defaults to True.
         abs (bool, optional): Whether to convert paths to absolute paths.
 

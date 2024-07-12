@@ -290,6 +290,8 @@ class sf:
         """
         Removes or replaces characters that are not allowed to be in a filepath.
         """
+        if not filepath:
+            return ""
         dirname, filename = os.path.split(filepath)
         filename = sf.filename(filename, replace_with)
         dirname = remove(dirname, '|?*<>:"')
