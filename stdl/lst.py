@@ -1,8 +1,8 @@
+import typing as T
 from collections import Counter
-from typing import Any
 
 
-def chunks(l: list[Any], size: int) -> list[list[Any]]:
+def chunks(l: list[T.Any], size: int) -> list[list[T.Any]]:
     """
     Splits a list into chunks of a specified size.
 
@@ -21,7 +21,7 @@ def chunks(l: list[Any], size: int) -> list[list[Any]]:
     return [l[i : i + size] for i in range(0, len(l), size)]
 
 
-def split(l: list[Any], parts: int) -> list[list[Any]]:
+def split(l: list[T.Any], parts: int) -> list[list[T.Any]]:
     """
     Splits a list into a specified number of parts
 
@@ -38,7 +38,7 @@ def split(l: list[Any], parts: int) -> list[list[Any]]:
     if parts < 1 or parts > len(l):
         raise ValueError(parts)
 
-    def inner(l: list[Any], parts: int) -> list[list[Any]]:
+    def inner(l: list[T.Any], parts: int) -> list[list[T.Any]]:
         length = len(l)
         si = length // parts
         if length - si > 0:
@@ -49,7 +49,7 @@ def split(l: list[Any], parts: int) -> list[list[Any]]:
     return inner(l, parts)
 
 
-def unique(l: list[Any]) -> list[Any]:
+def unique(l: list[T.Any]) -> list[T.Any]:
     """
     Filter out all non-unique values from a list.
     Args:
@@ -60,7 +60,7 @@ def unique(l: list[Any]) -> list[Any]:
     return [i for i, count in Counter(l).items() if count == 1]
 
 
-def non_unique(l: list[Any]) -> list[Any]:
+def non_unique(l: list[T.Any]) -> list[T.Any]:
     """
     Filter out all unique values from a list.
     Args:
@@ -71,7 +71,7 @@ def non_unique(l: list[Any]) -> list[Any]:
     return [i for i, count in Counter(l).items() if count > 1]
 
 
-def every_nth(l: list[Any], n: int) -> list[Any]:
+def every_nth(l: list[T.Any], n: int) -> list[T.Any]:
     """
     Return every nth element from a list
     Args:
@@ -83,7 +83,7 @@ def every_nth(l: list[Any], n: int) -> list[Any]:
     return l[n - 1 :: n]
 
 
-def occurrences(l: list[Any], val: Any) -> int:
+def occurrences(l: list[T.Any], val: T.Any) -> int:
     """
     Count the number of occurrences of a value in a list
     Args:

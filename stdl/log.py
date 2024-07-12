@@ -1,7 +1,7 @@
 from shutil import get_terminal_size
 from typing import Callable
 
-from stdl.st import colored
+from stdl.st import ForegroundColor, colored
 
 IGNORE_BREAKS = False
 
@@ -18,15 +18,17 @@ class LoguruFormatter:
     func = color_tag("{function}", "light-blue")
     lineno = color_tag("{line}", "light-blue")
     extra_key_skips = ["title"]
-    extra_key_name_color = "white"
+    extra_key_name_color: ForegroundColor = "white"
 
     def format(self, record: dict) -> str:
         """
         Example usage:
+        ```python
         >>> import sys
         >>> from loguru import logger
         >>> logger.remove()
         >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
+        ```
         """
         extras = ""
         if len(record["extra"]):

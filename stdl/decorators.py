@@ -2,13 +2,13 @@ import inspect
 import json
 import sys
 import time
+import typing as T
 from functools import wraps
-from typing import Callable
 
 
 def timer(
     r: int | None = 2,
-    sink: Callable = sys.stdout.write,
+    sink: T.Callable = sys.stdout.write,
     show_args: bool = False,
     serialize: bool = False,
     sep=" | ",
@@ -24,7 +24,7 @@ def timer(
         sep (str, optional): Separator between the function/method name and the arguments. Defaults to " | ".
     """
 
-    def decorator(func: Callable):
+    def decorator(func: T.Callable):
         @wraps(func)
         def wrapper(*args, **kwargs):
             time_start = time.perf_counter()

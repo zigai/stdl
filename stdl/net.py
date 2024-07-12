@@ -36,9 +36,9 @@ def download(
     Args:
         url (str): File URL
         path (str): Save path
-        maxsize (int | str | None, optional): Maximum file size in bytes or human readable format. Defaults to None.
-        progressbar (bool, optional): Display progress bar in console. Defaults to False.
-        overwrite (bool, optional): Overwrite destination path if it already exists. Defaults to False.
+        maxsize (int | str | None, optional): Maximum file size in bytes or human readable format.
+        progressbar (bool, optional): Display progress bar in console.
+        overwrite (bool, optional): Overwrite destination path if it already exists.
 
     Raises:
         FileExistsError: if path already exists and overwrite is set to False

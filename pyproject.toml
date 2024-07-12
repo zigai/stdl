@@ -1,12 +1,18 @@
 [project]
 name = "stdl"
-version = "0.5.1"
+version = "0.5.2"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE.txt" }
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["PyYAML>=6.0", "tqdm", "python-dateutil==2.8.2"]
+
+dependencies = [
+    "PyYAML>=6.0",
+    "tqdm",
+    "python-dateutil>=2.8.2",
+    "toml>=0.10.2 ",
+]
 
 classifiers = [
     "Intended Audience :: Developers",
@@ -32,7 +38,15 @@ keywords = [
 
 [project.optional-dependencies]
 test = ["pytest"]
-dev = ["black", "pytest", "ruff"]
+dev = [
+    "black",
+    "pytest",
+    "ruff",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-autorefs",
+    "mkdocstrings[python]",
+]
 
 [project.urls]
 Repository = "https://github.com/zigai/stdl"

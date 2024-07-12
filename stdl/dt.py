@@ -1,8 +1,8 @@
 import random
 import time
+import typing as T
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
@@ -40,7 +40,7 @@ class Timer:
         Stop the timer.
 
         Args:
-            label (str | None, optional): Label for the stop. Defaults to None.
+            label (str | None, optional): Label for the stop.
 
         Returns:
             TimerStop: The stop data
@@ -88,10 +88,6 @@ class Timer:
             )
         ]
 
-    def print_stops(self) -> None:
-        for stop in self.stops:
-            print(stop)
-
 
 def datetime_fmt(
     d: str | float | int | None | datetime = None,
@@ -105,12 +101,12 @@ def datetime_fmt(
     """Format date and time
 
     Args:
-        d (str | float | None | datetime, optional): Input datetime. Defaults to None.
-        fmt (str, optional): Date format. Defaults to "Ymd".
-        dsep (str, optional): Date values separator. Defaults to "-".
-        tsep (str, optional): Time values separator. Defaults to ":".
-        ms (bool, optional): include miliseconds. Defaults to False.
-        utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp. Defaults to True.
+        d (str | float | None | datetime, optional): Input datetime. Defaults to current date and time.
+        fmt (str, optional): Date format.
+        dsep (str, optional): Date values separator.
+        tsep (str, optional): Time values separator.
+        ms (bool, optional): include miliseconds.
+        utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp.
 
     Raises:
         TypeError: Raises TypeError if the type of ``d`` is not one of the following: float, str, None, datetime, int
@@ -153,10 +149,10 @@ def time_fmt(
     Format time
 
     Args:
-        t (float | datetime | int | None, optional): Input time. Defaults to current time if it's not provided.
-        sep (str, optional): Character(s) that separates hours, minutes, seconds... Defaults to ":".
-        ms (bool, optional): include miliseconds. Defaults to False.
-        utc (bool, optional): Use the UTC timezone when building a time object from a timestamp. Defaults to True.
+        t (float | datetime | int | None, optional): Input time. Defaults to current time.
+        sep (str, optional): Character(s) that separates hours, minutes, seconds...
+        ms (bool, optional): include miliseconds.
+        utc (bool, optional): Use the UTC timezone when building a time object from a timestamp.
 
     Raises:
         TypeError: Raises TypeError if the type of ``t`` is not one of the following: float, None, datetime, int
@@ -188,9 +184,9 @@ def date_fmt(
     Format date
 
     Args:
-        d (float | date | datetime | int | None ): Input date. Defaults to current date if it's not provided.
-        fmt (str, optional): Date format. Defaults to "Ymd".
-        sep (str, optional): Character(s) that separates days, months and years. Defaults to "-".
+        d (float | date | datetime | int | None ): Input date. Defaults to current date.
+        fmt (str, optional): Date format.
+        sep (str, optional): Character(s) that separates days, months and years.
 
     Raises:
         TypeError: Raises TypeError if the type of ``d`` is not one of the following: float, None, date, datetime, int
@@ -222,7 +218,7 @@ def date_fmt(
     return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
 
-def date_range(start: date, end: date) -> Generator[date, None, None]:
+def date_range(start: date, end: date) -> T.Generator[date, None, None]:
     """
     Returns a generator for dates between ``start`` and ``end``
 

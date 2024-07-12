@@ -40,7 +40,6 @@ class ColorANSI:
         raise KeyError(key)
 
     @classmethod
-    @property
     def dict(cls) -> dict[str, str]:
         ignored = ["dict", "print_all", "get_names"]
         data = {}
@@ -55,7 +54,7 @@ class ColorANSI:
 
     @classmethod
     def print_all(cls):
-        for k, v in cls.dict.items():
+        for k, v in cls.dict().items():
             if k == "RESET":
                 continue
             print(colored(k, v))  # type:ignore
