@@ -23,8 +23,6 @@ from select import select
 import toml
 import yaml
 
-from stdl.dt import datetime_fmt
-
 stat = os.stat
 link = os.link
 getcwd = os.getcwd
