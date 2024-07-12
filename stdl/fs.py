@@ -947,15 +947,15 @@ def exec_cmd(
     Args:
         cmd (str | list[str]): command to run. A list of strings or a single string.
         timeout (float, optional): the time after which the command is killed.
-        shell (bool): whether or not to run the command in a shell.
-        capture_output (bool): whether or not to capture the output to stdout and stderr.
-        check (bool): whether or not to raise an exception on a non-zero exit code.
+        shell (bool, optional): whether or not to run the command in a shell.
+        capture_output (bool, optional): whether or not to capture the output to stdout and stderr.
+        check (bool, optional): whether or not to raise an exception on a non-zero exit code.
         cwd (str, optional): current working directory to run the command in.
         stdin (IO, optional): file object to read stdin from.
         stdout (IO, optional): file object to write stdout to.
         stderr (IO, optional): file object to write stderr to.
         input (str | bytes): input to send to the command.
-        env (dict, optional]): environment variables to pass to the new process.
+        env (dict, optional): environment variables to pass to the new process.
         text (bool): whether or not to return output as text or bytes.
         *args : additional arguments to pass to subprocess.run.
         **kwargs : additional keyword arguments to pass to subprocess.run.

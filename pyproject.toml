@@ -33,6 +33,8 @@ keywords = [
     "logging configuration",
     "list utils",
     "standard library",
+    "ANSI colors",
+    "terminal output",
 ]
 
 

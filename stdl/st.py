@@ -104,7 +104,7 @@ class BG(ColorANSI):
 
 
 class ST(ColorANSI):
-    """ "Style"""
+    """Style"""
 
     RESET = ansi_code(0)
     BOLD = ansi_code(1)
@@ -202,10 +202,10 @@ def terminal_link(
     """
     Returns a hyperlink that can be used in terminals.
 
-    Hyperlinks are not supported in all terminals. for more information visit
-    https://github.com/Alhadis/OSC8-Adoption/
-    and
-    https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+    NOTE:
+        Hyperlinks are not supported in all terminals. For more information visit
+        <https://github.com/Alhadis/OSC8-Adoption/> and
+        <https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda>
 
     Args:
         uri (str): The URI of the link.
