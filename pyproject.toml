@@ -1,6 +1,6 @@
 [project]
 name = "stdl"
-version = "0.5.2"
+version = "0.5.3"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE.txt" }
@@ -52,6 +52,7 @@ dev = [
 
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
+Documentation = "https://stdl.readthedocs.io"
 
 [tool.black]
 line-length = 100
