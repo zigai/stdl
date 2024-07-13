@@ -1,5 +1,6 @@
 # stdl
 [![Tests](https://github.com/zigai/stdl/actions/workflows/tests.yml/badge.svg)](https://github.com/zigai/stdl/actions/workflows/tests.yml)
+[![Documentation Status](https://readthedocs.org/projects/stdl/badge/?version=latest)](https://stdl.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/stdl.svg)](https://badge.fury.io/py/stdl)
 ![Supported versions](https://img.shields.io/badge/python-3.10+-blue.svg)
 [![Downloads](https://static.pepy.tech/badge/stdl)](https://pepy.tech/project/stdl)
@@ -15,7 +16,7 @@
 - List processing
 - Function decorators
 - Logging configuration for `logging` and `loguru`
-- [See docs]()
+- [See docs](https://stdl.readthedocs.io/en/latest/?badge=latest)
 
 ## Dependencies
 - PyYAML
