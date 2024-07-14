@@ -873,6 +873,29 @@ def ensure_paths_exist(*args: str | PathLike | Iterable[str | PathLike]) -> None
                 check_path(i)
 
 
+def ensure_paths_dont_exist(*args: str | PathLike | Iterable[str | PathLike]) -> None:
+    """
+    Ensures that the specified paths don't exist.
+
+    Args:
+        *args : one or more strings representing the paths to check. Can also include an Iterable of paths.
+
+    Raises:
+        FileNotFoundError : if one of the provided paths exists.
+    """
+
+    def check_path(path: str | PathLike):
+        if os.path.exists(os.fspath(path)):
+            raise FileExistsError(f"Path already exists: {path}")
+
+    for path in args:
+        if isinstance(path, (str, bytes, PathLike)):
+            check_path(path)
+        elif isinstance(path, Iterable):
+            for i in path:
+                check_path(i)
+
+
 class CompletedCommand(subprocess.CompletedProcess):
     def __init__(
         self,
