@@ -203,8 +203,10 @@ def terminal_link(
     Returns a hyperlink that can be used in terminals.
 
     NOTE:
-        Hyperlinks are not supported in all terminals. For more information visit
-        <https://github.com/Alhadis/OSC8-Adoption/> and
+        Hyperlinks are not supported in all terminals.
+        For more information visit
+        <https://github.com/Alhadis/OSC8-Adoption/>
+        and
         <https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda>
 
     Args:
@@ -234,7 +236,7 @@ def remove(s: str, chars: str | set, replace_with: str = "") -> str:
 
     Args:
         s (str): Input string.
-        chrs (str | set): Characters to remove
+        chars (str | set): Characters to remove
         replace_with (str, optional): If provided, replace the characters with this value.
 
     """
@@ -255,7 +257,7 @@ def keep(s: str, chars: str | set, replace_with: str = "") -> str:
 
     Args:
         s (str): Input string
-        chrs (str | set): Characters to keep
+        chars (str | set): Characters to keep
         replace_with (str, optional): If provided, replace other characters with this value.
 
     """

@@ -114,14 +114,15 @@ def datetime_fmt(
     Returns:
         str: Formated date and time.
 
-    Examples:
-    --------
+    Example:
+    ```python
     >>> fmt_datetime()
     '2022-11-22 22:40:04' # current date and time
     >>> fmt_datetime(0)
     "1970-01-01 00:00:00"
     >>> fmt_datetime(0, fmt="dmY", dsep="/")
     "01/01/1970 00:00:00"
+    ```
     """
     if d is None:
         d = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
@@ -194,8 +195,8 @@ def date_fmt(
     Returns:
         str: Formated date.
 
-    Examples
-    --------
+    Example:
+    ```python
     >>> fmt_date(date(2022,11,22))
     '2022-11-22'
     >>> fmt_date(date(2022,11,22), sep="/")
@@ -204,6 +205,7 @@ def date_fmt(
     '22/11/2022'
     >>> fmt_date()
     '2022-11-22'
+    ```
     """
     if d is None:
         d = date.fromtimestamp(time.time())
@@ -222,12 +224,13 @@ def date_range(start: date, end: date) -> T.Generator[date, None, None]:
     """
     Returns a generator for dates between ``start`` and ``end``
 
-    Examples
-    --------
+    Example:
+    ```python
     >>> for i in date_range(date(2022,11,19), date(2022,11,22)): print(i)
     2022-11-19
     2022-11-20
     2022-11-21
+    ```
     """
     for n in range(int((end - start).days)):
         yield start + timedelta(n)

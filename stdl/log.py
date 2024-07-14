@@ -22,7 +22,7 @@ class LoguruFormatter:
 
     def format(self, record: dict) -> str:
         """
-        Example usage:
+        Example:
         ```python
         >>> import sys
         >>> from loguru import logger
