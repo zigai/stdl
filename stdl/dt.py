@@ -45,7 +45,7 @@ class Timer:
         Returns:
             TimerStop: The stop data
         """
-        t = time.time()
+        t = time.perf_counter()
         elapsed_total = t - self.start
         since_last = t - self.stops[-1].at if self.stops else 0
         if not self.ms:
@@ -78,7 +78,7 @@ class Timer:
 
     def reset(self) -> None:
         """Reset the timer."""
-        self.start = time.time()
+        self.start = time.perf_counter()
         self.stops: list[TimerStop] = [
             TimerStop(
                 total=timedelta(seconds=0),
@@ -115,17 +115,17 @@ def datetime_fmt(
         str: Formated date and time.
 
     Example:
-    ```python
-    >>> fmt_datetime()
-    '2022-11-22 22:40:04' # current date and time
-    >>> fmt_datetime(0)
-    "1970-01-01 00:00:00"
-    >>> fmt_datetime(0, fmt="dmY", dsep="/")
-    "01/01/1970 00:00:00"
-    ```
+        ```python
+        >>> fmt_datetime()
+        '2022-11-22 22:40:04' # current date and time
+        >>> fmt_datetime(0)
+        "1970-01-01 00:00:00"
+        >>> fmt_datetime(0, fmt="dmY", dsep="/")
+        "01/01/1970 00:00:00"
+        ```
     """
     if d is None:
-        d = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
+        d = datetime.fromtimestamp(time.perf_counter(), **{"tz": timezone.utc} if utc else {})
 
     elif isinstance(d, str):
         d = parse_datetime_str(d)
@@ -162,7 +162,7 @@ def time_fmt(
         str: Formated time.
     """
     if t is None:
-        tm = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
+        tm = datetime.fromtimestamp(time.perf_counter(), **{"tz": timezone.utc} if utc else {})
     elif isinstance(t, datetime):
         tm = t.time()
     elif isinstance(t, (int, float)):
@@ -196,19 +196,19 @@ def date_fmt(
         str: Formated date.
 
     Example:
-    ```python
-    >>> fmt_date(date(2022,11,22))
-    '2022-11-22'
-    >>> fmt_date(date(2022,11,22), sep="/")
-    '2022/11/22'
-    >>> fmt_date(date(2022,11,22), sep="/", fmt="dmY")
-    '22/11/2022'
-    >>> fmt_date()
-    '2022-11-22'
-    ```
+        ```python
+        >>> fmt_date(date(2022,11,22))
+        '2022-11-22'
+        >>> fmt_date(date(2022,11,22), sep="/")
+        '2022/11/22'
+        >>> fmt_date(date(2022,11,22), sep="/", fmt="dmY")
+        '22/11/2022'
+        >>> fmt_date()
+        '2022-11-22'
+        ```
     """
     if d is None:
-        d = date.fromtimestamp(time.time())
+        d = date.fromtimestamp(time.perf_counter())
     elif isinstance(d, (float, int)):
         d = date.fromtimestamp(d)
     elif isinstance(d, datetime):
@@ -225,12 +225,12 @@ def date_range(start: date, end: date) -> T.Generator[date, None, None]:
     Returns a generator for dates between ``start`` and ``end``
 
     Example:
-    ```python
-    >>> for i in date_range(date(2022,11,19), date(2022,11,22)): print(i)
-    2022-11-19
-    2022-11-20
-    2022-11-21
-    ```
+        ```python
+        >>> for i in date_range(date(2022,11,19), date(2022,11,22)): print(i)
+        2022-11-19
+        2022-11-20
+        2022-11-21
+        ```
     """
     for n in range(int((end - start).days)):
         yield start + timedelta(n)

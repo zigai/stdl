@@ -23,12 +23,12 @@ class LoguruFormatter:
     def format(self, record: dict) -> str:
         """
         Example:
-        ```python
-        >>> import sys
-        >>> from loguru import logger
-        >>> logger.remove()
-        >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
-        ```
+            ```python
+            >>> import sys
+            >>> from loguru import logger
+            >>> logger.remove()
+            >>> logger.add(sys.stdout, level="DEBUG", format=loguru_formater)
+            ```
         """
         extras = ""
         if len(record["extra"]):
