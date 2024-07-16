@@ -92,7 +92,7 @@ def occurrences(l: list[T.Any], val: T.Any) -> int:
     Returns:
         int: Number of occurrences
     """
-    return len([i for i in l if i == val and type(i) == type(val)])
+    return len([i for i in l if i == val and type(i) is type(val)])
 
 
 __all__ = [
