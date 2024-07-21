@@ -18,7 +18,6 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from select import select
 
 import toml
 import yaml
