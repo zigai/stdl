@@ -383,6 +383,14 @@ def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
     return s.rjust(new_width, fillchar)
 
 
+def ansi_strip(r: str) -> str:
+    """
+    Remove ANSI escape codes from a string.
+    """
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", r)
+
+
 if __name__ == "__main__":
     FG.print_all()
     BG.print_all()

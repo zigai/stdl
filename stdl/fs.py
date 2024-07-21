@@ -102,7 +102,7 @@ class File(PathLike):
         Args:
             path (os.PathLike): File path.
             encoding (str, optional): The file's encoding.
-            abs (bool, keyword-only): Whether to use the absolute path.
+            abs (bool): Whether to use the absolute path.
         """
         self.encoding = encoding
         self.path: str = os.fspath(path)
@@ -698,7 +698,9 @@ def is_wsl() -> bool:
 
 
 def mkdir(path: str | Path, mode: int = 511, exist_ok: bool = True) -> None:
-    """Creates a directory.
+    """
+    Creates a directory.
+
     Args:
         path (str | Path): The path of the directory to create.
         exist_ok (bool, optional): Whether to raise an exception if the directory already exists. Defaults to True.
@@ -707,7 +709,9 @@ def mkdir(path: str | Path, mode: int = 511, exist_ok: bool = True) -> None:
 
 
 def mkdirs(dest: str | Path, names: list[str]) -> None:
-    """Creates directories inside a destination directory.
+    """
+    Creates directories inside a destination directory.
+
     Args:
         dest (str | Path): The destination directory.
         names (list[str]): A list of directory names to be created in the destination directory.
@@ -863,7 +867,7 @@ def ensure_paths_exist(*args: str | PathLike | Iterable[str | PathLike]) -> None
 
     def check_path(path: str | PathLike):
         if not os.path.exists(os.fspath(path)):
-            raise FileNotFoundError(f"Path does not exist: {path}")
+            raise FileNotFoundError(f"Path does not exist: '{path}'")
 
     for path in args:
         if isinstance(path, (str, bytes, PathLike)):
@@ -886,7 +890,7 @@ def ensure_paths_dont_exist(*args: str | PathLike | Iterable[str | PathLike]) ->
 
     def check_path(path: str | PathLike):
         if os.path.exists(os.fspath(path)):
-            raise FileExistsError(f"Path already exists: {path}")
+            raise FileExistsError(f"Path already exists: '{path}'")
 
     for path in args:
         if isinstance(path, (str, bytes, PathLike)):
@@ -1017,22 +1021,16 @@ def exec_cmd(
     )
 
 
-def read_stdin(timeout: float = 0.0) -> list[str]:
+def read_piped() -> str:
     """
-    Reads lines from stdin.
-
-    Args:
-        timeout (float, optional): The time to wait for input. Defaults to 0.
-
-    Returns:
-        list[str]: The lines read from stdin.
+    Reads piped input from stdin.
     """
-    if select([sys.stdin], [], [], timeout)[0]:
-        return sys.stdin.read().strip().splitlines()
-    return []
+    if sys.stdin.isatty():
+        return ""
+    return sys.stdin.read().strip()
 
 
-def startfile(path: str | PathLike) -> None:
+def start_file(path: str | PathLike) -> None:
     """
     Open the file with your OS's default application.
 
@@ -1086,8 +1084,8 @@ __all__ = [
     "dirname",
     "joinpath",
     "splitpath",
-    "read_stdin",
-    "startfile",
+    "start_file",
+    "read_piped",
     "isdir",
     "isfile",
     "islink",
