@@ -125,7 +125,7 @@ def datetime_fmt(
         ```
     """
     if d is None:
-        d = datetime.fromtimestamp(time.perf_counter(), **{"tz": timezone.utc} if utc else {})
+        d = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
 
     elif isinstance(d, str):
         d = parse_datetime_str(d)
@@ -162,7 +162,7 @@ def time_fmt(
         str: Formated time.
     """
     if t is None:
-        tm = datetime.fromtimestamp(time.perf_counter(), **{"tz": timezone.utc} if utc else {})
+        tm = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
     elif isinstance(t, datetime):
         tm = t.time()
     elif isinstance(t, (int, float)):
@@ -208,7 +208,7 @@ def date_fmt(
         ```
     """
     if d is None:
-        d = date.fromtimestamp(time.perf_counter())
+        d = date.fromtimestamp(time.time())
     elif isinstance(d, (float, int)):
         d = date.fromtimestamp(d)
     elif isinstance(d, datetime):
