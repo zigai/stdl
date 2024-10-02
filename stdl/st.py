@@ -168,9 +168,9 @@ def _get_ansi_value(value: str | None, handler) -> str:
 
 def colored(
     text: str,
-    color: ForegroundColor | None = None,
-    background: BackgroundColor | None = None,
-    style: Style | None = None,
+    color: ForegroundColor | str | None = None,
+    background: BackgroundColor | str | None = None,
+    style: Style | str | None = None,
 ):
     """
     Returns the text with ansi color, background color and text style codes.
