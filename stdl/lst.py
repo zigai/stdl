@@ -1,8 +1,10 @@
-import typing as T
 from collections import Counter
+from typing import Any, Sequence, TypeVar
+
+T = TypeVar("T")
 
 
-def chunks(l: list[T.Any], size: int) -> list[list[T.Any]]:
+def chunks(l: list[T], size: int) -> list[list[T]]:
     """
     Splits a list into chunks of a specified size.
 
@@ -21,7 +23,7 @@ def chunks(l: list[T.Any], size: int) -> list[list[T.Any]]:
     return [l[i : i + size] for i in range(0, len(l), size)]
 
 
-def split(l: list[T.Any], parts: int) -> list[list[T.Any]]:
+def split(l: list[T], parts: int) -> list[list[T]]:
     """
     Splits a list into a specified number of parts
 
@@ -38,7 +40,7 @@ def split(l: list[T.Any], parts: int) -> list[list[T.Any]]:
     if parts < 1 or parts > len(l):
         raise ValueError(parts)
 
-    def inner(l: list[T.Any], parts: int) -> list[list[T.Any]]:
+    def inner(l: list[T], parts: int) -> list[list[T]]:
         length = len(l)
         si = length // parts
         if length - si > 0:
@@ -49,7 +51,7 @@ def split(l: list[T.Any], parts: int) -> list[list[T.Any]]:
     return inner(l, parts)
 
 
-def unique(l: list[T.Any]) -> list[T.Any]:
+def unique(l: Sequence[T]) -> list[T]:
     """
     Filter out all non-unique values from a list.
     Args:
@@ -60,7 +62,7 @@ def unique(l: list[T.Any]) -> list[T.Any]:
     return [i for i, count in Counter(l).items() if count == 1]
 
 
-def non_unique(l: list[T.Any]) -> list[T.Any]:
+def non_unique(l: Sequence[T]) -> list[T]:
     """
     Filter out all unique values from a list.
     Args:
@@ -71,7 +73,7 @@ def non_unique(l: list[T.Any]) -> list[T.Any]:
     return [i for i, count in Counter(l).items() if count > 1]
 
 
-def every_nth(l: list[T.Any], n: int) -> list[T.Any]:
+def every_nth(l: list[T], n: int) -> list[T]:
     """
     Return every nth element from a list
     Args:
@@ -83,7 +85,7 @@ def every_nth(l: list[T.Any], n: int) -> list[T.Any]:
     return l[n - 1 :: n]
 
 
-def occurrences(l: list[T.Any], val: T.Any) -> int:
+def occurrences(l: Sequence[T], val: Any) -> int:
     """
     Count the number of occurrences of a value in a list
     Args:
