@@ -2,6 +2,7 @@ import os
 import re
 import textwrap
 import typing as T
+from dataclasses import dataclass
 from platform import system
 from sys import stdout
 
@@ -190,6 +191,17 @@ def colored(
     background = _get_ansi_value(background, BG)  # type: ignore
     style = _get_ansi_value(style, ST)  # type: ignore
     return f"{color}{background}{style}{text}{ST.RESET}"
+
+
+@dataclass
+class TextStyle:
+    color: ForegroundColor | str | None = None
+    background: BackgroundColor | str | None = None
+    style: Style | str | None = None
+
+
+def with_style(text: str, style: TextStyle) -> str:
+    return colored(text, color=style.color, background=style.background, style=style.style)
 
 
 def terminal_link(
