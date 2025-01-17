@@ -9,11 +9,11 @@ def chunks(l: list[T], size: int) -> list[list[T]]:
     Splits a list into chunks of a specified size.
 
     Args:
-        l (list): list to be split
+        l (list[T]): list to be split
         size (int): Size of each chunk.
 
     Returns:
-        list : a list containing the chunks.
+        list[list[T]] : a list containing the chunks.
 
     Raises:
         ValueError : if the size is less than 1 or greater than the length of the list
@@ -28,11 +28,11 @@ def split(l: list[T], parts: int) -> list[list[T]]:
     Splits a list into a specified number of parts
 
     Args:
-        l (list): List to be split
+        l (list[T]): List to be split
         parts (int): Number of parts to split the list into.
 
     Returns:
-        list : a list containing the split parts.
+        list[list[T]] : a list containing the split parts.
 
     Raises:
         ValueError : if the parts is less than 1 or greater than the length of the list.
@@ -54,10 +54,12 @@ def split(l: list[T], parts: int) -> list[list[T]]:
 def unique(l: Sequence[T]) -> list[T]:
     """
     Filter out all non-unique values from a list.
+
     Args:
-        l (List[Any]): The list to filter.
+        l (Sequence[T]): The list to filter.
+
     Returns:
-        List[Any]: A list of only unique values.
+        list[T]: A list of only unique values.
     """
     return [i for i, count in Counter(l).items() if count == 1]
 
@@ -65,10 +67,12 @@ def unique(l: Sequence[T]) -> list[T]:
 def non_unique(l: Sequence[T]) -> list[T]:
     """
     Filter out all unique values from a list.
+
     Args:
-        l (List[Any]): The list to filter.
+        l (Sequence[T]): The list to filter.
+
     Returns:
-        List[Any]: A list of only non-unique values.
+        list[T]: A list of only non-unique values.
     """
     return [i for i, count in Counter(l).items() if count > 1]
 
@@ -77,10 +81,10 @@ def every_nth(l: list[T], n: int) -> list[T]:
     """
     Return every nth element from a list
     Args:
-        l (List[Any]): The list to extract elements from.
+        l (list[T]): The list to extract elements from.
         n (int): The index to extract the element at
     Returns:
-        List[Any]: A list of every nth element
+        list[T]: A list of every nth element
     """
     return l[n - 1 :: n]
 
@@ -89,7 +93,7 @@ def occurrences(l: Sequence[T], val: Any) -> int:
     """
     Count the number of occurrences of a value in a list
     Args:
-        l (List[Any]): The list to count values in.
+        l (Sequence[T]): The list to count values in.
         val (Any): The value to count
     Returns:
         int: Number of occurrences
