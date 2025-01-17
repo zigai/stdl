@@ -12,12 +12,12 @@ import shutil
 import subprocess
 import sys
 import time
-import typing as T
 from collections.abc import Iterable
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
+from typing import Any, Generator, Literal
 
 import toml
 import yaml
@@ -442,7 +442,7 @@ def pickle_load(filepath: str | PathLike):
         return pickle.load(f)
 
 
-def pickle_dump(data: T.Any, filepath: str | PathLike) -> None:
+def pickle_dump(data: Any, filepath: str | PathLike) -> None:
     """Dumps an object to the specified filepath."""
 
     with open(filepath, "wb") as f:
@@ -510,7 +510,7 @@ def json_append(
 
 
 def json_dump(
-    data: T.Any, path: str | PathLike, encoding: str = "utf-8", default=str, indent=4
+    data: Any, path: str | PathLike, encoding: str = "utf-8", default=str, indent=4
 ) -> None:
     """
     Dumps data to a JSON file.
@@ -646,7 +646,7 @@ def bytes_readable(size_bytes: int) -> str:
     return f"{s} {size_name[i]}"
 
 
-def readable_size_to_bytes(size: str, kb_size: T.Literal[1000, 1024] = 1024) -> int:
+def readable_size_to_bytes(size: str, kb_size: Literal[1000, 1024] = 1024) -> int:
     """Convert human-readable string to bytes.
     Args:
         size (str): The number of bytes in human-readable format
@@ -729,7 +729,7 @@ def yield_files_in(
     *,
     recursive: bool = True,
     abs: bool = True,
-) -> T.Generator[str, None, None]:
+) -> Generator[str, None, None]:
     """
     Yields the paths of files in a directory.
 
@@ -812,7 +812,7 @@ def get_files_in(
 
 def yield_dirs_in(
     directory: str | Path, *, recursive: bool = True, abs: bool = True
-) -> T.Generator[str, None, None]:
+) -> Generator[str, None, None]:
     """
     Yields paths to all directories in the specified directory.
     Yielded paths are converted to absolute paths.
@@ -905,8 +905,8 @@ class CompletedCommand(subprocess.CompletedProcess):
         args,
         returncode: int,
         time_taken: float,
-        stdout: T.Any | None = None,
-        stderr: T.Any | None = None,
+        stdout: Any | None = None,
+        stderr: Any | None = None,
     ) -> None:
         super().__init__(args, returncode, stdout, stderr)
         self.time_taken = time_taken

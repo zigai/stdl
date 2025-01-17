@@ -1,10 +1,10 @@
 import os
 import re
 import textwrap
-import typing as T
 from dataclasses import dataclass
 from platform import system
 from sys import stdout
+from typing import Literal
 
 CSI_RESET = "\033["
 NO_COLOR = bool(os.environ.get("NO_COLOR", False))
@@ -115,7 +115,7 @@ class ST(ColorANSI):
     BLINK = ansi_code(5)
 
 
-ForegroundColor = T.Literal[
+ForegroundColor = Literal[
     "black",
     "blue",
     "bold",
@@ -136,7 +136,7 @@ ForegroundColor = T.Literal[
 ]
 
 
-BackgroundColor = T.Literal[
+BackgroundColor = Literal[
     "black",
     "blue",
     "cyan",
@@ -155,7 +155,7 @@ BackgroundColor = T.Literal[
     "yellow",
 ]
 
-Style = T.Literal["blink", "bold", "dim", "italic", "reset", "underline"]
+Style = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
 
 
 def _get_ansi_value(value: str | None, handler) -> str:

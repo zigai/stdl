@@ -1,8 +1,8 @@
 import random
 import time
-import typing as T
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
@@ -220,7 +220,7 @@ def date_fmt(
     return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
 
-def date_range(start: date, end: date) -> T.Generator[date, None, None]:
+def date_range(start: date, end: date) -> Generator[date, None, None]:
     """
     Returns a generator for dates between ``start`` and ``end``
 
