@@ -17,7 +17,7 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import Any, Generator, Literal
+from typing import IO, Any, Generator, Literal
 
 import toml
 import yaml
@@ -958,9 +958,9 @@ def exec_cmd(
     capture_output: bool = True,
     check: bool = False,
     cwd: str = None,  # type:ignore
-    stdin: T.IO = None,  # type:ignore
-    stdout: T.IO = None,  # type:ignore
-    stderr: T.IO = None,  # type:ignore
+    stdin: IO = None,  # type:ignore
+    stdout: IO = None,  # type:ignore
+    stderr: IO = None,  # type:ignore
     input: str | bytes = None,  # type:ignore
     env: dict = None,  # type:ignore
     text: bool = True,
