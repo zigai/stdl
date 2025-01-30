@@ -262,6 +262,90 @@ def sleep(lo: float, hi: float | None = None) -> float:
     return t
 
 
+def seconds_to_hms(time: int | float, ms: bool = False) -> str:
+    """
+    Converts time in seconds to a string in the format HH:MM:SS[.mmm]
+
+    Example:
+        >>> seconds_to_hms(123.456)
+        '00:02:03'
+        >>> seconds_to_hms(123.456, ms=True)
+        '00:02:03.456'
+        >>> seconds_to_hms(-123.456, ms=True)
+        '-00:02:03.456'
+    """
+    sign = "-" if time < 0 else ""
+    time = abs(time)
+
+    s = int(time % 60)
+    m = int((time // 60) % 60)
+    h = int(time // 3600)
+    time_str = f"{sign}{h:02d}:{m:02d}:{s:02d}"
+
+    if ms:
+        milis = int(round((time - int(time)) * 1000))
+        time_str += f".{milis:03d}"
+    return time_str
+
+
+def hms_to_seconds(time: str, ms: bool = False) -> float | None:
+    """
+    Converts a string in the format HH:MM:SS[.mmm] or h:m:s or m:s to time in seconds.
+
+    Example:
+        >>> hms_to_seconds('00:02:03')
+        123.0
+        >>> hms_to_seconds('00:02:03.456', ms=True)
+        123.456
+    """
+    if time is None:
+        return None
+
+    negative = False
+    time = time.strip()
+    if time.startswith("-"):
+        negative = True
+        time = time[1:]
+
+    parts = time.split(":")
+    if len(parts) == 1:
+        return float(parts[0])
+    time_milis = 0.0
+
+    if ms:
+        if "." in parts[-1]:
+            dot_split = parts[-1].split(".", 1)
+            parts[-1], millis_str = dot_split
+            if not millis_str.isdigit():
+                raise ValueError(f"Invalid milliseconds in time: '{time}'")
+            millis = int(millis_str.ljust(3, "0"))
+            time_milis = millis / 1000
+
+    try:
+        if len(parts) == 2:
+            minute_part, second_part = parts
+            m = int(minute_part)
+            s = int(second_part)
+            if s >= 60:
+                raise ValueError(f"Seconds ({s}) must be < 60.")
+            total = m * 60 + s
+        elif len(parts) == 3:
+            hour_part, minute_part, second_part = parts
+            h = int(hour_part)
+            m = int(minute_part)
+            s = int(second_part)
+            if m >= 60 or s >= 60:
+                raise ValueError(f"Minutes ({m}) or seconds ({s}) must be < 60.")
+            total = h * 3600 + m * 60 + s
+        else:
+            raise ValueError("Invalid number of time segments.")
+    except ValueError as e:
+        raise ValueError(f"Invalid time format: '{time}'") from e
+
+    result = total + time_milis
+    return -result if negative else result
+
+
 __all__ = [
     "Timer",
     "parse_datetime_str",
