@@ -98,7 +98,8 @@ def datetime_fmt(
     ms: bool = False,
     utc: bool = True,
 ) -> str:
-    """Format date and time
+    """
+    Format date and time
 
     Args:
         d (str | float | None | datetime, optional): Input datetime. Defaults to current date and time.

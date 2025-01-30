@@ -101,6 +101,17 @@ def occurrences(l: Sequence[T], val: Any) -> int:
     return len([i for i in l if i == val and type(i) is type(val)])
 
 
+def nodups(l: Sequence[T]) -> list[T]:
+    """
+    Remove duplicates from a list and maintain the order
+    """
+    result = []
+    for i in l:
+        if i not in result:
+            result.append(i)
+    return result
+
+
 __all__ = [
     "unique",
     "non_unique",

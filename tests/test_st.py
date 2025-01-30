@@ -57,10 +57,10 @@ def test_wrapped():
 
 def test_len_without_ansi():
     no_ansi_text = "Normal text"
-    assert st.len_without_ansi(no_ansi_text) == len(no_ansi_text)
-    assert st.len_without_ansi(colored("TEXT", color="red")) == 4
-    assert st.len_without_ansi(colored("TEXT", color="red", style="bold")) == 4
-    assert st.len_without_ansi("") == 0
+    assert st.ansi_len(no_ansi_text) == len(no_ansi_text)
+    assert st.ansi_len(colored("TEXT", color="red")) == 4
+    assert st.ansi_len(colored("TEXT", color="red", style="bold")) == 4
+    assert st.ansi_len("") == 0
 
 
 def test_ansi_ljust():
@@ -70,12 +70,12 @@ def test_ansi_ljust():
 
     red_text = colored("Red", color="red")
     ljust_red = ansi_ljust(red_text, 10)
-    assert len_without_ansi(ljust_red) == 10
+    assert ansi_len(ljust_red) == 10
     assert ljust_red.startswith(red_text)
 
     bold_red_text = colored("Bold red", color="red", style="bold")
     ljust_bold_red = ansi_ljust(bold_red_text, 15, fillchar="-")
-    assert len_without_ansi(ljust_bold_red) == 15
+    assert ansi_len(ljust_bold_red) == 15
     assert ljust_bold_red.startswith(bold_red_text)
 
     assert ansi_ljust("", 5) == "     "
@@ -88,12 +88,12 @@ def test_ansi_rjust():
 
     red_text = colored("Red", color="red")
     rjust_red = ansi_rjust(red_text, 10)
-    assert len_without_ansi(rjust_red) == 10
+    assert ansi_len(rjust_red) == 10
     assert rjust_red.endswith(red_text)
 
     bold_red_text = colored("Bold red", color="red", style="bold")
     rjust_bold_red = ansi_rjust(bold_red_text, 15, fillchar="-")
-    assert len_without_ansi(rjust_bold_red) == 15
+    assert ansi_len(rjust_bold_red) == 15
     assert rjust_bold_red.endswith(bold_red_text)
 
     assert ansi_rjust("", 5) == "     "

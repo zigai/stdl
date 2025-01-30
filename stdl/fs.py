@@ -49,408 +49,23 @@ move = shutil.move
 chown = shutil.chown
 
 
-class EXT:
-    AUDIO = (".mp3", ".aac", ".ogg", ".flac", ".wav", ".aiff", ".dsd", ".pcm")
-    IMAGE = (
-        ".jpg",
-        ".png",
-        ".jpeg",
-        ".webp",
-        ".gif",
-        ".bmp",
-        ".tif",
-        ".tiff",
-        ".jfif",
-        ".heic",
-        ".dib",
-        ".jp2",
-        ".jpx",
-        ".j2k",
-        ".jxl",
-    )
-    VIDEO = (
-        ".mp4",
-        ".mkv",
-        ".avi",
-        ".flv",
-        ".mov",
-        ".webm",
-        ".mpg",
-        ".mpeg",
-        ".mpe",
-        ".mpv",
-        ".ogg",
-        ".m4p",
-        ".m4v",
-        ".wmv",
-        ".f4v",
-        ".swf",
-    )
-
-
-class File(PathLike):
-    def __init__(
-        self,
-        path: str | PathLike,
-        encoding: str = "utf-8",
-        *,
-        abs: bool = False,
-    ) -> None:
-        """Initialize a File object.
-
-        Args:
-            path (os.PathLike): File path.
-            encoding (str, optional): The file's encoding.
-            abs (bool): Whether to use the absolute path.
-        """
-        self.encoding = encoding
-        self.path: str = os.fspath(path)
-        if abs:
-            self.path = os.path.abspath(self.path)  # type:ignore
-
-    def __fspath__(self):
-        return self.path
-
-    def __str__(self):
-        return self.path
-
-    @property
-    def exists(self) -> bool:
-        return os.path.isfile(self.path)
-
-    @property
-    def dirname(self) -> str:
-        """The file's directory name."""
-        return os.path.dirname(self.path)
-
-    @property
-    def created(self) -> float:
-        """The time when the file was created as a UNIX timestamp."""
-        return os.path.getctime(self.path)
-
-    @property
-    def modified(self) -> float:
-        """The time when the file was last modified as a UNIX timestamp."""
-        return os.path.getmtime(self.path)
-
-    @property
-    def accessed(self) -> float:
-        """The time when the file was last accessed as a UNIX timestamp."""
-        return os.path.getatime(self.path)
-
-    @property
-    def basename(self) -> str:
-        """The file's base name (without the directory)."""
-        return os.path.basename(self.path)
-
-    ctime = created
-    mtime = modified
-    atime = accessed
-
-    @property
-    def ext(self) -> str:
-        """The file's extension (without the dot).
-        Returns empty string if the file has no extension."""
-        if "." in self.basename:
-            return self.basename.split(".")[-1]
-        return ""
-
-    @property
-    def abspath(self) -> str:
-        """The file's absolute path."""
-        return os.path.abspath(self.path)
-
-    @property
-    def stem(self):
-        """The file's stem (base name without extension)."""
-        base = self.basename
-        if "." not in base:
-            return base
-        return ".".join(base.split(".")[:-1])
-
-    def size(self, readable: bool = False) -> int | str:
-        """The file's size in bytes or a human-readable format if readable is set to True."""
-        size = os.path.getsize(self.path)
-        if readable:
-            return bytes_readable(size)
-        return size
-
-    def to_path(self) -> Path:
-        """Convert to  pathlib.Path"""
-        return Path(self.path)
-
-    def to_str(self) -> str:
-        return str(self)
-
-    def create(self):
-        """Create an empty file if it doesn't exist."""
-        if self.exists:
-            return self
-        open(self.path, "a", encoding=self.encoding).close()
-        return self
-
-    def remove(self):
-        """Remove the file."""
-        if not self.exists:
-            return self
-        os.remove(self.path)
-        return self
-
-    delete = remove
-
-    def clear(self):
-        """Clear the contents of a file if it exists"""
-        if not self.exists:
-            return
-        open(self.path, "w", encoding=self.encoding).close()
-        return self
-
-    def parent(self) -> Path:
-        return self.to_path().parent
-
-    def read(self) -> str:
-        """Read the contents of a file."""
-        with open(self.path, "r", encoding=self.encoding) as f:
-            return f.read()
-
-    def _write(self, data, mode: str, *, newline: bool = True):
-        with open(self.path, mode, encoding=self.encoding) as f:
-            f.write(data)
-            if newline:
-                f.write("\n")
-
-    def _write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
-        with open(self.path, mode, encoding=self.encoding) as f:
-            for entry in data:
-                f.write(f"{entry}{sep}")
-
-    def write(self, data, *, newline: bool = True) -> None:
-        """
-        Write data to a file, overwriting any existing data.
-
-        Args:
-            data (Any): The data to write.
-            newline (bool, optional): Whether to add a newline at the end of the data.
-        """
-        self._write(data, "w", newline=newline)
-
-    def append(self, data, *, newline: bool = True):
-        """
-        Append data to a file.
-
-        Args:
-            data (Any): The data to append.
-            newline (bool, optional): Whether to add a newline at the end of the data.
-        """
-        self._write(data, "a", newline=newline)
-
-    def write_iter(self, data: Iterable, sep="\n"):
-        """Write data from an iterable to a file, overwriting any existing data.
-
-        Args:
-            data (Iterable): The data to write.
-            sep (str, optional): The separator to use between items.
-        """
-        self._write_iter(data, "w", sep=sep)
-
-    def append_iter(self, data: Iterable, sep="\n"):
-        """Append data from an iterable to a file.
-
-        Args:
-            data (Iterable): The data to append.
-            sep (str, optional): The separator to use between items.
-        """
-        self._write_iter(data, "a", sep=sep)
-
-    def readlines(self) -> list[str]:
-        """Equivalent to TextIOWrapper.readlines()"""
-        with open(self.path, "r", encoding=self.encoding) as f:
-            return f.readlines()
-
-    def splitlines(self) -> list[str]:
-        """Equivalent to File.read().splitlines()"""
-        return self.read().splitlines()
-
-    def move_to(self, directory: str, *, overwrite=True):
-        """
-        Move the file to a new directory.
-
-        Args:
-            directory (str): The destination directory.
-            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
-        """
-        move_path = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(move_path) and not overwrite:
-            raise FileExistsError(move_path)
-        os.rename(self.path, move_path)
-        self.path = move_path
-        return self
-
-    def copy_to(self, directory: str, *, mkdir=False, overwrite=True):
-        """
-        Copy the file to a new directory.
-
-        Args:
-            directory (str): The destination directory.
-            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
-        """
-        if not os.path.isdir(directory):
-            if mkdir:
-                os.mkdir(directory)
-            else:
-                raise FileNotFoundError(f"No such directory: '{directory}'")
-        copy_path = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(copy_path) and not overwrite:
-            raise FileExistsError(copy_path)
-        self.path = shutil.copy2(self.path, directory)
-        return self
-
-    def with_dir(self, directory: str):
-        """
-        Change the directory of the file object. This will not move the actual file to that directory.
-        Use File.move_to for that.
-        """
-        basename = self.basename
-        self.path = f"{directory}{SEP}{basename}"
-        return self
-
-    def with_ext(self, ext: str):
-        """Change the extension of the file and return the new File object
-
-        Args:
-            ext (str): The new extension of the file.
-
-        Returns:
-            File: The File object with the new extension.
-        """
-        if not ext.startswith("."):
-            ext = f".{ext}"
-        self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
-        return self
-
-    def with_suffix(self, suffix: str):
-        """Add a suffix to the file's name and return the new File object."""
-        ext = self.ext
-        if ext:
-            ext = f".{ext}"
-        filename = f"{self.stem}{suffix}{ext}"
-        self.path = f"{self.dirname}{SEP}{filename}"
-        return self
-
-    def with_prefix(self, prefix: str):
-        """Add a prefix to the file's name and return the new File object."""
-        ext = self.ext
-        if ext:
-            ext = f".{ext}"
-        filename = f"{prefix}{self.stem}{ext}"
-        self.path = f"{self.dirname}{SEP}{filename}"
-        return self
-
-    def rename(self, name: str):
-        """Rename the file and return the new File object."""
-        new_path = f"{self.dirname}{SEP}{name}"
-        os.rename(self.path, new_path)
-        self.path = new_path
-        return self
-
-    def chmod(self, mode: int):
-        """Change the file's permissions."""
-        os.chmod(self.path, mode)
-        return self
-
-    def chown(self, user: str, group: str):
-        """Change the file's owner and group."""
-        shutil.chown(self.path, user, group)
-        return self
-
-    def link(self, target: str):
-        """Create a hard link to the file."""
-        os.link(self.path, target)
-        return self
-
-    def symlink(self, target: str):
-        """Create a symbolic link to the file."""
-        os.symlink(self.path, target)
-        return self
-
-    def should_exist(self):
-        """Raise FileNotFoundError if the file does not exist."""
-        if not self.exists:
-            raise FileNotFoundError(f"No such file: '{self.path}'")
-        return self
-
-    def should_not_exist(self):
-        """Raise FileExistsError if the file exists."""
-        if self.exists:
-            raise FileExistsError(f"File already exists: '{self.path}'")
-        return self
-
-    @classmethod
-    def rand(cls, prefix: str = "file", ext: str = ""):
-        """
-        Create a new random file with a specified prefix and extension.
-
-        Args:
-            prefix (str, optional): The prefix for the file name.
-            ext (str, optional): The extension for the file name.
-
-        Returns:
-            File: A new File object with a random name.
-        """
-        return File(rand_filename(prefix, ext))
-
-    if sys.platform != "win32":
-
-        def get_xattr(self, name: str, group: str = "user") -> str:
-            """Retrieve the value of an extended attribute for the file.
-
-            Args:
-                name (str): The name of the extended attribute.
-                group (str, optional): The group of the extended attribute. Defaults to "user".
-
-            Returns:
-                str: The value of the extended attribute.
-            """
-            return os.getxattr(self.path, f"{group}.{name}").decode()
-
-        def set_xattr(self, value: str | bytes, name: str, group: str = "user"):
-            """Set an extended attribute for the file.
-
-            Args:
-                value (str | bytes): The value of the extended attribute.
-                name (str): The name of the extended attribute.
-                group (str, optional): The group of the extended attribute. Defaults to "user".
-            """
-            if isinstance(value, str):
-                value = value.encode()
-            os.setxattr(self.path, f"{group}.{name}", value)
-            return self
-
-        def remove_xattr(self, name: str, group: str = "user") -> None:
-            """Remove an extended attribute from the file.
-
-            Args:
-                name (str): The name of the extended attribute.
-                group (str, optional): The group of the extended attribute. Defaults to "user".
-            """
-            os.removexattr(self.path, f"{group}.{name}")
-
-
-def pickle_load(filepath: str | PathLike):
+def pickle_load(filepath: str | PathLike) -> Any:
     """Loads a pickled file."""
     with open(filepath, "rb") as f:
         return pickle.load(f)
 
 
 def pickle_dump(data: Any, filepath: str | PathLike) -> None:
-    """Dumps an object to the specified filepath."""
+    """
+    Dumps an object to the specified filepath."""
 
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
 
 
-def json_load(path: str | PathLike, encoding="utf-8") -> dict | list[dict]:
-    """Load a JSON file from the given path.
+def json_load(path: str | PathLike, encoding="utf-8") -> dict[Any, Any] | list[dict[Any, Any]]:
+    """
+    Load a JSON file from the given path.
 
     Args:
         path (str | PathLike): The path of the JSON file to load.
@@ -469,8 +84,10 @@ def json_append(
     encoding: str = "utf-8",
     default=str,
     indent: int = 4,
-):
-    """Append data to a JSON file.
+) -> None:
+    """
+    Append data to a JSON file.
+
     Args:
         data (dict | list[dict]): The data to be appended
         filepath (str | PathLike): The path of the JSON file
@@ -482,7 +99,7 @@ def json_append(
 
     file = File(filepath)
     path = os.fspath(filepath)
-    if not file.exists or file.size() == 0:
+    if not file.exists or file.size == 0:
         json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
         return
     with open(path, "a+", encoding=encoding) as f:
@@ -526,8 +143,11 @@ def json_dump(
         json.dump(data, f, indent=indent, default=default)
 
 
-def yaml_load(path: str | PathLike, encoding: str = "utf-8") -> dict | list[dict]:
-    """Load a YAML file from the given path.
+def yaml_load(
+    path: str | PathLike, encoding: str = "utf-8"
+) -> dict[Any, Any] | list[dict[Any, Any]]:
+    """
+    Load a YAML file from the given path.
 
     Args:
         path (str | PathLike): The path of the YAML file to load.
@@ -557,13 +177,14 @@ def toml_load(path: str | PathLike, encoding: str = "utf-8"):
         return toml.load(f)
 
 
-def toml_dump(data, path: str | PathLike, encoding: str = "utf-8"):
+def toml_dump(data, path: str | PathLike, encoding: str = "utf-8") -> str:
     with open(path, "w", encoding=encoding) as f:
         return toml.dump(data, f)
 
 
-def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
-    """Moves files to a specified directory
+def get_dir_size(directory: str | PathLike, *, readable: bool = False) -> str | int:
+    """
+    Moves files to a specified directory
 
     Args:
         directory (str, Path): target directory
@@ -584,7 +205,8 @@ def get_dir_size(directory: str | Path, *, readable: bool = False) -> str | int:
 def move_files(
     files: list[str | PathLike], directory: str | PathLike, *, mkdir: bool = False
 ) -> None:
-    """Moves files to a specified directory
+    """
+    Moves files to a specified directory
 
     Args:
         files (list[str | PathLike]): List of files to be moved
@@ -1050,9 +672,725 @@ def start_file(path: str | PathLike) -> None:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 
+class PathBase(PathLike):
+    def __init__(
+        self,
+        path: str | PathLike,
+        *,
+        abs: bool = False,
+    ) -> None:
+        """
+        Initialize a PathBase object.
+
+        Args:
+            path (str | PathLike): The path.
+            abs (bool): Whether to use the absolute path.
+        """
+        self.path: str = os.fspath(path)
+        if abs:
+            self.path = os.path.abspath(self.path)
+
+    def __fspath__(self):
+        return self.path
+
+    def __str__(self):
+        return self.path
+
+    def resolve(self, strict: bool = False) -> "PathBase":
+        """
+        Make the path absolute, resolving any symlinks.
+
+        Args:
+            strict: If True and path doesn't exist, raises FileNotFoundError. Defaults to False.
+
+        Returns:
+            A new File object with resolved path.
+        """
+        self.path = os.path.realpath(self.path)
+        if strict and not self.exists:
+            raise FileNotFoundError(f"No such file: '{self.path}'")
+        return self
+
+    @property
+    def created(self) -> float:
+        """The time when the path was created as a UNIX timestamp."""
+        return os.path.getctime(self.path)
+
+    @property
+    def modified(self) -> float:
+        """The time when the path was last modified as a UNIX timestamp."""
+        return os.path.getmtime(self.path)
+
+    @property
+    def accessed(self) -> float:
+        """The time when the path was last accessed as a UNIX timestamp."""
+        return os.path.getatime(self.path)
+
+    ctime = created
+    mtime = modified
+    atime = accessed
+
+    @property
+    def basename(self) -> str:
+        """The base name of the path (without the parent directory)."""
+        return os.path.basename(self.path)
+
+    @property
+    def abspath(self) -> str:
+        """The absolute path."""
+        return os.path.abspath(self.path)
+
+    def rename(self, name: str) -> PathBase:
+        """
+        Rename the path.
+
+        Args:
+            name (str): The new name.
+
+        Returns:
+            PathBase: The updated object.
+        """
+        new_path = os.path.join(self.parent.path, name)
+        os.rename(self.path, new_path)
+        self.path = new_path
+        return self
+
+    def chmod(self, mode: int) -> PathBase:
+        """Change the path's permissions.
+
+        Args:
+            mode (int): The new permissions mode.
+
+        Returns:
+            PathBase: The updated object.
+        """
+        os.chmod(self.path, mode)
+        return self
+
+    def chown(self, user: str, group: str) -> PathBase:
+        """Change the path's owner and group.
+
+        Args:
+            user (str): The new owner.
+            group (str): The new group.
+
+        Returns:
+            PathBase: The updated object.
+        """
+        shutil.chown(self.path, user, group)
+        return self
+
+    def should_exist(self) -> PathBase:
+        """Raise FileNotFoundError if the path does not exist.
+
+        Returns:
+            PathBase: The object.
+        """
+        if not self.exists:
+            raise FileNotFoundError(f"No such path: '{self.path}'")
+        return self
+
+    def should_not_exist(self) -> PathBase:
+        """Raise FileExistsError if the path exists.
+
+        Returns:
+            PathBase: The object.
+        """
+        if self.exists:
+            raise FileExistsError(f"Path already exists: '{self.path}'")
+        return self
+
+    def to_path(self) -> Path:
+        """
+        Convert to pathlib.Path.
+
+        Returns:
+            Path: The pathlib.Path object.
+        """
+        return Path(self.path)
+
+    def to_str(self) -> str:
+        """
+        Convert to string.
+
+        Returns:
+            str: The path as a string.
+        """
+        return str(self)
+
+    @property
+    def exists(self) -> bool:
+        """Check if the path exists."""
+        raise NotImplementedError
+
+    @property
+    def parent(self) -> "Directory":
+        """The parent directory."""
+        raise NotImplementedError
+
+    @property
+    def size(self) -> int:
+        raise NotImplementedError
+
+    @property
+    def size_readable(self) -> str:
+        raise NotImplementedError
+
+    def remove(self) -> PathBase:
+        raise NotImplementedError
+
+    def delete(self) -> PathBase:
+        return self.remove()
+
+    def create(self) -> PathBase:
+        raise NotImplementedError
+
+    def clear(self) -> PathBase:
+        raise NotImplementedError
+
+    def move_to(
+        self, directory: "str | Directory | PathLike", *, overwrite: bool = True
+    ) -> "PathBase":
+        """
+        Move the path to a new directory.
+
+        Args:
+            directory: The destination directory
+            overwrite: Whether to overwrite files if they already exist. Defaults to True.
+
+        Returns:
+            The updated PathBase object
+        """
+        raise NotImplementedError
+
+    def copy_to(
+        self,
+        directory: "str | Directory | PathLike",
+        *,
+        overwrite: bool = True,
+        mkdir: bool = False,
+    ) -> "PathBase":
+        """
+        Copy the path to a new directory.
+
+        Args:
+            directory: The destination directory
+            overwrite: Whether to overwrite files if they already exist. Defaults to True.
+            mkdir: Whether to create the destination directory if it doesn't exist. Defaults to False.
+
+        Returns:
+            The updated PathBase object
+        """
+        raise NotImplementedError
+
+    if sys.platform != "win32":
+
+        def get_xattr(self, name: str, group: str = "user") -> str:
+            """Retrieve the value of an extended attribute.
+
+            Args:
+                name: The name of the extended attribute.
+                group: The group of the extended attribute. Defaults to "user".
+
+            Returns:
+                The value of the extended attribute.
+            """
+            return os.getxattr(self.path, f"{group}.{name}").decode()
+
+        def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> "PathBase":
+            """Set an extended attribute.
+
+            Args:
+                value: The value of the extended attribute.
+                name: The name of the extended attribute.
+                group: The group of the extended attribute. Defaults to "user".
+            """
+            if isinstance(value, str):
+                value = value.encode()
+            os.setxattr(self.path, f"{group}.{name}", value)
+            return self
+
+        def remove_xattr(self, name: str, group: str = "user") -> "PathBase":
+            """Remove an extended attribute.
+
+            Args:
+                name: The name of the extended attribute.
+                group: The group of the extended attribute. Defaults to "user".
+            """
+            os.removexattr(self.path, f"{group}.{name}")
+            return self
+
+
+class File(PathBase):
+    def __init__(
+        self,
+        path: str | PathLike,
+        encoding: str = "utf-8",
+        *,
+        abs: bool = False,
+    ) -> None:
+        """Initialize a File object.
+
+        Args:
+            path (str | PathLike): File path.
+            encoding (str, optional): The file's encoding.
+            abs (bool): Whether to use the absolute path.
+        """
+        super().__init__(path, abs=abs)
+        self.encoding = encoding
+
+    @property
+    def exists(self) -> bool:
+        return os.path.isfile(self.path)
+
+    @property
+    def parent(self) -> "Directory":
+        """The parent directory."""
+        return Directory(os.path.dirname(self.path))
+
+    @property
+    def dirname(self) -> str:
+        """The file's directory name."""
+        return os.path.dirname(self.path)
+
+    @property
+    def ext(self) -> str:
+        """The file's extension (without the dot).
+        Returns empty string if the file has no extension."""
+        if "." in self.basename:
+            return self.basename.split(".")[-1]
+        return ""
+
+    @property
+    def stem(self):
+        """The file's stem (base name without extension)."""
+        base = self.basename
+        if "." not in base:
+            return base
+        return ".".join(base.split(".")[:-1])
+
+    @property
+    def size(self) -> int:
+        """
+        The file's size in bytes
+        """
+        return os.path.getsize(self.path)
+
+    @property
+    def size_readable(self) -> str:
+        """The file's size in a human-readable format if readable is set to True."""
+        return bytes_readable(self.size)
+
+    def create(self):
+        """Create an empty file if it doesn't exist."""
+        if self.exists:
+            return self
+        open(self.path, "a", encoding=self.encoding).close()
+        return self
+
+    def remove(self):
+        """Remove the file."""
+        if not self.exists:
+            return self
+        os.remove(self.path)
+        return self
+
+    def clear(self):
+        """Clear the contents of a file if it exists"""
+        if not self.exists:
+            return self
+        open(self.path, "w", encoding=self.encoding).close()
+        return self
+
+    def read(self) -> str:
+        """Read the contents of a file."""
+        with open(self.path, "r", encoding=self.encoding) as f:
+            return f.read()
+
+    def _write(self, data, mode: str, *, newline: bool = True):
+        with open(self.path, mode, encoding=self.encoding) as f:
+            f.write(data)
+            if newline:
+                f.write("\n")
+
+    def _write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
+        with open(self.path, mode, encoding=self.encoding) as f:
+            for entry in data:
+                f.write(f"{entry}{sep}")
+
+    def write(self, data, *, newline: bool = True) -> None:
+        """
+        Write data to a file, overwriting any existing data.
+
+        Args:
+            data (Any): The data to write.
+            newline (bool, optional): Whether to add a newline at the end of the data.
+        """
+        self._write(data, "w", newline=newline)
+
+    def append(self, data, *, newline: bool = True):
+        """
+        Append data to a file.
+
+        Args:
+            data (Any): The data to append.
+            newline (bool, optional): Whether to add a newline at the end of the data.
+        """
+        self._write(data, "a", newline=newline)
+
+    def write_iter(self, data: Iterable, sep="\n"):
+        """Write data from an iterable to a file, overwriting any existing data.
+
+        Args:
+            data (Iterable): The data to write.
+            sep (str, optional): The separator to use between items.
+        """
+        self._write_iter(data, "w", sep=sep)
+
+    def append_iter(self, data: Iterable, sep="\n"):
+        """Append data from an iterable to a file.
+
+        Args:
+            data (Iterable): The data to append.
+            sep (str, optional): The separator to use between items.
+        """
+        self._write_iter(data, "a", sep=sep)
+
+    def readlines(self) -> list[str]:
+        """Equivalent to TextIOWrapper.readlines()"""
+        with open(self.path, "r", encoding=self.encoding) as f:
+            return f.readlines()
+
+    def splitlines(self) -> list[str]:
+        """Equivalent to File.read().splitlines()"""
+        return self.read().splitlines()
+
+    def move_to(
+        self,
+        directory: "str | Directory | PathLike",
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ):
+        """
+        Move the file to a new directory.
+
+        Args:
+            directory (str): The destination directory.
+            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
+        """
+        directory = os.fspath(directory)
+        if not os.path.isdir(directory):
+            if mkdir:
+                os.mkdir(directory)
+            else:
+                raise FileNotFoundError(f"No such directory: '{directory}'")
+
+        move_path = f"{directory}{SEP}{self.basename}"
+        if os.path.exists(move_path) and not overwrite:
+            raise FileExistsError(move_path)
+        os.rename(self.path, move_path)
+        self.path = move_path
+        return self
+
+    def copy_to(
+        self,
+        directory: "str | Directory | PathLike",
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ):
+        """
+        Copy the file to a new directory.
+
+        Args:
+            directory (str): The destination directory.
+            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
+        """
+        directory = os.fspath(directory)
+        if not os.path.isdir(directory):
+            if mkdir:
+                os.mkdir(directory)
+            else:
+                raise FileNotFoundError(f"No such directory: '{directory}'")
+
+        copy_path = f"{directory}{SEP}{self.basename}"
+        if os.path.exists(copy_path) and not overwrite:
+            raise FileExistsError(copy_path)
+        self.path = shutil.copy2(self.path, directory)
+        return self
+
+    def with_dir(self, directory: str):
+        """
+        Change the directory of the file object. This will not move the actual file to that directory.
+        Use File.move_to for that.
+        """
+        self.path = f"{directory}{SEP}{self.basename}"
+        return self
+
+    def with_ext(self, ext: str):
+        """Change the extension of the file and return the new File object
+
+        Args:
+            ext (str): The new extension of the file.
+
+        Returns:
+            File: The File object with the new extension.
+        """
+        if not ext.startswith("."):
+            ext = f".{ext}"
+        self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
+        return self
+
+    def with_suffix(self, suffix: str):
+        """Add a suffix to the file's name and return the new File object."""
+        ext = self.ext
+        if ext:
+            ext = f".{ext}"
+        filename = f"{self.stem}{suffix}{ext}"
+        self.path = f"{self.dirname}{SEP}{filename}"
+        return self
+
+    def with_prefix(self, prefix: str):
+        """Add a prefix to the file's name and return the new File object."""
+        ext = self.ext
+        if ext:
+            ext = f".{ext}"
+        filename = f"{prefix}{self.stem}{ext}"
+        self.path = f"{self.dirname}{SEP}{filename}"
+        return self
+
+    def rename(self, name: str):
+        """Rename the file and return the new File object."""
+        new_path = f"{self.dirname}{SEP}{name}"
+        os.rename(self.path, new_path)
+        self.path = new_path
+        return self
+
+    def link(self, target: str, follow_symlinks: bool = True):
+        """Create a hard link to the file."""
+        os.link(self.path, target, follow_symlinks=follow_symlinks)
+        return self
+
+    def symlink(self, target: str):
+        """Create a symbolic link to the file."""
+        os.symlink(self.path, target)
+        return self
+
+    @classmethod
+    def rand(cls, prefix: str = "file", ext: str = ""):
+        """
+        Create a new random file with a specified prefix and extension.
+
+        Args:
+            prefix (str, optional): The prefix for the file name.
+            ext (str, optional): The extension for the file name.
+
+        Returns:
+            File: A new File object with a random name.
+        """
+        return File(rand_filename(prefix, ext))
+
+
+class Directory(PathBase):
+    def __init__(
+        self,
+        path: str | PathLike,
+        *,
+        abs: bool = False,
+    ) -> None:
+        """Initialize a Directory object.
+
+        Args:
+            path (str | PathLike): Directory path.
+            abs (bool): Whether to use the absolute path.
+        """
+        super().__init__(path, abs=abs)
+
+    @property
+    def size(self) -> int:
+        return get_dir_size(self.path, readable=False)  # type:ignore
+
+    @property
+    def exists(self) -> bool:
+        """Check if the directory exists."""
+        return os.path.isdir(self.path)
+
+    def create(self, mode: int = 0o777, exist_ok: bool = True) -> "Directory":
+        """Create directory (including parents)."""
+        os.makedirs(self.path, mode=mode, exist_ok=exist_ok)
+        return self
+
+    @property
+    def parent(self) -> "Directory":
+        return Directory(os.path.dirname(self.path))
+
+    @classmethod
+    def rand(cls, prefix: str = "dir") -> "Directory":
+        return Directory(joinpath(os.getcwd(), rand_filename(prefix)))
+
+    def move_to(
+        self, directory: str | PathLike | Directory, *, overwrite: bool = True
+    ) -> "Directory":
+        """
+        Move this directory to become a child of the target location.
+
+        Args:
+            directory: The destination directory where this directory will be moved
+            overwrite: Whether to overwrite if target path already exists. Defaults to True.
+
+        Returns:
+            The updated Directory object
+        """
+        directory = os.fspath(directory)
+        if not os.path.exists(directory):
+            raise FileNotFoundError(f"Destination directory does not exist: {directory}")
+
+        dest = f"{directory}{SEP}{self.basename}"
+        shutil.move(self.path, dest)
+        self.path = dest
+        return self
+
+    def copy_to(
+        self, directory: str | PathLike | Directory, *, overwrite: bool = True, mkdir: bool = False
+    ) -> "Directory":
+        """
+        Copy this directory to become a child of the target location.
+
+        Args:
+            directory: The destination directory where this directory will be copied
+            overwrite: Whether to overwrite if target path already exists. Defaults to True.
+            mkdir: Whether to create the destination directory if it doesn't exist. Defaults to False.
+
+        Returns:
+            The updated Directory object
+        """
+        directory = os.fspath(directory)
+        if not os.path.exists(directory):
+            if mkdir:
+                os.makedirs(directory)
+            else:
+                raise FileNotFoundError(f"Destination directory does not exist: {directory}")
+
+        dest = f"{directory}{SEP}{self.basename}"
+        shutil.copytree(self.path, dest)
+        self.path = dest
+        return self
+
+    def remove(self) -> "Directory":
+        """
+        Remove the directory and all its contents.
+        """
+        if not self.exists:
+            return self
+        shutil.rmtree(self.path)
+        return self
+
+    def yield_files(
+        self, ext: str | tuple | None = None, recursive: bool = True
+    ) -> Generator[File, None, None]:
+        """
+        Yield files in the directory.
+
+        Args:
+            ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
+            recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+        Yields:
+            Generator[File, None, None]: The files in the directory.
+        """
+        for file in yield_files_in(self.path, ext=ext, recursive=recursive):
+            yield File(file)
+
+    def get_files(self, ext: str | tuple | None = None, recursive: bool = True) -> list[File]:
+        """
+        Get files in the directory.
+
+        Args:
+            ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
+            recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+        Returns:
+            list[File]: The files in the directory.
+        """
+        return list(self.yield_files(ext=ext, recursive=recursive))
+
+    def yield_subdirs(self, recursive: bool = True) -> Generator["Directory", None, None]:
+        """
+        Yield subdirectories in the directory.
+
+        Args:
+            recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+        """
+        for directory in yield_dirs_in(self.path, recursive=recursive):
+            yield Directory(directory)
+
+    def get_subdirs(self, recursive: bool = True) -> list["Directory"]:
+        """
+        Get subdirectories in the directory.
+
+        Args:
+            recursive (bool, optional): Whether to search recursively. Defaults to True.
+
+        Returns:
+            list[Directory]: The subdirectories in the directory.
+        """
+        return list(self.yield_subdirs(recursive=recursive))
+
+
+class EXT:
+    AUDIO = (
+        ".mp3",
+        ".aac",
+        ".ogg",
+        ".flac",
+        ".wav",
+        ".aiff",
+        ".dsd",
+        ".pcm",
+    )
+    IMAGE = (
+        ".jpg",
+        ".png",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".bmp",
+        ".tif",
+        ".tiff",
+        ".jfif",
+        ".heic",
+        ".dib",
+        ".jp2",
+        ".jpx",
+        ".j2k",
+        ".jxl",
+    )
+    VIDEO = (
+        ".mp4",
+        ".mkv",
+        ".avi",
+        ".flv",
+        ".mov",
+        ".webm",
+        ".mpg",
+        ".mpeg",
+        ".mpe",
+        ".mpv",
+        ".ogg",
+        ".m4p",
+        ".m4v",
+        ".wmv",
+        ".f4v",
+        ".swf",
+    )
+
+
 __all__ = [
     "EXT",
     "File",
+    "Directory",
     "PathLike",
     "mkdir",
     "pickle_load",

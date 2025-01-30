@@ -67,7 +67,7 @@ def timer(
 
 def retry(attempts: int, delay: float = 0):
     if attempts < 1:
-        raise ValueError("attempts must be greater than 0")
+        raise ValueError("Attempts must be greater than 0")
 
     def decorator(func):
         @wraps(func)

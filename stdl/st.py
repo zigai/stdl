@@ -358,7 +358,7 @@ def wrapped(text: str, width: int, newline: str = "\n") -> str:
     return newline.join(textwrap.wrap(text, width=width))
 
 
-def len_without_ansi(s: str) -> int:
+def ansi_len(s: str) -> int:
     """Returns the length of the string without the ANSI codes."""
     ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
     codes_len = sum(len(code) for code in ascii_codes)
@@ -423,7 +423,7 @@ __all__ = [
     "camel_case",
     "kebab_case",
     "wrapped",
-    "len_without_ansi",
+    "ansi_len",
     "ansi_ljust",
     "ansi_rjust",
     "Style",

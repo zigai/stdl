@@ -6,8 +6,8 @@ from stdl.st import ForegroundColor, colored
 IGNORE_BREAKS = False
 
 
-def color_tag(text: str, c: str):
-    return f"<{c}>{text}</{c}>"
+def color_tag(text: str, color: str):
+    return f"<{color}>{text}</{color}>"
 
 
 class LoguruFormatter:
@@ -50,7 +50,28 @@ class LoguruFormatter:
         return f"{self.time} | {self.level} | {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
 
 
+class SimpleLoguruFormatter(LoguruFormatter):
+    def format(self, record: dict) -> str:
+        extras = ""
+        if len(record["extra"]):
+            for key in record["extra"].keys():
+                if key in self.extra_key_skips:
+                    continue
+                extras = (
+                    extras
+                    + colored(key, self.extra_key_name_color)
+                    + "="
+                    + "{extra["
+                    + key
+                    + "]}, "
+                )
+            extras = extras[:-2]
+
+        return f"{self.level} - {self.msg} {extras}\n"
+
+
 loguru_formater = LoguruFormatter().format
+simple_loguru_formater = SimpleLoguruFormatter().format
 
 
 def get_logging_config(
