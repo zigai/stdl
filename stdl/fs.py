@@ -22,6 +22,8 @@ from typing import IO, Any, Generator, Literal
 import toml
 import yaml
 
+from stdl import st
+
 stat = os.stat
 link = os.link
 getcwd = os.getcwd
@@ -247,7 +249,7 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
         filename = f"{prefix}.{num}.{creation_time}{ext}"
     else:
         filename = f"{prefix}.{num}{ext}"
-    return filename
+    return safe_filename(filename)
 
 
 def bytes_readable(size_bytes: int) -> str:
@@ -521,6 +523,16 @@ def ensure_paths_dont_exist(*args: str | PathLike | Iterable[str | PathLike]) ->
                 check_path(i)
 
 
+def safe_filename(name: str) -> str:
+    newname = name.replace('"', "'")
+    newname = st.remove(newname, chars='<>:"/|?*\\“”;')
+    return newname
+
+
+def safe_filepath(path: str) -> str:
+    return st.remove(path, chars='<>"|?*“”;')
+
+
 class CompletedCommand(subprocess.CompletedProcess):
     def __init__(
         self,
@@ -712,6 +724,11 @@ class PathBase(PathLike):
         return self
 
     @property
+    def nodes(self) -> list[str]:
+        """The path as a list of nodes."""
+        return self.abspath.split(SEP)
+
+    @property
     def created(self) -> float:
         """The time when the path was created as a UNIX timestamp."""
         return os.path.getctime(self.path)
@@ -740,7 +757,7 @@ class PathBase(PathLike):
         """The absolute path."""
         return os.path.abspath(self.path)
 
-    def rename(self, name: str) -> PathBase:
+    def rename(self, name: str):
         """
         Rename the path.
 
@@ -755,7 +772,7 @@ class PathBase(PathLike):
         self.path = new_path
         return self
 
-    def chmod(self, mode: int) -> PathBase:
+    def chmod(self, mode: int):
         """Change the path's permissions.
 
         Args:
@@ -767,7 +784,7 @@ class PathBase(PathLike):
         os.chmod(self.path, mode)
         return self
 
-    def chown(self, user: str, group: str) -> PathBase:
+    def chown(self, user: str, group: str):
         """Change the path's owner and group.
 
         Args:
@@ -780,7 +797,7 @@ class PathBase(PathLike):
         shutil.chown(self.path, user, group)
         return self
 
-    def should_exist(self) -> PathBase:
+    def should_exist(self):
         """Raise FileNotFoundError if the path does not exist.
 
         Returns:
@@ -790,7 +807,7 @@ class PathBase(PathLike):
             raise FileNotFoundError(f"No such path: '{self.path}'")
         return self
 
-    def should_not_exist(self) -> PathBase:
+    def should_not_exist(self):
         """Raise FileExistsError if the path exists.
 
         Returns:
@@ -836,16 +853,16 @@ class PathBase(PathLike):
     def size_readable(self) -> str:
         raise NotImplementedError
 
-    def remove(self) -> PathBase:
+    def remove(self):
         raise NotImplementedError
 
-    def delete(self) -> PathBase:
+    def delete(self):
         return self.remove()
 
-    def create(self) -> PathBase:
+    def create(self):
         raise NotImplementedError
 
-    def clear(self) -> PathBase:
+    def clear(self):
         raise NotImplementedError
 
     def move_to(
@@ -1227,7 +1244,7 @@ class Directory(PathBase):
 
     @classmethod
     def rand(cls, prefix: str = "dir") -> "Directory":
-        return Directory(joinpath(os.getcwd(), rand_filename(prefix)))
+        return Directory(joinpath(os.getcwd(), safe_filename(rand_filename(prefix))))
 
     def move_to(
         self, directory: str | PathLike | Directory, *, overwrite: bool = True
@@ -1337,6 +1354,20 @@ class Directory(PathBase):
             list[Directory]: The subdirectories in the directory.
         """
         return list(self.yield_subdirs(recursive=recursive))
+
+    def file(self, name: str) -> File:
+        return File(joinpath(self.path, safe_filename(name)))
+
+    def directory(self, name: str) -> "Directory":
+        return Directory(joinpath(self.path, safe_filename(name)))
+
+    @classmethod
+    def home(cls) -> "Directory":
+        return Directory(HOME)
+
+    @classmethod
+    def cwd(cls) -> "Directory":
+        return Directory(os.getcwd())
 
 
 class EXT:
