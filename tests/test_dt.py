@@ -13,16 +13,13 @@ from stdl.dt import date_fmt, datetime_fmt, hms_to_seconds, seconds_to_hms, time
         (123.456, True, "00:02:03.456"),
         (123, False, "00:02:03"),
         (123.0, True, "00:02:03.000"),
-        # Negative times
         (-123.456, False, "-00:02:03"),
         (-123.456, True, "-00:02:03.456"),
         (-0.5, True, "-00:00:00.500"),
-        # Edge cases
         (0, False, "00:00:00"),
         (0.0, True, "00:00:00.000"),
         (3600, False, "01:00:00"),
         (3661.5, True, "01:01:01.500"),
-        # Large values
         (90321.789, False, "25:05:21"),
         (90321.789, True, "25:05:21.789"),
     ],
@@ -40,17 +37,14 @@ def test_seconds_to_hms(time_input: float, ms: bool, expected_output: Type[Excep
         ("0:0:0", False, 0.0, None),
         ("123", False, 123.0, None),
         ("-1:02:03", False, -3723.0, None),  # Negative time
-        # Valid formats with milliseconds
         ("00:02:03.456", True, 123.456, None),
         ("00:02:03.4", True, 123.4, None),
         ("00:02:03.45", True, 123.45, None),
         ("00:02:03.045", True, 123.045, None),
         ("23:59:59.999", True, 23 * 3600 + 59 * 60 + 59.999, None),
         ("12:34.567", True, 12 * 60 + 34.567, None),  # Valid m:s.ms format
-        # Edge cases
         ("00:00:00", False, 0.0, None),
         ("0:0", False, 0.0, None),
-        # Invalid formats
         ("1:60", False, None, ValueError),  # Invalid seconds
         ("1:02:60", False, None, ValueError),  # Invalid seconds
         ("invalid_time", False, None, ValueError),

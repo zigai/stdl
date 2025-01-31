@@ -698,7 +698,7 @@ class PathBase(PathLike):
             path (str | PathLike): The path.
             abs (bool): Whether to use the absolute path.
         """
-        self.path: str = os.fspath(path)
+        self.path = os.fspath(path).replace("\\", SEP).replace("/", SEP)
         if abs:
             self.path = os.path.abspath(self.path)
 
@@ -708,7 +708,7 @@ class PathBase(PathLike):
     def __str__(self):
         return self.path
 
-    def resolve(self, strict: bool = False) -> "PathBase":
+    def resolve(self, strict: bool = False):
         """
         Make the path absolute, resolving any symlinks.
 
@@ -1224,6 +1224,12 @@ class Directory(PathBase):
         """
         super().__init__(path, abs=abs)
 
+    def __truediv__(self, name: str) -> "Directory":
+        return self.directory(name)
+
+    def __floordiv__(self, name: str) -> File:
+        return self.file(name)
+
     @property
     def size(self) -> int:
         return get_dir_size(self.path, readable=False)  # type:ignore
@@ -1418,6 +1424,11 @@ class EXT:
     )
 
 
+a = Directory("./here/", abs=False) / "folder"
+
+print(a)
+ff = a // "file.txt"
+print(ff)
 __all__ = [
     "EXT",
     "File",

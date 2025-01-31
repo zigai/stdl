@@ -112,6 +112,49 @@ def nodups(l: Sequence[T]) -> list[T]:
     return result
 
 
+def replace_sublists(main: list[Any], sublist: list[Any], replacement: list[Any]) -> list[Any]:
+    """
+    Replaces all occurrences of sublist `sublist` with `replacement` in `main`.
+
+    Args:
+        main: The list in which to search for sublists.
+        sublist: The sublist to replace.
+        replacement: The sublist to replace `sublist` with.
+
+    Example:
+        >>> replace_all_sublist([1, 2, 3, 2, 3], [2, 3], [5])
+        [1, 5, 5]
+    """
+    result = []
+    i = 0
+    len_old = len(sublist)
+    while i <= len(main) - len_old:
+        if main[i : i + len_old] == sublist:
+            result.extend(replacement)
+            i += len_old
+        else:
+            result.append(main[i])
+            i += 1
+    result.extend(main[i:])
+    return result
+
+
+def contains_sublist(main: list[Any], sublist: list[Any]) -> bool:
+    """
+    Checks if list contains a sublist.
+
+    Args:
+        main: The list to search.
+        sublist: The sublist to search for.
+
+    """
+    len_b = len(sublist)
+    for i in range(len(main) - len_b + 1):
+        if main[i : i + len_b] == sublist:
+            return True
+    return False
+
+
 __all__ = [
     "unique",
     "non_unique",
@@ -119,4 +162,6 @@ __all__ = [
     "occurrences",
     "chunks",
     "split",
+    "replace_sublists",
+    "contains_sublist",
 ]
