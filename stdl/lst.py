@@ -112,12 +112,12 @@ def nodups(l: Sequence[T]) -> list[T]:
     return result
 
 
-def replace_sublists(main: list[Any], sublist: list[Any], replacement: list[Any]) -> list[Any]:
+def replace_sublists(l: list[Any], sublist: list[Any], replacement: list[Any]) -> list[Any]:
     """
     Replaces all occurrences of sublist `sublist` with `replacement` in `main`.
 
     Args:
-        main: The list in which to search for sublists.
+        l: The list in which to search for sublists.
         sublist: The sublist to replace.
         replacement: The sublist to replace `sublist` with.
 
@@ -128,29 +128,29 @@ def replace_sublists(main: list[Any], sublist: list[Any], replacement: list[Any]
     result = []
     i = 0
     len_old = len(sublist)
-    while i <= len(main) - len_old:
-        if main[i : i + len_old] == sublist:
+    while i <= len(l) - len_old:
+        if l[i : i + len_old] == sublist:
             result.extend(replacement)
             i += len_old
         else:
-            result.append(main[i])
+            result.append(l[i])
             i += 1
-    result.extend(main[i:])
+    result.extend(l[i:])
     return result
 
 
-def contains_sublist(main: list[Any], sublist: list[Any]) -> bool:
+def contains_sublist(l: list[Any], sublist: list[Any]) -> bool:
     """
     Checks if list contains a sublist.
 
     Args:
-        main: The list to search.
+        l: The list to search.
         sublist: The sublist to search for.
 
     """
     len_b = len(sublist)
-    for i in range(len(main) - len_b + 1):
-        if main[i : i + len_b] == sublist:
+    for i in range(len(l) - len_b + 1):
+        if l[i : i + len_b] == sublist:
             return True
     return False
 
