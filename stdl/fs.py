@@ -1424,11 +1424,6 @@ class EXT:
     )
 
 
-a = Directory("./here/", abs=False) / "folder"
-
-print(a)
-ff = a // "file.txt"
-print(ff)
 __all__ = [
     "EXT",
     "File",
