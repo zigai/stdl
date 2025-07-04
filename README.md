@@ -6,7 +6,7 @@
 [![Downloads](https://static.pepy.tech/badge/stdl)](https://pepy.tech/project/stdl)
 [![license](https://img.shields.io/github/license/zigai/stdl.svg)](https://github.com/zigai/stdl/blob/master/LICENSE)
 
-`stdl` is a collection of Python utilities that complement the standard library. It provides common functions and tools that developers frequently need, with minimal external dependencies.
+`stdl` is a collection of Python utilities that complement the standard library.
 
 ## Features
 - File and directory operations
