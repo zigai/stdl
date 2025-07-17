@@ -1,8 +1,8 @@
 import random
 import time
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Generator
 
 from dateutil.parser import parse as parse_datetime_str
 
@@ -65,15 +65,11 @@ class Timer:
         return timer_stop
 
     def taken_seconds(self, r: int | None = None) -> float:
-        """
-        Returns the total time taken by the timer in seconds.
-        """
+        """Returns the total time taken by the timer in seconds."""
         return self.stop().total_seconds(r=r)
 
     def taken(self) -> timedelta:
-        """
-        Returns the total time taken by the timer as timedelta.
-        """
+        """Returns the total time taken by the timer as timedelta."""
         return self.stop().total
 
     def reset(self) -> None:
@@ -251,12 +247,11 @@ def sleep(lo: float, hi: float | None = None) -> float:
     Raises:
         ValueError: If `hi` is provided and `lo` is greater than `hi`.
     """
-
     if hi is None:
         time.sleep(lo)
         return lo
     if lo < hi:
-        raise ValueError(f"Minimum sleep time is higher that maximum. {(lo,hi)}")
+        raise ValueError(f"Minimum sleep time is higher that maximum. {(lo, hi)}")
     t = random.uniform(lo, hi)
     time.sleep(t)
     return t
@@ -321,26 +316,24 @@ def hms_to_seconds(time: str, ms: bool = False) -> float | None:
             millis = int(millis_str.ljust(3, "0"))
             time_milis = millis / 1000
 
-    try:
-        if len(parts) == 2:
-            minute_part, second_part = parts
-            m = int(minute_part)
-            s = int(second_part)
-            if s >= 60:
-                raise ValueError(f"Seconds ({s}) must be < 60.")
-            total = m * 60 + s
-        elif len(parts) == 3:
-            hour_part, minute_part, second_part = parts
-            h = int(hour_part)
-            m = int(minute_part)
-            s = int(second_part)
-            if m >= 60 or s >= 60:
-                raise ValueError(f"Minutes ({m}) or seconds ({s}) must be < 60.")
-            total = h * 3600 + m * 60 + s
-        else:
-            raise ValueError("Invalid number of time segments.")
-    except ValueError as e:
-        raise ValueError(f"Invalid time format: '{time}'") from e
+    if len(parts) not in (2, 3):
+        raise ValueError("Invalid number of time segments.")
+
+    if len(parts) == 2:
+        minute_part, second_part = parts
+        m = int(minute_part)
+        s = int(second_part)
+        if s >= 60:
+            raise ValueError(f"Seconds ({s}) must be < 60.")
+        total = m * 60 + s
+    else:
+        hour_part, minute_part, second_part = parts
+        h = int(hour_part)
+        m = int(minute_part)
+        s = int(second_part)
+        if m >= 60 or s >= 60:
+            raise ValueError(f"Minutes ({m}) or seconds ({s}) must be < 60.")
+        total = h * 3600 + m * 60 + s
 
     result = total + time_milis
     return -result if negative else result

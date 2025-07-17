@@ -1,5 +1,6 @@
 from collections import Counter
-from typing import Any, Sequence, TypeVar
+from collections.abc import Sequence
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -44,7 +45,7 @@ def split(l: list[T], parts: int) -> list[list[T]]:
         length = len(l)
         si = length // parts
         if length - si > 0:
-            return [l[:si]] + inner(l[si:], parts - 1)
+            return [l[:si], *inner(l[si:], parts - 1)]
         else:
             return [l]
 
@@ -102,9 +103,7 @@ def occurrences(l: Sequence[T], val: Any) -> int:
 
 
 def nodups(l: Sequence[T]) -> list[T]:
-    """
-    Remove duplicates from a list and maintain the order
-    """
+    """Remove duplicates from a list and maintain the order"""
     result = []
     for i in l:
         if i not in result:

@@ -12,12 +12,12 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Generator, Literal
+from typing import IO, Any, Literal
 
 import toml
 import yaml
@@ -58,9 +58,7 @@ def pickle_load(filepath: str | PathLike) -> Any:
 
 
 def pickle_dump(data: Any, filepath: str | PathLike) -> None:
-    """
-    Dumps an object to the specified filepath."""
-
+    """Dumps an object to the specified filepath."""
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
 
@@ -76,7 +74,7 @@ def json_load(path: str | PathLike, encoding="utf-8") -> dict[Any, Any] | list[d
     Returns:
         dict | list[dict]: The JSON data loaded from the file.
     """
-    with open(os.fspath(path), "r", encoding=encoding) as f:
+    with open(os.fspath(path), encoding=encoding) as f:
         return json.load(f)
 
 
@@ -94,11 +92,10 @@ def json_append(
         data (dict | list[dict]): The data to be appended
         filepath (str | PathLike): The path of the JSON file
         encoding (str, optional): The encoding of the file. Defaults to "utf-8".
-        default : A function that gets called for objects that can’t otherwise be serialized.
+        default : A function that gets called for objects that can't otherwise be serialized.
                   See json.dump() documentation for more information.
         indent (int, optional): The number of spaces to use for indentation. Defaults to 4.
     """
-
     file = File(filepath)
     path = os.fspath(filepath)
     if not file.exists or file.size == 0:
@@ -158,7 +155,7 @@ def yaml_load(
     Returns:
         dict | list[dict]: The YAML data loaded from the file.
     """
-    with open(path, "r", encoding=encoding) as f:
+    with open(path, encoding=encoding) as f:
         return yaml.safe_load(f)
 
 
@@ -175,7 +172,7 @@ def yaml_dump(data, path: str | PathLike, encoding: str = "utf-8") -> None:
 
 
 def toml_load(path: str | PathLike, encoding: str = "utf-8"):
-    with open(path, "r", encoding=encoding) as f:
+    with open(path, encoding=encoding) as f:
         return toml.load(f)
 
 
@@ -254,6 +251,7 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
 
 def bytes_readable(size_bytes: int) -> str:
     """Convert bytes to a human-readable string.
+
     Args:
         size_bytes (int): The number of bytes
     Returns:
@@ -272,9 +270,11 @@ def bytes_readable(size_bytes: int) -> str:
 
 def readable_size_to_bytes(size: str, kb_size: Literal[1000, 1024] = 1024) -> int:
     """Convert human-readable string to bytes.
+
     Args:
         size (str): The number of bytes in human-readable format
         kb_size (int, optional): The byte size of a kilobyte (1000 or 1024). Defaults to 1024.
+
     Returns:
         int: The number of bytes
     """
@@ -303,8 +303,10 @@ def windows_has_drive(letter: str) -> bool:
     """
     Check if a drive letter exists on Windows.
     Will always return False if the platform is not Windows.
+
     Args:
         letter (str): The letter of the drive.
+
     Returns:
         bool: Whether the drive exists.
     """
@@ -314,9 +316,7 @@ def windows_has_drive(letter: str) -> bool:
 
 
 def is_wsl() -> bool:
-    """
-    Check if the current platform is Windows Subsystem for Linux (WSL).
-    """
+    """Check if the current platform is Windows Subsystem for Linux (WSL)."""
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
@@ -326,6 +326,7 @@ def mkdir(path: str | Path, mode: int = 511, exist_ok: bool = True) -> None:
 
     Args:
         path (str | Path): The path of the directory to create.
+        mode (int, optional): The mode to set for the directory. Defaults to 511 (octal 0777).
         exist_ok (bool, optional): Whether to raise an exception if the directory already exists. Defaults to True.
     """
     os.makedirs(os.fspath(path), exist_ok=exist_ok, mode=mode)
@@ -430,7 +431,6 @@ def get_files_in(
     Returns:
         list[str]: The absolute path of the files in the directory, matching the provided extension.
     """
-
     return list(yield_files_in(directory, ext, recursive=recursive, abs=abs))
 
 
@@ -547,30 +547,26 @@ class CompletedCommand(subprocess.CompletedProcess):
 
     def __repr__(self):
         args = [
-            "args={!r}".format(self.args),
-            "returncode={!r}".format(self.returncode),
+            f"args={self.args!r}",
+            f"returncode={self.returncode!r}",
             f"time_taken={self.time_taken}s",
         ]
         if self.stdout is not None:
-            args.append("stdout={!r}".format(self.stdout))
+            args.append(f"stdout={self.stdout!r}")
         if self.stderr is not None:
-            args.append("stderr={!r}".format(self.stderr))
+            args.append(f"stderr={self.stderr!r}")
         return "{}({})".format(type(self).__name__, ", ".join(args))
 
     @property
     def stdout_lines(self) -> list[str]:
-        """
-        Returns the stdout as a list of lines.
-        """
+        """Returns the stdout as a list of lines."""
         if self.stdout is None:
             return []
         return self.stdout.splitlines()
 
     @property
     def stderr_lines(self) -> list[str]:
-        """
-        Returns the stderr as a list of lines.
-        """
+        """Returns the stderr as a list of lines."""
         if self.stderr is None:
             return []
         return self.stderr.splitlines()
@@ -587,16 +583,16 @@ class CompletedCommand(subprocess.CompletedProcess):
 
 def exec_cmd(
     cmd: list[str] | str,
-    timeout: float = None,  # type:ignore
+    timeout: float | None = None,  # type:ignore
     shell: bool = False,
     capture_output: bool = True,
     check: bool = False,
-    cwd: str = None,  # type:ignore
-    stdin: IO = None,  # type:ignore
-    stdout: IO = None,  # type:ignore
-    stderr: IO = None,  # type:ignore
-    input: str | bytes = None,  # type:ignore
-    env: dict = None,  # type:ignore
+    cwd: str | None = None,  # type:ignore
+    stdin: IO | None = None,  # type:ignore
+    stdout: IO | None = None,  # type:ignore
+    stderr: IO | None = None,  # type:ignore
+    input: str | None | bytes = None,  # type:ignore
+    env: dict | None = None,  # type:ignore
     text: bool = True,
     *args,
     **kwargs,
@@ -641,7 +637,6 @@ def exec_cmd(
         input=input,
         env=env,
         cwd=cwd,
-        *args,
         **kwargs,
     )
 
@@ -655,9 +650,7 @@ def exec_cmd(
 
 
 def read_piped() -> str:
-    """
-    Reads piped input from stdin.
-    """
+    """Reads piped input from stdin."""
     if sys.stdin.isatty():
         return ""
     return sys.stdin.read().strip()
@@ -841,7 +834,7 @@ class PathBase(PathLike):
         raise NotImplementedError
 
     @property
-    def parent(self) -> "Directory":
+    def parent(self) -> Directory:
         """The parent directory."""
         raise NotImplementedError
 
@@ -865,9 +858,7 @@ class PathBase(PathLike):
     def clear(self):
         raise NotImplementedError
 
-    def move_to(
-        self, directory: "str | Directory | PathLike", *, overwrite: bool = True
-    ) -> "PathBase":
+    def move_to(self, directory: str | Directory | PathLike, *, overwrite: bool = True) -> PathBase:
         """
         Move the path to a new directory.
 
@@ -882,11 +873,11 @@ class PathBase(PathLike):
 
     def copy_to(
         self,
-        directory: "str | Directory | PathLike",
+        directory: str | Directory | PathLike,
         *,
         overwrite: bool = True,
         mkdir: bool = False,
-    ) -> "PathBase":
+    ) -> PathBase:
         """
         Copy the path to a new directory.
 
@@ -914,7 +905,7 @@ class PathBase(PathLike):
             """
             return os.getxattr(self.path, f"{group}.{name}").decode()
 
-        def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> "PathBase":
+        def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> PathBase:
             """Set an extended attribute.
 
             Args:
@@ -927,7 +918,7 @@ class PathBase(PathLike):
             os.setxattr(self.path, f"{group}.{name}", value)
             return self
 
-        def remove_xattr(self, name: str, group: str = "user") -> "PathBase":
+        def remove_xattr(self, name: str, group: str = "user") -> PathBase:
             """Remove an extended attribute.
 
             Args:
@@ -961,7 +952,7 @@ class File(PathBase):
         return os.path.isfile(self.path)
 
     @property
-    def parent(self) -> "Directory":
+    def parent(self) -> Directory:
         """The parent directory."""
         return Directory(os.path.dirname(self.path))
 
@@ -973,7 +964,8 @@ class File(PathBase):
     @property
     def ext(self) -> str:
         """The file's extension (without the dot).
-        Returns empty string if the file has no extension."""
+        Returns empty string if the file has no extension.
+        """
         if "." in self.basename:
             return self.basename.split(".")[-1]
         return ""
@@ -988,9 +980,7 @@ class File(PathBase):
 
     @property
     def size(self) -> int:
-        """
-        The file's size in bytes
-        """
+        """The file's size in bytes."""
         return os.path.getsize(self.path)
 
     @property
@@ -1013,7 +1003,7 @@ class File(PathBase):
         return self
 
     def clear(self):
-        """Clear the contents of a file if it exists"""
+        """Clear the contents of a file if it exists."""
         if not self.exists:
             return self
         open(self.path, "w", encoding=self.encoding).close()
@@ -1021,7 +1011,7 @@ class File(PathBase):
 
     def read(self) -> str:
         """Read the contents of a file."""
-        with open(self.path, "r", encoding=self.encoding) as f:
+        with open(self.path, encoding=self.encoding) as f:
             return f.read()
 
     def _write(self, data, mode: str, *, newline: bool = True):
@@ -1075,7 +1065,7 @@ class File(PathBase):
 
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()"""
-        with open(self.path, "r", encoding=self.encoding) as f:
+        with open(self.path, encoding=self.encoding) as f:
             return f.readlines()
 
     def splitlines(self) -> list[str]:
@@ -1084,7 +1074,7 @@ class File(PathBase):
 
     def move_to(
         self,
-        directory: "str | Directory | PathLike",
+        directory: str | Directory | PathLike,
         *,
         mkdir: bool = False,
         overwrite: bool = True,
@@ -1094,6 +1084,7 @@ class File(PathBase):
 
         Args:
             directory (str): The destination directory.
+            mkdir (bool, optional): Whether to create the directory if it doesn't exist. Defaults to False.
             overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
         """
         directory = os.fspath(directory)
@@ -1112,7 +1103,7 @@ class File(PathBase):
 
     def copy_to(
         self,
-        directory: "str | Directory | PathLike",
+        directory: str | Directory | PathLike,
         *,
         mkdir: bool = False,
         overwrite: bool = True,
@@ -1122,6 +1113,7 @@ class File(PathBase):
 
         Args:
             directory (str): The destination directory.
+            mkdir (bool, optional): Whether to create the directory if it doesn't exist. Defaults to False.
             overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
         """
         directory = os.fspath(directory)
@@ -1224,7 +1216,7 @@ class Directory(PathBase):
         """
         super().__init__(path, abs=abs)
 
-    def __truediv__(self, name: str) -> "Directory":
+    def __truediv__(self, name: str) -> Directory:
         return self.directory(name)
 
     def __floordiv__(self, name: str) -> File:
@@ -1239,22 +1231,22 @@ class Directory(PathBase):
         """Check if the directory exists."""
         return os.path.isdir(self.path)
 
-    def create(self, mode: int = 0o777, exist_ok: bool = True) -> "Directory":
+    def create(self, mode: int = 0o777, exist_ok: bool = True) -> Directory:
         """Create directory (including parents)."""
         os.makedirs(self.path, mode=mode, exist_ok=exist_ok)
         return self
 
     @property
-    def parent(self) -> "Directory":
+    def parent(self) -> Directory:
         return Directory(os.path.dirname(self.path))
 
     @classmethod
-    def rand(cls, prefix: str = "dir") -> "Directory":
+    def rand(cls, prefix: str = "dir") -> Directory:
         return Directory(joinpath(os.getcwd(), safe_filename(rand_filename(prefix))))
 
     def move_to(
         self, directory: str | PathLike | Directory, *, overwrite: bool = True
-    ) -> "Directory":
+    ) -> Directory:
         """
         Move this directory to become a child of the target location.
 
@@ -1276,7 +1268,7 @@ class Directory(PathBase):
 
     def copy_to(
         self, directory: str | PathLike | Directory, *, overwrite: bool = True, mkdir: bool = False
-    ) -> "Directory":
+    ) -> Directory:
         """
         Copy this directory to become a child of the target location.
 
@@ -1300,10 +1292,8 @@ class Directory(PathBase):
         self.path = dest
         return self
 
-    def remove(self) -> "Directory":
-        """
-        Remove the directory and all its contents.
-        """
+    def remove(self) -> Directory:
+        """Remove the directory and all its contents."""
         if not self.exists:
             return self
         shutil.rmtree(self.path)
@@ -1338,7 +1328,7 @@ class Directory(PathBase):
         """
         return list(self.yield_files(ext=ext, recursive=recursive))
 
-    def yield_subdirs(self, recursive: bool = True) -> Generator["Directory", None, None]:
+    def yield_subdirs(self, recursive: bool = True) -> Generator[Directory, None, None]:
         """
         Yield subdirectories in the directory.
 
@@ -1349,7 +1339,7 @@ class Directory(PathBase):
         for directory in yield_dirs_in(self.path, recursive=recursive):
             yield Directory(directory)
 
-    def get_subdirs(self, recursive: bool = True) -> list["Directory"]:
+    def get_subdirs(self, recursive: bool = True) -> list[Directory]:
         """
         Get subdirectories in the directory.
 
@@ -1364,15 +1354,15 @@ class Directory(PathBase):
     def file(self, name: str) -> File:
         return File(joinpath(self.path, safe_filename(name)))
 
-    def directory(self, name: str) -> "Directory":
+    def directory(self, name: str) -> Directory:
         return Directory(joinpath(self.path, safe_filename(name)))
 
     @classmethod
-    def home(cls) -> "Directory":
+    def home(cls) -> Directory:
         return Directory(HOME)
 
     @classmethod
-    def cwd(cls) -> "Directory":
+    def cwd(cls) -> Directory:
         return Directory(os.getcwd())
 
 

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import typing as T
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from collections.abc import Sequence as SequenceType
 from copy import deepcopy
-from typing import Sequence
 
 
 class ColorValueError(Exception):
@@ -467,7 +467,6 @@ class ASSA(Color):
         - 'BBGGRR' for color
         - 'AABBGGRR' for color with alpha
         """
-
         clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
         self.value = f"&H{clean_value}&"
         self.validate()

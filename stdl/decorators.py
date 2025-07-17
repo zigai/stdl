@@ -2,8 +2,8 @@ import inspect
 import json
 import sys
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 
 def timer(
@@ -75,11 +75,12 @@ def retry(attempts: int, delay: float = 0):
             for attempt in range(attempts):
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except Exception:
                     if attempt < attempts - 1:
                         time.sleep(delay)
                     else:
-                        raise e
+                        raise
+            return func(*args, **kwargs)
 
         return wrapper
 

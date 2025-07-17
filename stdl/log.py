@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from shutil import get_terminal_size
-from typing import Callable
+from typing import ClassVar
 
 from stdl.st import ForegroundColor, colored
 
@@ -17,7 +18,7 @@ class LoguruFormatter:
     name = color_tag("{name}", "light-blue")
     func = color_tag("{function}", "light-blue")
     lineno = color_tag("{line}", "light-blue")
-    extra_key_skips = ["title"]
+    extra_key_skips: ClassVar[list[str]] = ["title"]
     extra_key_name_color: ForegroundColor = "white"
 
     def format(self, record: dict) -> str:
@@ -124,7 +125,7 @@ def get_logging_config(
 
 def br(
     c: str = "_",
-    length: int = None,  # type: ignore
+    length: int | None = None,  # type: ignore
     handler: Callable = print,
     *,
     newline=False,

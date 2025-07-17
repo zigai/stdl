@@ -214,7 +214,7 @@ def terminal_link(
     """
     Returns a hyperlink that can be used in terminals.
 
-    NOTE:
+    Note:
         Hyperlinks are not supported in all terminals.
         For more information visit
         <https://github.com/Alhadis/OSC8-Adoption/>
@@ -288,22 +288,16 @@ ASCII = set("".join(chr(x) for x in range(128)))
 
 
 class sf:
-    """
-    A collection of functions that can be used to filter strings.
-    """
+    """A collection of functions that can be used to filter strings."""
 
     @classmethod
     def filename(cls, filename: str, replace_with: str = "") -> str:
-        """
-        Removes or replaces characters that are not allowed to be in a filename.
-        """
+        """Removes or replaces characters that are not allowed to be in a filename."""
         return remove(filename, chars='|?*<>:"\\', replace_with=replace_with)
 
     @classmethod
     def filepath(cls, filepath: str, replace_with: str = "") -> str:
-        """
-        Removes or replaces characters that are not allowed to be in a filepath.
-        """
+        """Removes or replaces characters that are not allowed to be in a filepath."""
         if not filepath:
             return ""
         dirname, filename = os.path.split(filepath)
@@ -313,9 +307,7 @@ class sf:
 
     @classmethod
     def ascii(cls, s: str, replace_with: str = ""):
-        """
-        Removes or replaces non-ASCII characters from the string.
-        """
+        """Removes or replaces non-ASCII characters from the string."""
         return keep(s, ASCII, replace_with)
 
 
@@ -367,7 +359,7 @@ def ansi_len(s: str) -> int:
 
 def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:
     """
-    ljust function that takes into account the length of the ANSI codes in the string.
+    Ljust function that takes into account the length of the ANSI codes in the string.
 
     Args:
         s (str): The string to be left justified.
@@ -382,7 +374,7 @@ def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:
 
 def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
     """
-    rjust function that takes into account the length of the ANSI codes in the string.
+    Rjust function that takes into account the length of the ANSI codes in the string.
 
     Args:
         s (str): The string to be right justified.
@@ -396,9 +388,7 @@ def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
 
 
 def ansi_strip(r: str) -> str:
-    """
-    Remove ANSI escape codes from a string.
-    """
+    """Remove ANSI escape codes from a string."""
     ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     return ansi_escape.sub("", r)
 
