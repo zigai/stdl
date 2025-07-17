@@ -15,7 +15,7 @@
 - String manipulation
 - ANSI color support for terminal output
 - Date and time formatting
-- List processing
+- List utils
 - Lazy imports
 - Logging configuration for `logging` and `loguru`
 - [See docs](https://stdl.readthedocs.io/en/latest/?badge=latest)
