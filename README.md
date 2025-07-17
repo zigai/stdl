@@ -60,12 +60,12 @@ else:
     import_lazy("torch", verbose=True)
 
 print(np.zeros(4))
-# importing "numpy" took 0.060 seconds
+# importing "numpy" took 0.060s
 # [0. 0. 0. 0.]
 print(torch)
 # <LazyImport: torch>
 print(torch.randn(8))
-# importing "torch" took 1.118 seconds
+# importing "torch" took 1.118s
 # tensor([0., 0., 0., 0., 0., 0., 0., 0.])
 print(torch)
 # <module 'torch' from .../torch/__init__.py'
