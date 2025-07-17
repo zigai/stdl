@@ -1,1 +1,1 @@
-from stdl import decorators, dt, fs, log, lst, net, st
+from stdl import color, decorators, dt, fs, import_lazy, log, lst, net, st

@@ -87,6 +87,8 @@ nav:
       - dt: reference/dt.md
       - log: reference/log.md
       - net: reference/net.md
+      - color: reference/color.md
+      - import_lazy: reference/import_lazy.md
       - decorators: reference/decorators.md
 
 extra:
