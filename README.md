@@ -20,13 +20,6 @@
 - Logging configuration for `logging` and `loguru`
 - [See docs](https://stdl.readthedocs.io/en/latest/?badge=latest)
 
-## Dependencies
-
-- PyYAML
-- python-dateutil
-- toml
-- tqdm
-
 ## Installation
 
 ### Using pip
@@ -35,10 +28,47 @@
 pip install stdl
 ```
 
+### Using uv
+
+```sh
+uv add stdl
+```
+
 ### From source
 
 ```sh
-pip install git+https://github.com/zigai/stdl
+pip install git+https://github.com/zigai/stdl.git
+# or
+uv add git+https://github.com/zigai/stdl.git
+```
+
+## Examples
+
+### Lazy imports
+
+```python
+from typing import TYPE_CHECKING
+from stdl.import_lazy import import_lazy
+
+if TYPE_CHECKING:
+    from os.path import abspath, join
+    import numpy as np
+    import torch
+else:
+    import_lazy("os.path", ["join", "abspath"], verbose=True)
+    import_lazy("numpy", alias="np", verbose=True)
+    import_lazy("torch", verbose=True)
+
+print(np.zeros(4))
+# importing "numpy" took 0.060 seconds
+# [0. 0. 0. 0.]
+print(torch)
+# <LazyImport: torch>
+print(torch.randn(8))
+# importing "torch" took 1.118 seconds
+# tensor([0., 0., 0., 0., 0., 0., 0., 0.])
+print(torch)
+# <module 'torch' from .../torch/__init__.py'
 ```
 
 ## License
