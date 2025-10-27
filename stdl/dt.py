@@ -102,14 +102,14 @@ def datetime_fmt(
         fmt (str, optional): Date format.
         dsep (str, optional): Date values separator.
         tsep (str, optional): Time values separator.
-        ms (bool, optional): include miliseconds.
+        ms (bool, optional): include milliseconds.
         utc (bool, optional):  Use the UTC timezone when building a datetime object from a timestamp.
 
     Raises:
         TypeError: Raises TypeError if the type of ``d`` is not one of the following: float, str, None, datetime, int
 
     Returns:
-        str: Formated date and time.
+        str: Formatted date and time.
 
     Example:
         ```python
@@ -149,14 +149,14 @@ def time_fmt(
     Args:
         t (float | datetime | int | None, optional): Input time. Defaults to current time.
         sep (str, optional): Character(s) that separates hours, minutes, seconds...
-        ms (bool, optional): include miliseconds.
+        ms (bool, optional): include milliseconds.
         utc (bool, optional): Use the UTC timezone when building a time object from a timestamp.
 
     Raises:
         TypeError: Raises TypeError if the type of ``t`` is not one of the following: float, None, datetime, int
 
     Returns:
-        str: Formated time.
+        str: Formatted time.
     """
     if t is None:
         tm = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
@@ -190,7 +190,7 @@ def date_fmt(
         TypeError: Raises TypeError if the type of ``d`` is not one of the following: float, None, date, datetime, int
 
     Returns:
-        str: Formated date.
+        str: Formatted date.
 
     Example:
         ```python
