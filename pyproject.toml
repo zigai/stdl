@@ -144,6 +144,12 @@ exclude = [
     "F401", # Unused import
     "E402", # Module import not at top of file
 ]
+"stdl/color.py" = [
+    "E741", # Ambiguous variable name 'l' (used for lightness in HSL color space)
+]
+"stdl/lst.py" = [
+    "E741", # Ambiguous variable name 'l' (used as list parameter name)
+]
 
 [tool.ruff.format]
 quote-style = "double"
