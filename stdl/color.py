@@ -211,8 +211,7 @@ class RGBA(Color):
         return self.RGB().HEX()
 
     def ASSA(self) -> ASSA:
-        alpha = round((1 - self.alpha) * 255)
-        return ASSA.from_RGB(self.RGB(), alpha=alpha)
+        return ASSA.from_RGBA(self)
 
     @classmethod
     def from_assa(cls, assa: ASSA) -> RGBA:
@@ -487,25 +486,25 @@ class CMYK(Color):
 
 
 class ASSA(Color):
-    def __init__(self, blue_hex: str, green_hex: str, red_hex: str, alpha_hex: str | None = None):
-        self.blue_hex = self._prepare_component(blue_hex, "blue")
-        self.green_hex = self._prepare_component(green_hex, "green")
-        self.red_hex = self._prepare_component(red_hex, "red")
-        self.alpha_hex = None if alpha_hex is None else self._prepare_component(alpha_hex, "alpha")
+    def __init__(self, value: str):
+        """
+        Initialize ASSA color with just hex numbers:
+        - 'BBGGRR' for color
+        - 'AABBGGRR' for color with alpha
+        """
+        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
+        self.value = f"&H{clean_value}&"
+        self.validate()
 
     def get_value_keys(self) -> list[str]:
-        return ["blue_hex", "green_hex", "red_hex", "alpha_hex"]
+        return ["value"]
 
     @property
     def clean_value(self) -> str:
-        parts = [self.blue_hex, self.green_hex, self.red_hex]
-        if self.alpha_hex is not None:
-            parts.insert(0, self.alpha_hex)
-        return "".join(parts)
-
-    @property
-    def value(self) -> str:
-        return f"&H{self.clean_value}&"
+        value = self.value
+        if (value.startswith("&H") or value.startswith("&h")) and value.endswith("&"):
+            return value[2:-1].lower()
+        return value.lower()
 
     def __repr__(self) -> str:
         return f"assa('{self.clean_value}')"
@@ -519,47 +518,60 @@ class ASSA(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ASSA):
             return NotImplemented
-        return (
-            self.alpha_hex,
-            self.blue_hex,
-            self.green_hex,
-            self.red_hex,
-        ) == (
-            other.alpha_hex,
-            other.blue_hex,
-            other.green_hex,
-            other.red_hex,
-        )
+        return self.value == other.value
 
     def validate(self) -> None:
         return None
 
     def is_BBGGRR_format(self) -> bool:
-        return self.alpha_hex is None
+        return len(self.clean_value) == 6
 
     def is_AABBGGRR_format(self) -> bool:
-        return self.alpha_hex is not None
+        return len(self.clean_value) == 8
 
     def RGB(self) -> RGB:
-        return RGB(int(self.red_hex, 16), int(self.green_hex, 16), int(self.blue_hex, 16))
+        clean = self.clean_value
+        if len(clean) == 6:
+            blue_hex = clean[0:2]
+            green_hex = clean[2:4]
+            red_hex = clean[4:6]
+        else:
+            blue_hex = clean[2:4]
+            green_hex = clean[4:6]
+            red_hex = clean[6:8]
+        return RGB(int(red_hex, 16), int(green_hex, 16), int(blue_hex, 16))
 
     @property
     def blue(self) -> int:
-        return int(self.blue_hex, 16)
+        clean = self.clean_value
+        if len(clean) == 6:
+            return int(clean[0:2], 16)
+        else:
+            return int(clean[2:4], 16)
 
     @property
     def green(self) -> int:
-        return int(self.green_hex, 16)
+        clean = self.clean_value
+        if len(clean) == 6:
+            return int(clean[2:4], 16)
+        else:
+            return int(clean[4:6], 16)
 
     @property
     def red(self) -> int:
-        return int(self.red_hex, 16)
+        clean = self.clean_value
+        if len(clean) == 6:
+            return int(clean[4:6], 16)
+        else:
+            return int(clean[6:8], 16)
 
     @property
     def alpha(self) -> int | None:
-        if self.alpha_hex is None:
+        clean = self.clean_value
+        if len(clean) == 6:
             return None
-        return int(self.alpha_hex, 16)
+        else:
+            return int(clean[0:2], 16)
 
     def HSV(self) -> HSV:
         return self.RGB().HSV()
@@ -589,14 +601,16 @@ class ASSA(Color):
     def from_alpha(cls, alpha: int) -> ASSA:
         if not 0 <= alpha <= 255:
             raise ColorValueError("Alpha value must be 0-255")
-        return cls("00", "00", "00", f"{alpha:02X}")
+        return cls(f"{alpha:02X}000000")
 
     @classmethod
     def from_RGB(cls, rgb: RGB, alpha: int | None = None) -> ASSA:
         if alpha is not None and not 0 <= alpha <= 255:
             raise ColorValueError("Alpha value must be 0-255")
-        alpha_hex = None if alpha is None else f"{alpha:02X}"
-        return cls(f"{rgb.blue:02X}", f"{rgb.green:02X}", f"{rgb.red:02X}", alpha_hex)
+        if alpha is None:
+            return cls(f"{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
+        else:
+            return cls(f"{alpha:02X}{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
 
     @classmethod
     def from_RGBA(cls, rgba: RGBA) -> ASSA:
@@ -609,36 +623,17 @@ class ASSA(Color):
             raise ColorValueError(
                 "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hex digits"
             )
-
-        if len(clean) == 8:
-            alpha_hex = clean[0:2]
-            blue_hex = clean[2:4]
-            green_hex = clean[4:6]
-            red_hex = clean[6:8]
-        else:
-            alpha_hex = None
-            blue_hex = clean[0:2]
-            green_hex = clean[2:4]
-            red_hex = clean[4:6]
-        return cls(blue_hex, green_hex, red_hex, alpha_hex)
+        return cls(clean)
 
     @classmethod
     def from_value(cls, value: str) -> ASSA:
         """Create an ASSA color from a string (with or without &H markers)."""
-        return cls.from_clean_value(value)
+        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
+        return cls(clean_value)
 
     @staticmethod
     def _clean_hex(value: str) -> str:
         return "".join(c for c in value.upper() if c in "0123456789ABCDEF")
-
-    @staticmethod
-    def _prepare_component(value: str, name: str) -> str:
-        if not isinstance(value, str):
-            raise ColorValueError(f"{name.capitalize()} value must be a two-digit hex string")
-        component = value.strip().upper()
-        if len(component) != 2 or any(c not in "0123456789ABCDEF" for c in component):
-            raise ColorValueError(f"{name.capitalize()} value must be a two-digit hex string")
-        return component
 
 
 CSS_COLOR_NAME = T.Literal[

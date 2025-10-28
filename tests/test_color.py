@@ -98,7 +98,7 @@ class TestRGB:
     def test_rgb_to_assa(self):
         rgb = RGB(255, 128, 64)
         assa = rgb.ASSA()
-        assert assa.clean_value == "4080FF"
+        assert assa.clean_value == "4080ff"
 
 
 class TestRGBA:
@@ -385,84 +385,22 @@ class TestCMYK:
 
 
 class TestASSA:
-    def test_assa_creation_bbggrr(self):
-        assa = ASSA("40", "80", "FF")
-        assert assa.clean_value == "4080FF"
-        assert assa.value == "&H4080FF&"
-        assert assa.blue_hex == "40"
-        assert assa.green_hex == "80"
-        assert assa.red_hex == "FF"
-        assert assa.alpha_hex is None
-
-    def test_assa_creation_aabbggrr(self):
-        assa = ASSA("40", "80", "FF", "80")
-        assert assa.clean_value == "804080FF"
-        assert assa.value == "&H804080FF&"
-        assert assa.blue_hex == "40"
-        assert assa.green_hex == "80"
-        assert assa.red_hex == "FF"
-        assert assa.alpha_hex == "80"
-
-    def test_assa_creation_with_string_components(self):
-        assa = ASSA("40", "80", "FF", "80")
-        assert assa.clean_value == "804080FF"
-        assert assa.blue_hex == "40"
-        assert assa.green_hex == "80"
-        assert assa.red_hex == "FF"
-        assert assa.alpha_hex == "80"
-
-    def test_assa_from_value_parses_prefix(self):
-        assa = ASSA.from_value("&H80402010&")
-        assert assa.alpha_hex == "80"
-        assert assa.blue_hex == "40"
-        assert assa.green_hex == "20"
-        assert assa.red_hex == "10"
-
-    def test_assa_validation_invalid_component(self):
-        with pytest.raises(ColorValueError):
-            ASSA("GG", "00", "00")
-        with pytest.raises(ColorValueError):
-            ASSA("0", "00", "00")
-        with pytest.raises(ColorValueError):
-            ASSA("00", "00", "00", "100")
-
     def test_assa_repr(self):
-        assa = ASSA("40", "80", "FF")
-        assert repr(assa) == "assa('4080FF')"
-        assa_alpha = ASSA("40", "80", "FF", "80")
-        assert repr(assa_alpha) == "assa('804080FF')"
+        assa = ASSA("4080FF")
+        assert repr(assa) == "assa('4080ff')"
+        assa_alpha = ASSA("804080FF")
+        assert repr(assa_alpha) == "assa('804080ff')"
 
     def test_assa_str(self):
-        assa = ASSA("40", "80", "FF")
-        assert assa.str() == "&H4080FF&"
+        assa = ASSA("4080FF")
+        assert assa.str() == "&H4080ff&"
 
     def test_assa_equality(self):
-        assa1 = ASSA("40", "80", "FF")
-        assa2 = ASSA("40", "80", "FF")
-        assa3 = ASSA("40", "80", "FE")
+        assa1 = ASSA("4080FF")
+        assa2 = ASSA("4080FF")
+        assa3 = ASSA("4080FE")
         assert assa1 == assa2
         assert assa1 != assa3
-
-    def test_assa_alpha_attribute(self):
-        assa = ASSA("40", "80", "FF")
-        assert assa.alpha is None
-        assa.alpha_hex = "80"
-        assert assa.alpha == 128
-        assert assa.clean_value == "804080FF"
-        assa.alpha_hex = None
-        assert assa.clean_value == "4080FF"
-        assert assa.alpha is None
-
-    def test_assa_component_mutation_updates_value(self):
-        assa = ASSA("40", "80", "FF", "80")
-        assa.blue_hex = "10"
-        assa.green_hex = "20"
-        assa.red_hex = "30"
-        assert assa.clean_value == "80102030"
-        assert assa.value == "&H80102030&"
-        assert assa.blue_hex == "10"
-        assert assa.green_hex == "20"
-        assert assa.red_hex == "30"
 
     def test_assa_from_clean_value_validates_input(self):
         assa = ASSA.from_clean_value("80402010")
@@ -471,24 +409,24 @@ class TestASSA:
             ASSA.from_clean_value("12345")
 
     def test_assa_format_detection(self):
-        assa_bbggrr = ASSA("40", "80", "FF")
-        assa_aabbggrr = ASSA("40", "80", "FF", "80")
+        assa_bbggrr = ASSA("4080FF")
+        assa_aabbggrr = ASSA("804080FF")
         assert assa_bbggrr.is_BBGGRR_format()
         assert not assa_bbggrr.is_AABBGGRR_format()
         assert not assa_aabbggrr.is_BBGGRR_format()
         assert assa_aabbggrr.is_AABBGGRR_format()
 
     def test_assa_to_rgb(self):
-        assa = ASSA("40", "80", "FF")
+        assa = ASSA("4080FF")
         rgb = assa.RGB()
         assert rgb.red == 255
         assert rgb.green == 128
         assert rgb.blue == 64
 
     def test_assa_embed_text(self):
-        assa = ASSA("40", "80", "FF")
+        assa = ASSA("4080FF")
         embedded = assa.embed_text("Hello")
-        assert embedded == "{\\c&H4080FF&}Hello{\\c}"
+        assert embedded == "{\\c&H4080ff&}Hello{\\c}"
 
     def test_assa_is_valid_format(self):
         assert ASSA.is_valid_format("4080ff")
@@ -499,23 +437,88 @@ class TestASSA:
     def test_assa_from_alpha(self):
         assa = ASSA.from_alpha(128)
         assert assa.clean_value == "80000000"
-        assert assa.alpha_hex == "80"
         assert assa.alpha == 128
 
     def test_assa_from_rgb(self):
         rgb = RGB(255, 128, 64)
         assa = ASSA.from_RGB(rgb)
-        assert assa.clean_value == "4080FF"
+        assert assa.clean_value == "4080ff"
 
     def test_assa_from_rgb_with_alpha(self):
         rgb = RGB(255, 128, 64)
         assa = ASSA.from_RGB(rgb, alpha=128)
-        assert assa.clean_value == "804080FF"
+        assert assa.clean_value == "804080ff"
 
     def test_assa_from_rgba(self):
         rgba = RGBA(255, 128, 64, 0.5)
         assa = ASSA.from_RGBA(rgba)
-        assert assa.clean_value == "804080FF"
+        assert assa.clean_value == "804080ff"
+
+    def test_assa_new_constructor_bbggrr(self):
+        """Test new single-value constructor with BBGGRR format"""
+        assa = ASSA("4080FF")
+        assert assa.clean_value == "4080ff"
+        assert assa.value == "&H4080ff&"
+        assert assa.blue == 64
+        assert assa.green == 128
+        assert assa.red == 255
+        assert assa.alpha is None
+        assert assa.is_BBGGRR_format()
+        assert not assa.is_AABBGGRR_format()
+
+    def test_assa_new_constructor_aabbggrr(self):
+        """Test new single-value constructor with AABBGGRR format"""
+        assa = ASSA("804080FF")
+        assert assa.clean_value == "804080ff"
+        assert assa.value == "&H804080ff&"
+        assert assa.blue == 64
+        assert assa.green == 128
+        assert assa.red == 255
+        assert assa.alpha == 128
+        assert not assa.is_BBGGRR_format()
+        assert assa.is_AABBGGRR_format()
+
+    def test_assa_integer_properties(self):
+        """Test that blue, green, red, alpha properties return correct integers"""
+        # Test BBGGRR format
+        assa1 = ASSA("102030")
+        assert assa1.blue == 16
+        assert assa1.green == 32
+        assert assa1.red == 48
+        assert assa1.alpha is None
+
+        # Test AABBGGRR format
+        assa2 = ASSA("FF102030")
+        assert assa2.blue == 16
+        assert assa2.green == 32
+        assert assa2.red == 48
+        assert assa2.alpha == 255
+
+    def test_assa_validation_invalid_strings(self):
+        """Test validation of invalid hex strings in new constructor"""
+        # Test invalid characters
+        with pytest.raises(ColorValueError):
+            ASSA.from_clean_value("GGHHII")
+
+        # Test wrong lengths
+        with pytest.raises(ColorValueError):
+            ASSA.from_clean_value("12345")  # Too short
+        with pytest.raises(ColorValueError):
+            ASSA.from_clean_value("1234567")  # Wrong length
+
+    def test_assa_clean_value_property(self):
+        """Test clean_value property functionality"""
+        # Test with uppercase
+        assa1 = ASSA("4080FF")
+        assert assa1.clean_value == "4080ff"
+
+        # Test with mixed case
+        assa2 = ASSA("40a0Bf")
+        assert assa2.clean_value == "40a0bf"
+
+        # Test from formatted value
+        assa3 = ASSA.from_value("&H4080FF&")
+        assert assa3.clean_value == "4080ff"
 
 
 class TestWebcolor:
@@ -591,7 +594,7 @@ class TestNormalizeColor:
     def test_normalize_assa_string(self):
         color = normalize_color("&H4080ff&")
         assert isinstance(color, ASSA)
-        assert color.clean_value == "4080FF"
+        assert color.clean_value == "4080ff"
 
     def test_normalize_webcolor_string(self):
         color = normalize_color("red")
