@@ -63,11 +63,11 @@ class Color(ABC):
 
 
 class RGB(Color):
-    def __init__(self, r: int, g: int, b: int):
+    def __init__(self, red: int, green: int, blue: int):
         super().__init__()
-        self.r = int(r)
-        self.g = int(g)
-        self.b = int(b)
+        self.red = int(red)
+        self.green = int(green)
+        self.blue = int(blue)
         self.validate()
 
     def validate(self) -> None:
@@ -75,24 +75,24 @@ class RGB(Color):
             raise ColorValueError("RGB values must be between 0 and 255")
 
     def get_value_keys(self) -> list[str]:
-        return ["r", "g", "b"]
+        return ["red", "green", "blue"]
 
     def __repr__(self) -> str:
-        return f"rgb({self.r}, {self.g}, {self.b})"
+        return f"rgb({self.red}, {self.green}, {self.blue})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGB):
             return NotImplemented
-        return (self.r, self.g, self.b) == (other.r, other.g, other.b)
+        return (self.red, self.green, self.blue) == (other.red, other.green, other.blue)
 
     def tuple(self) -> tuple[int, int, int]:
-        return (self.r, self.g, self.b)
+        return (self.red, self.green, self.blue)
 
     def RGB(self) -> RGB:
         return self.copy()
 
     def HSV(self) -> HSV:
-        r, g, b = self.r / 255, self.g / 255, self.b / 255
+        r, g, b = self.red / 255, self.green / 255, self.blue / 255
         cmax = max(r, g, b)
         cmin = min(r, g, b)
         diff = cmax - cmin
@@ -112,7 +112,7 @@ class RGB(Color):
         return HSV(h, s * 100, v * 100)
 
     def HSL(self) -> HSL:
-        r, g, b = self.r / 255, self.g / 255, self.b / 255
+        r, g, b = self.red / 255, self.green / 255, self.blue / 255
         cmax = max(r, g, b)
         cmin = min(r, g, b)
         diff = cmax - cmin
@@ -135,7 +135,7 @@ class RGB(Color):
         return HSL(h, s * 100, l * 100)
 
     def CMYK(self) -> CMYK:
-        r, g, b = self.r / 255, self.g / 255, self.b / 255
+        r, g, b = self.red / 255, self.green / 255, self.blue / 255
 
         k = 1 - max(r, g, b)
         if k == 1:
@@ -148,45 +148,52 @@ class RGB(Color):
         return CMYK(c * 100, m * 100, y * 100, k * 100)
 
     def HEX(self) -> HEX:
-        return HEX(f"#{self.r:02x}{self.g:02x}{self.b:02x}")
+        return HEX(f"#{self.red:02x}{self.green:02x}{self.blue:02x}")
 
     def RGBA(self, alpha: float = 1.0) -> RGBA:
-        return RGBA(self.r, self.g, self.b, alpha)
+        return RGBA(self.red, self.green, self.blue, alpha)
 
     def ASSA(self) -> ASSA:
         return ASSA.from_RGB(self)
 
 
 class RGBA(Color):
-    def __init__(self, r: int, g: int, b: int, a: float = 1.0):
-        self.r = int(r)
-        self.g = int(g)
-        self.b = int(b)
-        self.a = float(a)
+    def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0):
+        self.red = int(red)
+        self.green = int(green)
+        self.blue = int(blue)
+        self.alpha = float(alpha)
         self.validate()
 
     def __repr__(self) -> str:
-        return f"rgba({self.r}, {self.g}, {self.b}, {self.a})"
+        return f"rgba({self.red}, {self.green}, {self.blue}, {self.alpha})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGBA):
             return NotImplemented
-        return (self.r, self.g, self.b, self.a) == (other.r, other.g, other.b, other.a)
+        return (self.red, self.green, self.blue, self.alpha) == (
+            other.red,
+            other.green,
+            other.blue,
+            other.alpha,
+        )
 
     def validate(self) -> None:
-        if not all(isinstance(x, (int, float)) and 0 <= x <= 255 for x in (self.r, self.g, self.b)):
+        if not all(
+            isinstance(x, (int, float)) and 0 <= x <= 255 for x in (self.red, self.green, self.blue)
+        ):
             raise ColorValueError("RGB values must be 0-255")
-        if not isinstance(self.a, (int, float)) or not 0 <= self.a <= 1:
+        if not isinstance(self.alpha, (int, float)) or not 0 <= self.alpha <= 1:
             raise ColorValueError("Alpha value must be 0-1")
 
     def get_value_keys(self) -> list[str]:
-        return ["r", "g", "b", "a"]
+        return ["red", "green", "blue", "alpha"]
 
     def tuple(self) -> tuple[int, int, int, float]:
-        return (self.r, self.g, self.b, self.a)
+        return (self.red, self.green, self.blue, self.alpha)
 
     def RGB(self) -> RGB:
-        return RGB(self.r, self.g, self.b)
+        return RGB(self.red, self.green, self.blue)
 
     def RGBA(self) -> RGBA:
         return self.copy()
@@ -204,7 +211,7 @@ class RGBA(Color):
         return self.RGB().HEX()
 
     def ASSA(self) -> ASSA:
-        alpha = round((1 - self.a) * 255)
+        alpha = round((1 - self.alpha) * 255)
         return ASSA.from_RGB(self.RGB(), alpha=alpha)
 
     @classmethod
@@ -212,9 +219,9 @@ class RGBA(Color):
         rgb = assa.RGB()
         alpha = assa.alpha
         if alpha is None:
-            return cls(rgb.r, rgb.g, rgb.b, 1.0)
+            return cls(rgb.red, rgb.green, rgb.blue, 1.0)
         # ASSA alpha (FF=transparent) -> RGBA alpha (1=opaque)
-        return cls(rgb.r, rgb.g, rgb.b, 1 - (alpha / 255))
+        return cls(rgb.red, rgb.green, rgb.blue, 1 - (alpha / 255))
 
 
 class HEX(Color):
@@ -269,35 +276,39 @@ class HEX(Color):
 
 
 class HSV(Color):
-    def __init__(self, h: float, s: float, v: float):
-        self.h = float(h)
-        self.s = float(s)
-        self.v = float(v)
+    def __init__(self, hue: float, saturation: float, value: float):
+        self.hue = float(hue)
+        self.saturation = float(saturation)
+        self.value = float(value)
         self.validate()
 
     def validate(self) -> None:
-        if not (0 <= self.h <= 360 and 0 <= self.s <= 100 and 0 <= self.v <= 100):
+        if not (0 <= self.hue <= 360 and 0 <= self.saturation <= 100 and 0 <= self.value <= 100):
             raise ColorValueError("HSV values must be: H[0-360], S[0-100], V[0-100]")
 
     def get_value_keys(self) -> list[str]:
-        return ["h", "s", "v"]
+        return ["hue", "saturation", "value"]
 
     def __repr__(self) -> str:
-        return f"hsv({self.h}, {self.s}, {self.v})"
+        return f"hsv({self.hue}, {self.saturation}, {self.value})"
 
     def str(self) -> str:
-        return f"hsv({self.h}°, {self.s}%, {self.v}%)"
+        return f"hsv({self.hue}°, {self.saturation}%, {self.value}%)"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSV):
             return NotImplemented
-        return (self.h, self.s, self.v) == (other.h, other.s, other.v)
+        return (self.hue, self.saturation, self.value) == (
+            other.hue,
+            other.saturation,
+            other.value,
+        )
 
     def tuple(self) -> tuple[float, float, float]:
-        return (self.h, self.s, self.v)
+        return (self.hue, self.saturation, self.value)
 
     def RGB(self) -> RGB:
-        h, s, v = self.h, self.s / 100, self.v / 100
+        h, s, v = self.hue, self.saturation / 100, self.value / 100
         c = v * s
         x = c * (1 - abs((h / 60) % 2 - 1))
         m = v - c
@@ -334,38 +345,44 @@ class HSV(Color):
 
 
 class HSL(Color):
-    def __init__(self, h: float, s: float, l: float):
-        self.h = float(h)
-        self.s = float(s)
-        self.l = float(l)
+    def __init__(self, hue: float, saturation: float, lightness: float):
+        self.hue = float(hue)
+        self.saturation = float(saturation)
+        self.lightness = float(lightness)
         self.validate()
 
     def validate(self) -> None:
-        if not (0 <= self.h <= 360 and 0 <= self.s <= 100 and 0 <= self.l <= 100):
+        if not (
+            0 <= self.hue <= 360 and 0 <= self.saturation <= 100 and 0 <= self.lightness <= 100
+        ):
             raise ColorValueError("HSL values must be: H[0-360], S[0-100], L[0-100]")
 
     def get_value_keys(self) -> list[str]:
-        return ["h", "s", "l"]
+        return ["hue", "saturation", "lightness"]
 
     def __repr__(self) -> str:
-        return f"hsl({self.h}, {self.s}, {self.l})"
+        return f"hsl({self.hue}, {self.saturation}, {self.lightness})"
 
     def str(self) -> str:
-        return f"hsl({self.h}°, {self.s}%, {self.l}%)"
+        return f"hsl({self.hue}°, {self.saturation}%, {self.lightness}%)"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSL):
             return NotImplemented
-        return (self.h, self.s, self.l) == (other.h, other.s, other.l)
+        return (self.hue, self.saturation, self.lightness) == (
+            other.hue,
+            other.saturation,
+            other.lightness,
+        )
 
     def tuple(self) -> tuple[float, float, float]:
-        return (self.h, self.s, self.l)
+        return (self.hue, self.saturation, self.lightness)
 
     def RGB(self) -> RGB:
-        h, s, l = self.h / 360, self.s / 100, self.l / 100
+        hue, saturation, lightness = self.hue / 360, self.saturation / 100, self.lightness / 100
 
-        if s == 0:
-            r = g = b = l
+        if saturation == 0:
+            r = g = b = lightness
         else:
 
             def hue_to_rgb(p: float, q: float, t: float) -> float:
@@ -381,12 +398,16 @@ class HSL(Color):
                     return p + (q - p) * (2 / 3 - t) * 6
                 return p
 
-            q = l * (1 + s) if l < 0.5 else l + s - l * s
-            p = 2 * l - q
+            q = (
+                lightness * (1 + saturation)
+                if lightness < 0.5
+                else lightness + saturation - lightness * saturation
+            )
+            p = 2 * lightness - q
 
-            r = hue_to_rgb(p, q, h + 1 / 3)
-            g = hue_to_rgb(p, q, h)
-            b = hue_to_rgb(p, q, h - 1 / 3)
+            r = hue_to_rgb(p, q, hue + 1 / 3)
+            g = hue_to_rgb(p, q, hue)
+            b = hue_to_rgb(p, q, hue - 1 / 3)
 
         return RGB(round(r * 255), round(g * 255), round(b * 255))
 
@@ -407,36 +428,41 @@ class HSL(Color):
 
 
 class CMYK(Color):
-    def __init__(self, c: float, m: float, y: float, k: float):
-        self.c = float(c)
-        self.m = float(m)
-        self.y = float(y)
-        self.k = float(k)
+    def __init__(self, cyan: float, magenta: float, yellow: float, key: float):
+        self.cyan = float(cyan)
+        self.magenta = float(magenta)
+        self.yellow = float(yellow)
+        self.key = float(key)
         self.validate()
 
     def validate(self) -> None:
-        if not all(0 <= x <= 100 for x in (self.c, self.m, self.y, self.k)):
+        if not all(0 <= x <= 100 for x in (self.cyan, self.magenta, self.yellow, self.key)):
             raise ColorValueError("CMYK values must be between 0 and 100")
 
     def get_value_keys(self) -> list[str]:
-        return ["c", "m", "y", "k"]
+        return ["cyan", "magenta", "yellow", "key"]
 
     def __repr__(self) -> str:
-        return f"cmyk({self.c}, {self.m}, {self.y}, {self.k})"
+        return f"cmyk({self.cyan}, {self.magenta}, {self.yellow}, {self.key})"
 
     def str(self) -> str:
-        return f"cmyk({self.c}%, {self.m}%, {self.y}%, {self.k}%)"
+        return f"cmyk({self.cyan}%, {self.magenta}%, {self.yellow}%, {self.key}%)"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CMYK):
             return NotImplemented
-        return (self.c, self.m, self.y, self.k) == (other.c, other.m, other.y, other.k)
+        return (self.cyan, self.magenta, self.yellow, self.key) == (
+            other.cyan,
+            other.magenta,
+            other.yellow,
+            other.key,
+        )
 
     def tuple(self) -> tuple[float, float, float, float]:
-        return (self.c, self.m, self.y, self.k)
+        return (self.cyan, self.magenta, self.yellow, self.key)
 
     def RGB(self) -> RGB:
-        c, m, y, k = self.c / 100, self.m / 100, self.y / 100, self.k / 100
+        c, m, y, k = self.cyan / 100, self.magenta / 100, self.yellow / 100, self.key / 100
 
         r = 255 * (1 - c) * (1 - k)
         g = 255 * (1 - m) * (1 - k)
@@ -461,23 +487,25 @@ class CMYK(Color):
 
 
 class ASSA(Color):
-    def __init__(self, value: str):
-        """
-        Initialize ASSA color with just hex numbers:
-        - 'BBGGRR' for color
-        - 'AABBGGRR' for color with alpha
-        """
-        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
-        self.value = f"&H{clean_value}&"
-        self.validate()
+    def __init__(self, blue_hex: str, green_hex: str, red_hex: str, alpha_hex: str | None = None):
+        self.blue_hex = self._prepare_component(blue_hex, "blue")
+        self.green_hex = self._prepare_component(green_hex, "green")
+        self.red_hex = self._prepare_component(red_hex, "red")
+        self.alpha_hex = None if alpha_hex is None else self._prepare_component(alpha_hex, "alpha")
 
     def get_value_keys(self) -> list[str]:
-        return ["value"]
+        return ["blue_hex", "green_hex", "red_hex", "alpha_hex"]
 
     @property
     def clean_value(self) -> str:
-        """Get the value without &H prefix and & suffix"""
-        return self.value[2:-1]
+        parts = [self.blue_hex, self.green_hex, self.red_hex]
+        if self.alpha_hex is not None:
+            parts.insert(0, self.alpha_hex)
+        return "".join(parts)
+
+    @property
+    def value(self) -> str:
+        return f"&H{self.clean_value}&"
 
     def __repr__(self) -> str:
         return f"assa('{self.clean_value}')"
@@ -486,50 +514,52 @@ class ASSA(Color):
         return self.str()
 
     def str(self) -> str:
-        """Return the full ASS format string"""
         return self.value
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ASSA):
             return NotImplemented
-        return self.clean_value == other.clean_value
+        return (
+            self.alpha_hex,
+            self.blue_hex,
+            self.green_hex,
+            self.red_hex,
+        ) == (
+            other.alpha_hex,
+            other.blue_hex,
+            other.green_hex,
+            other.red_hex,
+        )
 
     def validate(self) -> None:
-        if not isinstance(self.value, str):
-            raise ColorValueError("ASSA value must be a string")
-        if len(self.clean_value) not in (6, 8):
-            raise ColorValueError(
-                "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hex digits"
-            )
-
-        if not all(c in "0123456789abcdef" for c in self.clean_value):
-            raise ColorValueError("Invalid hex digits in color value")
-
-    @property
-    def alpha(self) -> int | None:
-        """Get alpha value if present (00=opaque, FF=transparent)"""
-        clean = self.clean_value
-        if len(clean) == 8:  # AABBGGRR format
-            return int(clean[0:2], 16)
         return None
 
     def is_BBGGRR_format(self) -> bool:
-        return len(self.clean_value) == 6
+        return self.alpha_hex is None
 
     def is_AABBGGRR_format(self) -> bool:
-        return len(self.clean_value) == 8
+        return self.alpha_hex is not None
 
     def RGB(self) -> RGB:
-        clean = self.clean_value
-        if self.is_BBGGRR_format():
-            b = int(clean[0:2], 16)
-            g = int(clean[2:4], 16)
-            r = int(clean[4:6], 16)
-        else:  # AABBGGRR
-            b = int(clean[2:4], 16)
-            g = int(clean[4:6], 16)
-            r = int(clean[6:8], 16)
-        return RGB(r, g, b)
+        return RGB(int(self.red_hex, 16), int(self.green_hex, 16), int(self.blue_hex, 16))
+
+    @property
+    def blue(self) -> int:
+        return int(self.blue_hex, 16)
+
+    @property
+    def green(self) -> int:
+        return int(self.green_hex, 16)
+
+    @property
+    def red(self) -> int:
+        return int(self.red_hex, 16)
+
+    @property
+    def alpha(self) -> int | None:
+        if self.alpha_hex is None:
+            return None
+        return int(self.alpha_hex, 16)
 
     def HSV(self) -> HSV:
         return self.RGB().HSV()
@@ -552,32 +582,63 @@ class ASSA(Color):
 
     @staticmethod
     def is_valid_format(value: str) -> bool:
-        """Check if the cleaned value has valid length and hex digits"""
-        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
-        return len(clean_value) in (6, 8) and all(c in "0123456789abcdef" for c in clean_value)
+        clean_value = ASSA._clean_hex(value)
+        return len(clean_value) in (6, 8)
 
     @classmethod
     def from_alpha(cls, alpha: int) -> ASSA:
-        """Create transparency-only ASSA value"""
         if not 0 <= alpha <= 255:
             raise ColorValueError("Alpha value must be 0-255")
-        return cls(f"{alpha:02x}000000")
+        return cls("00", "00", "00", f"{alpha:02X}")
 
     @classmethod
     def from_RGB(cls, rgb: RGB, alpha: int | None = None) -> ASSA:
-        """Create ASSA color from RGB values with optional alpha"""
-        if alpha is not None:
-            if not 0 <= alpha <= 255:
-                raise ColorValueError("Alpha value must be 0-255")
-            value = f"{alpha:02x}{rgb.b:02x}{rgb.g:02x}{rgb.r:02x}"
-        else:
-            value = f"{rgb.b:02x}{rgb.g:02x}{rgb.r:02x}"
-        return cls(value)
+        if alpha is not None and not 0 <= alpha <= 255:
+            raise ColorValueError("Alpha value must be 0-255")
+        alpha_hex = None if alpha is None else f"{alpha:02X}"
+        return cls(f"{rgb.blue:02X}", f"{rgb.green:02X}", f"{rgb.red:02X}", alpha_hex)
 
     @classmethod
     def from_RGBA(cls, rgba: RGBA) -> ASSA:
-        """Create ASSA color from RGBA values"""
-        return cls.from_RGB(rgba.RGB(), alpha=round((1 - rgba.a) * 255))
+        return cls.from_RGB(rgba.RGB(), alpha=round((1 - rgba.alpha) * 255))
+
+    @classmethod
+    def from_clean_value(cls, value: str) -> ASSA:
+        clean = cls._clean_hex(value)
+        if len(clean) not in (6, 8):
+            raise ColorValueError(
+                "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hex digits"
+            )
+
+        if len(clean) == 8:
+            alpha_hex = clean[0:2]
+            blue_hex = clean[2:4]
+            green_hex = clean[4:6]
+            red_hex = clean[6:8]
+        else:
+            alpha_hex = None
+            blue_hex = clean[0:2]
+            green_hex = clean[2:4]
+            red_hex = clean[4:6]
+        return cls(blue_hex, green_hex, red_hex, alpha_hex)
+
+    @classmethod
+    def from_value(cls, value: str) -> ASSA:
+        """Create an ASSA color from a string (with or without &H markers)."""
+        return cls.from_clean_value(value)
+
+    @staticmethod
+    def _clean_hex(value: str) -> str:
+        return "".join(c for c in value.upper() if c in "0123456789ABCDEF")
+
+    @staticmethod
+    def _prepare_component(value: str, name: str) -> str:
+        if not isinstance(value, str):
+            raise ColorValueError(f"{name.capitalize()} value must be a two-digit hex string")
+        component = value.strip().upper()
+        if len(component) != 2 or any(c not in "0123456789ABCDEF" for c in component):
+            raise ColorValueError(f"{name.capitalize()} value must be a two-digit hex string")
+        return component
 
 
 CSS_COLOR_NAME = T.Literal[
@@ -971,7 +1032,7 @@ def normalize_color(
         if color.startswith("#"):
             return HEX(color)
         elif color.startswith("&h") or color.startswith("&H"):
-            return ASSA(color)
+            return ASSA.from_value(color)
         else:
             return webcolor(color)
     raise ColorValueError(f"Unsupported color format: {color}")

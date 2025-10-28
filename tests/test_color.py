@@ -17,9 +17,9 @@ from stdl.color import (
 class TestRGB:
     def test_rgb_creation(self):
         rgb = RGB(255, 128, 64)
-        assert rgb.r == 255
-        assert rgb.g == 128
-        assert rgb.b == 64
+        assert rgb.red == 255
+        assert rgb.green == 128
+        assert rgb.blue == 64
 
     def test_rgb_validation_valid(self):
         RGB(0, 0, 0)
@@ -63,24 +63,24 @@ class TestRGB:
     def test_rgb_to_hsv(self):
         rgb = RGB(255, 0, 0)
         hsv = rgb.HSV()
-        assert hsv.h == 0
-        assert hsv.s == 100
-        assert hsv.v == 100
+        assert hsv.hue == 0
+        assert hsv.saturation == 100
+        assert hsv.value == 100
 
     def test_rgb_to_hsl(self):
         rgb = RGB(255, 0, 0)
         hsl = rgb.HSL()
-        assert hsl.h == 0
-        assert hsl.s == 100
-        assert hsl.l == 50
+        assert hsl.hue == 0
+        assert hsl.saturation == 100
+        assert hsl.lightness == 50
 
     def test_rgb_to_cmyk(self):
         rgb = RGB(255, 0, 0)
         cmyk = rgb.CMYK()
-        assert cmyk.c == 0
-        assert cmyk.m == 100
-        assert cmyk.y == 100
-        assert cmyk.k == 0
+        assert cmyk.cyan == 0
+        assert cmyk.magenta == 100
+        assert cmyk.yellow == 100
+        assert cmyk.key == 0
 
     def test_rgb_to_hex(self):
         rgb = RGB(255, 128, 64)
@@ -90,28 +90,28 @@ class TestRGB:
     def test_rgb_to_rgba(self):
         rgb = RGB(255, 128, 64)
         rgba = rgb.RGBA(0.5)
-        assert rgba.r == 255
-        assert rgba.g == 128
-        assert rgba.b == 64
-        assert rgba.a == 0.5
+        assert rgba.red == 255
+        assert rgba.green == 128
+        assert rgba.blue == 64
+        assert rgba.alpha == 0.5
 
     def test_rgb_to_assa(self):
         rgb = RGB(255, 128, 64)
         assa = rgb.ASSA()
-        assert assa.clean_value == "4080ff"
+        assert assa.clean_value == "4080FF"
 
 
 class TestRGBA:
     def test_rgba_creation(self):
         rgba = RGBA(255, 128, 64, 0.5)
-        assert rgba.r == 255
-        assert rgba.g == 128
-        assert rgba.b == 64
-        assert rgba.a == 0.5
+        assert rgba.red == 255
+        assert rgba.green == 128
+        assert rgba.blue == 64
+        assert rgba.alpha == 0.5
 
     def test_rgba_default_alpha(self):
         rgba = RGBA(255, 128, 64)
-        assert rgba.a == 1.0
+        assert rgba.alpha == 1.0
 
     def test_rgba_validation_valid(self):
         RGBA(0, 0, 0, 0)
@@ -142,9 +142,9 @@ class TestRGBA:
     def test_rgba_to_rgb(self):
         rgba = RGBA(255, 128, 64, 0.5)
         rgb = rgba.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 128
-        assert rgb.b == 64
+        assert rgb.red == 255
+        assert rgb.green == 128
+        assert rgb.blue == 64
 
     def test_rgba_to_assa(self):
         rgba = RGBA(255, 128, 64, 0.5)
@@ -199,17 +199,17 @@ class TestHEX:
     def test_hex_to_rgb(self):
         hex_color = HEX("#ff8040")
         rgb = hex_color.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 128
-        assert rgb.b == 64
+        assert rgb.red == 255
+        assert rgb.green == 128
+        assert rgb.blue == 64
 
 
 class TestHSV:
     def test_hsv_creation(self):
         hsv = HSV(120, 50, 75)
-        assert hsv.h == 120
-        assert hsv.s == 50
-        assert hsv.v == 75
+        assert hsv.hue == 120
+        assert hsv.saturation == 50
+        assert hsv.value == 75
 
     def test_hsv_validation_valid(self):
         HSV(0, 0, 0)
@@ -248,31 +248,31 @@ class TestHSV:
     def test_hsv_to_rgb(self):
         hsv = HSV(0, 100, 100)
         rgb = hsv.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 0
-        assert rgb.b == 0
+        assert rgb.red == 255
+        assert rgb.green == 0
+        assert rgb.blue == 0
 
     def test_hsv_to_rgb_green(self):
         hsv = HSV(120, 100, 100)
         rgb = hsv.RGB()
-        assert rgb.r == 0
-        assert rgb.g == 255
-        assert rgb.b == 0
+        assert rgb.red == 0
+        assert rgb.green == 255
+        assert rgb.blue == 0
 
     def test_hsv_to_rgb_blue(self):
         hsv = HSV(240, 100, 100)
         rgb = hsv.RGB()
-        assert rgb.r == 0
-        assert rgb.g == 0
-        assert rgb.b == 255
+        assert rgb.red == 0
+        assert rgb.green == 0
+        assert rgb.blue == 255
 
 
 class TestHSL:
     def test_hsl_creation(self):
         hsl = HSL(120, 50, 75)
-        assert hsl.h == 120
-        assert hsl.s == 50
-        assert hsl.l == 75
+        assert hsl.hue == 120
+        assert hsl.saturation == 50
+        assert hsl.lightness == 75
 
     def test_hsl_validation_valid(self):
         HSL(0, 0, 0)
@@ -311,25 +311,25 @@ class TestHSL:
     def test_hsl_to_rgb(self):
         hsl = HSL(0, 100, 50)
         rgb = hsl.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 0
-        assert rgb.b == 0
+        assert rgb.red == 255
+        assert rgb.green == 0
+        assert rgb.blue == 0
 
     def test_hsl_to_rgb_gray(self):
         hsl = HSL(0, 0, 50)
         rgb = hsl.RGB()
-        assert rgb.r == 128
-        assert rgb.g == 128
-        assert rgb.b == 128
+        assert rgb.red == 128
+        assert rgb.green == 128
+        assert rgb.blue == 128
 
 
 class TestCMYK:
     def test_cmyk_creation(self):
         cmyk = CMYK(25, 50, 75, 10)
-        assert cmyk.c == 25
-        assert cmyk.m == 50
-        assert cmyk.y == 75
-        assert cmyk.k == 10
+        assert cmyk.cyan == 25
+        assert cmyk.magenta == 50
+        assert cmyk.yellow == 75
+        assert cmyk.key == 10
 
     def test_cmyk_validation_valid(self):
         CMYK(0, 0, 0, 0)
@@ -372,89 +372,123 @@ class TestCMYK:
     def test_cmyk_to_rgb(self):
         cmyk = CMYK(0, 100, 100, 0)
         rgb = cmyk.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 0
-        assert rgb.b == 0
+        assert rgb.red == 255
+        assert rgb.green == 0
+        assert rgb.blue == 0
 
     def test_cmyk_to_rgb_black(self):
         cmyk = CMYK(0, 0, 0, 100)
         rgb = cmyk.RGB()
-        assert rgb.r == 0
-        assert rgb.g == 0
-        assert rgb.b == 0
+        assert rgb.red == 0
+        assert rgb.green == 0
+        assert rgb.blue == 0
 
 
 class TestASSA:
     def test_assa_creation_bbggrr(self):
-        assa = ASSA("4080ff")
-        assert assa.clean_value == "4080ff"
-        assert assa.value == "&H4080ff&"
+        assa = ASSA("40", "80", "FF")
+        assert assa.clean_value == "4080FF"
+        assert assa.value == "&H4080FF&"
+        assert assa.blue_hex == "40"
+        assert assa.green_hex == "80"
+        assert assa.red_hex == "FF"
+        assert assa.alpha_hex is None
 
     def test_assa_creation_aabbggrr(self):
-        assa = ASSA("804080ff")
-        assert assa.clean_value == "804080ff"
-        assert assa.value == "&H804080ff&"
+        assa = ASSA("40", "80", "FF", "80")
+        assert assa.clean_value == "804080FF"
+        assert assa.value == "&H804080FF&"
+        assert assa.blue_hex == "40"
+        assert assa.green_hex == "80"
+        assert assa.red_hex == "FF"
+        assert assa.alpha_hex == "80"
 
-    def test_assa_creation_with_prefix(self):
-        assa = ASSA("&H4080ff&")
-        assert assa.clean_value == "4080ff"
+    def test_assa_creation_with_string_components(self):
+        assa = ASSA("40", "80", "FF", "80")
+        assert assa.clean_value == "804080FF"
+        assert assa.blue_hex == "40"
+        assert assa.green_hex == "80"
+        assert assa.red_hex == "FF"
+        assert assa.alpha_hex == "80"
 
-    def test_assa_validation_valid(self):
-        ASSA("000000")
-        ASSA("ffffff")
-        ASSA("4080ff")
-        ASSA("804080ff")
+    def test_assa_from_value_parses_prefix(self):
+        assa = ASSA.from_value("&H80402010&")
+        assert assa.alpha_hex == "80"
+        assert assa.blue_hex == "40"
+        assert assa.green_hex == "20"
+        assert assa.red_hex == "10"
 
-    def test_assa_validation_invalid(self):
+    def test_assa_validation_invalid_component(self):
         with pytest.raises(ColorValueError):
-            ASSA("12345")
+            ASSA("GG", "00", "00")
         with pytest.raises(ColorValueError):
-            ASSA("1234567")
+            ASSA("0", "00", "00")
         with pytest.raises(ColorValueError):
-            ASSA("123456789")
-        with pytest.raises(ColorValueError):
-            ASSA("gggggg")
+            ASSA("00", "00", "00", "100")
 
     def test_assa_repr(self):
-        assa = ASSA("4080ff")
-        assert repr(assa) == "assa('4080ff')"
+        assa = ASSA("40", "80", "FF")
+        assert repr(assa) == "assa('4080FF')"
+        assa_alpha = ASSA("40", "80", "FF", "80")
+        assert repr(assa_alpha) == "assa('804080FF')"
 
     def test_assa_str(self):
-        assa = ASSA("4080ff")
-        assert assa.str() == "&H4080ff&"
+        assa = ASSA("40", "80", "FF")
+        assert assa.str() == "&H4080FF&"
 
     def test_assa_equality(self):
-        assa1 = ASSA("4080ff")
-        assa2 = ASSA("4080FF")
-        assa3 = ASSA("4080fe")
+        assa1 = ASSA("40", "80", "FF")
+        assa2 = ASSA("40", "80", "FF")
+        assa3 = ASSA("40", "80", "FE")
         assert assa1 == assa2
         assert assa1 != assa3
 
-    def test_assa_alpha_property(self):
-        assa_no_alpha = ASSA("4080ff")
-        assa_with_alpha = ASSA("804080ff")
-        assert assa_no_alpha.alpha is None
-        assert assa_with_alpha.alpha == 128
+    def test_assa_alpha_attribute(self):
+        assa = ASSA("40", "80", "FF")
+        assert assa.alpha is None
+        assa.alpha_hex = "80"
+        assert assa.alpha == 128
+        assert assa.clean_value == "804080FF"
+        assa.alpha_hex = None
+        assert assa.clean_value == "4080FF"
+        assert assa.alpha is None
+
+    def test_assa_component_mutation_updates_value(self):
+        assa = ASSA("40", "80", "FF", "80")
+        assa.blue_hex = "10"
+        assa.green_hex = "20"
+        assa.red_hex = "30"
+        assert assa.clean_value == "80102030"
+        assert assa.value == "&H80102030&"
+        assert assa.blue_hex == "10"
+        assert assa.green_hex == "20"
+        assert assa.red_hex == "30"
+
+    def test_assa_from_clean_value_validates_input(self):
+        assa = ASSA.from_clean_value("80402010")
+        assert assa.clean_value == "80402010"
+        with pytest.raises(ColorValueError):
+            ASSA.from_clean_value("12345")
 
     def test_assa_format_detection(self):
-        assa_bbggrr = ASSA("4080ff")
-        assa_aabbggrr = ASSA("804080ff")
+        assa_bbggrr = ASSA("40", "80", "FF")
+        assa_aabbggrr = ASSA("40", "80", "FF", "80")
         assert assa_bbggrr.is_BBGGRR_format()
         assert not assa_bbggrr.is_AABBGGRR_format()
         assert not assa_aabbggrr.is_BBGGRR_format()
         assert assa_aabbggrr.is_AABBGGRR_format()
 
     def test_assa_to_rgb(self):
-        assa = ASSA("4080ff")
+        assa = ASSA("40", "80", "FF")
         rgb = assa.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 128
-        assert rgb.b == 64
+        assert rgb.red == 255
+        assert rgb.green == 128
+        assert rgb.blue == 64
 
     def test_assa_embed_text(self):
-        assa = ASSA("4080ff")
+        assa = ASSA("40", "80", "FF")
         embedded = assa.embed_text("Hello")
-        assert embedded == "{\\c&H4080ff&}Hello{\\c}"
+        assert embedded == "{\\c&H4080FF&}Hello{\\c}"
 
     def test_assa_is_valid_format(self):
         assert ASSA.is_valid_format("4080ff")
@@ -465,22 +499,23 @@ class TestASSA:
     def test_assa_from_alpha(self):
         assa = ASSA.from_alpha(128)
         assert assa.clean_value == "80000000"
+        assert assa.alpha_hex == "80"
         assert assa.alpha == 128
 
     def test_assa_from_rgb(self):
         rgb = RGB(255, 128, 64)
         assa = ASSA.from_RGB(rgb)
-        assert assa.clean_value == "4080ff"
+        assert assa.clean_value == "4080FF"
 
     def test_assa_from_rgb_with_alpha(self):
         rgb = RGB(255, 128, 64)
         assa = ASSA.from_RGB(rgb, alpha=128)
-        assert assa.clean_value == "804080ff"
+        assert assa.clean_value == "804080FF"
 
     def test_assa_from_rgba(self):
         rgba = RGBA(255, 128, 64, 0.5)
         assa = ASSA.from_RGBA(rgba)
-        assert assa.clean_value == "804080ff"
+        assert assa.clean_value == "804080FF"
 
 
 class TestWebcolor:
@@ -519,9 +554,9 @@ class TestWebcolor:
     def test_webcolor_to_rgb(self):
         wc = webcolor("red")
         rgb = wc.RGB()
-        assert rgb.r == 255
-        assert rgb.g == 0
-        assert rgb.b == 0
+        assert rgb.red == 255
+        assert rgb.green == 0
+        assert rgb.blue == 0
 
     def test_webcolor_from_hex(self):
         wc = webcolor.from_hex("#ff0000")
@@ -536,17 +571,17 @@ class TestNormalizeColor:
     def test_normalize_rgb_tuple(self):
         color = normalize_color((255, 128, 64))
         assert isinstance(color, RGB)
-        assert color.r == 255
-        assert color.g == 128
-        assert color.b == 64
+        assert color.red == 255
+        assert color.green == 128
+        assert color.blue == 64
 
     def test_normalize_rgba_tuple(self):
         color = normalize_color((255, 128, 64, 0.5))
         assert isinstance(color, RGBA)
-        assert color.r == 255
-        assert color.g == 128
-        assert color.b == 64
-        assert color.a == 0.5
+        assert color.red == 255
+        assert color.green == 128
+        assert color.blue == 64
+        assert color.alpha == 0.5
 
     def test_normalize_hex_string(self):
         color = normalize_color("#ff8040")
@@ -556,7 +591,7 @@ class TestNormalizeColor:
     def test_normalize_assa_string(self):
         color = normalize_color("&H4080ff&")
         assert isinstance(color, ASSA)
-        assert color.clean_value == "4080ff"
+        assert color.clean_value == "4080FF"
 
     def test_normalize_webcolor_string(self):
         color = normalize_color("red")
@@ -579,25 +614,25 @@ class TestColorConversions:
         rgb = RGB(255, 128, 64)
         hsv = rgb.HSV()
         rgb2 = hsv.RGB()
-        assert abs(rgb.r - rgb2.r) <= 1
-        assert abs(rgb.g - rgb2.g) <= 1
-        assert abs(rgb.b - rgb2.b) <= 1
+        assert abs(rgb.red - rgb2.red) <= 1
+        assert abs(rgb.green - rgb2.green) <= 1
+        assert abs(rgb.blue - rgb2.blue) <= 1
 
     def test_rgb_hsl_roundtrip(self):
         rgb = RGB(255, 128, 64)
         hsl = rgb.HSL()
         rgb2 = hsl.RGB()
-        assert abs(rgb.r - rgb2.r) <= 1
-        assert abs(rgb.g - rgb2.g) <= 1
-        assert abs(rgb.b - rgb2.b) <= 1
+        assert abs(rgb.red - rgb2.red) <= 1
+        assert abs(rgb.green - rgb2.green) <= 1
+        assert abs(rgb.blue - rgb2.blue) <= 1
 
     def test_rgb_cmyk_roundtrip(self):
         rgb = RGB(255, 128, 64)
         cmyk = rgb.CMYK()
         rgb2 = cmyk.RGB()
-        assert abs(rgb.r - rgb2.r) <= 1
-        assert abs(rgb.g - rgb2.g) <= 1
-        assert abs(rgb.b - rgb2.b) <= 1
+        assert abs(rgb.red - rgb2.red) <= 1
+        assert abs(rgb.green - rgb2.green) <= 1
+        assert abs(rgb.blue - rgb2.blue) <= 1
 
     def test_rgb_hex_roundtrip(self):
         rgb = RGB(255, 128, 64)
@@ -615,34 +650,34 @@ class TestColorConversions:
         rgba = RGBA(255, 128, 64, 0.5)
         assa = rgba.ASSA()
         rgba2 = RGBA.from_assa(assa)
-        assert abs(rgba.a - rgba2.a) < 0.01
+        assert abs(rgba.alpha - rgba2.alpha) < 0.01
 
 
 class TestColorDict:
     def test_rgb_dict(self):
         rgb = RGB(255, 128, 64)
         d = rgb.dict()
-        assert d == {"r": 255, "g": 128, "b": 64}
+        assert d == {"red": 255, "green": 128, "blue": 64}
 
     def test_rgba_dict(self):
         rgba = RGBA(255, 128, 64, 0.5)
         d = rgba.dict()
-        assert d == {"r": 255, "g": 128, "b": 64, "a": 0.5}
+        assert d == {"red": 255, "green": 128, "blue": 64, "alpha": 0.5}
 
     def test_hsv_dict(self):
         hsv = HSV(120, 50, 75)
         d = hsv.dict()
-        assert d == {"h": 120.0, "s": 50.0, "v": 75.0}
+        assert d == {"hue": 120.0, "saturation": 50.0, "value": 75.0}
 
     def test_hsl_dict(self):
         hsl = HSL(120, 50, 75)
         d = hsl.dict()
-        assert d == {"h": 120.0, "s": 50.0, "l": 75.0}
+        assert d == {"hue": 120.0, "saturation": 50.0, "lightness": 75.0}
 
     def test_cmyk_dict(self):
         cmyk = CMYK(25, 50, 75, 10)
         d = cmyk.dict()
-        assert d == {"c": 25.0, "m": 50.0, "y": 75.0, "k": 10.0}
+        assert d == {"cyan": 25.0, "magenta": 50.0, "yellow": 75.0, "key": 10.0}
 
 
 class TestColorCopy:

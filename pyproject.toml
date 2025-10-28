@@ -1,6 +1,6 @@
 [project]
 name = "stdl"
-version = "0.6.3"
+version = "0.6.4"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE" }
@@ -134,10 +134,7 @@ ignore = [
     "UP007",
     "UP038",
 ]
-exclude = [
-    "build",
-    "tests/**",
-]
+exclude = ["build", "tests/**"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = [
@@ -188,10 +185,7 @@ exclude_lines = [
     'if TYPE_CHECKING:',
     'if typing.TYPE_CHECKING:',
 ]
-omit = [
-    "tests/*",
-    "tests/**",
-]
+omit = ["tests/*", "tests/**"]
 
 [tool.mypy]
 python_version = "3.10"
