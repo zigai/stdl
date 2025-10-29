@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 import typing as T
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from collections.abc import Sequence as SequenceType
 from copy import deepcopy
 
@@ -518,7 +519,10 @@ class ASSA(Color):
         return self.value == other.value
 
     def validate(self) -> None:
-        return None
+        if not self.is_valid_format(self.value):
+            raise ColorValueError(
+                "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hexadecimal digits"
+            )
 
     def is_BBGGRR_format(self) -> bool:
         return len(self.clean_value) == 6
@@ -1045,3 +1049,208 @@ __all__ = [
     "ColorValueError",
     "normalize_color",
 ]
+
+try:
+    from pydantic import GetCoreSchemaHandler as _GetCoreSchemaHandler
+    from pydantic_core import core_schema as _core_schema
+except Exception:  # pragma: no cover
+    pass  # Pydantic not installed
+else:
+
+    def _parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if {"red", "green", "blue"}.issubset(data):
+                return RGB(data["red"], data["green"], data["blue"])
+            if {"r", "g", "b"}.issubset(data):
+                return RGB(data["r"], data["g"], data["b"])
+            raise ValueError(f"Invalid RGB mapping: {value!r}")
+
+        match = re.fullmatch(
+            r"\s*rgb\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*\)\s*", value
+        )
+        if not match:
+            raise ValueError(f"Invalid RGB repr: {value!r}")
+
+        r, g, b = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        return RGB(r, g, b)
+
+    def _parse_rgba(value: str | Mapping[str, T.Any]) -> RGBA:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if {"red", "green", "blue", "alpha"}.issubset(data):
+                return RGBA(data["red"], data["green"], data["blue"], data["alpha"])
+            if {"r", "g", "b", "a"}.issubset(data):
+                return RGBA(data["r"], data["g"], data["b"], data["a"])
+            raise ValueError(f"Invalid RGBA mapping: {value!r}")
+
+        match = re.fullmatch(
+            r"\s*rgba\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
+            value,
+        )
+        if not match:
+            raise ValueError(f"Invalid RGBA repr: {value!r}")
+
+        r, g, b = int(match.group(1)), int(match.group(2)), int(match.group(3))
+        a = float(match.group(4))
+        return RGBA(r, g, b, a)
+
+    def _parse_hex(value: str | Mapping[str, T.Any]) -> HEX:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if "value" in data:
+                return HEX(data["value"])
+            if "hex" in data:
+                return HEX(data["hex"])
+            raise ValueError(f"Invalid HEX mapping: {value!r}")
+
+        match = re.fullmatch(r"\s*hex\(\s*(#?[0-9A-Fa-f]{6})\s*\)\s*", value)
+        if not match:
+            raise ValueError(f"Invalid HEX repr: {value!r}")
+        v = match.group(1)
+        if not v.startswith("#"):
+            v = f"#{v}"
+
+        return HEX(v)
+
+    def _parse_hsv(value: str | Mapping[str, T.Any]) -> HSV:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if {"hue", "saturation", "value"}.issubset(data):
+                return HSV(data["hue"], data["saturation"], data["value"])
+            if {"h", "s", "v"}.issubset(data):
+                return HSV(data["h"], data["s"], data["v"])
+            raise ValueError(f"Invalid HSV mapping: {value!r}")
+
+        match = re.fullmatch(
+            r"\s*hsv\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
+            value,
+        )
+        if not match:
+            raise ValueError(f"Invalid HSV repr: {value!r}")
+
+        h, s, v = float(match.group(1)), float(match.group(2)), float(match.group(3))
+        return HSV(h, s, v)
+
+    def _parse_hsl(value: str | Mapping[str, T.Any]) -> HSL:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if {"hue", "saturation", "lightness"}.issubset(data):
+                return HSL(data["hue"], data["saturation"], data["lightness"])
+            if {"h", "s", "l"}.issubset(data):
+                return HSL(data["h"], data["s"], data["l"])
+            raise ValueError(f"Invalid HSL mapping: {value!r}")
+
+        match = re.fullmatch(
+            r"\s*hsl\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
+            value,
+        )
+        if not match:
+            raise ValueError(f"Invalid HSL repr: {value!r}")
+
+        h, s, l = float(match.group(1)), float(match.group(2)), float(match.group(3))
+        return HSL(h, s, l)
+
+    def _parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if {"cyan", "magenta", "yellow", "key"}.issubset(data):
+                return CMYK(data["cyan"], data["magenta"], data["yellow"], data["key"])
+            if {"c", "m", "y", "k"}.issubset(data):
+                return CMYK(data["c"], data["m"], data["y"], data["k"])
+            raise ValueError(f"Invalid CMYK mapping: {value!r}")
+
+        match = re.fullmatch(
+            r"\s*cmyk\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
+            value,
+        )
+        if not match:
+            raise ValueError(f"Invalid CMYK repr: {value!r}")
+
+        c, m_, y, k = (
+            float(match.group(1)),
+            float(match.group(2)),
+            float(match.group(3)),
+            float(match.group(4)),
+        )
+        return CMYK(c, m_, y, k)
+
+    def _parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if "value" in data:
+                return ASSA(data["value"])
+            if "clean_value" in data:
+                return ASSA(data["clean_value"])
+            raise ValueError(f"Invalid ASSA mapping: {value!r}")
+
+        match = re.fullmatch(r"\s*assa\(\s*([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\s*\)\s*", value)
+        if not match:
+            raise ValueError(f"Invalid ASSA repr: {value!r}")
+
+        return ASSA(match.group(1))
+
+    def _parse_webcolor(value: str | Mapping[str, T.Any]) -> webcolor:
+        if isinstance(value, Mapping):
+            data = dict(value)
+            if "name" in data:
+                return webcolor(data["name"])
+            raise ValueError(f"Invalid webcolor mapping: {value!r}")
+
+        match = re.fullmatch(r"\s*webcolor\(\s*(['\"])\s*([A-Za-z]+)\s*\1\s*\)\s*", value)
+        if not match:
+            raise ValueError(f"Invalid webcolor repr: {value!r}")
+
+        return webcolor(match.group(2))
+
+    def _make_schema(_cls, _parser):
+        def _validator(v):
+            if isinstance(v, _cls):
+                return v
+            if isinstance(v, str):
+                return _parser(v)
+            if isinstance(v, Mapping):
+                return _parser(v)
+            raise TypeError(
+                f"Expected {_cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
+            )
+
+        return _core_schema.no_info_plain_validator_function(
+            _validator,
+            serialization=_core_schema.plain_serializer_function_ser_schema(
+                lambda v: repr(v), when_used="json"
+            ),
+        )
+
+    def _rgb_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(RGB, _parse_rgb)
+
+    def _rgba_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(RGBA, _parse_rgba)
+
+    def _hex_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(HEX, _parse_hex)
+
+    def _hsv_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(HSV, _parse_hsv)
+
+    def _hsl_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(HSL, _parse_hsl)
+
+    def _cmyk_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(CMYK, _parse_cmyk)
+
+    def _assa_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(ASSA, _parse_assa)
+
+    def _webcolor_schema(cls, _source, _handler: _GetCoreSchemaHandler):
+        return _make_schema(webcolor, _parse_webcolor)
+
+    RGB.__get_pydantic_core_schema__ = classmethod(_rgb_schema)  # type: ignore[attr-defined]
+    RGBA.__get_pydantic_core_schema__ = classmethod(_rgba_schema)  # type: ignore[attr-defined]
+    HEX.__get_pydantic_core_schema__ = classmethod(_hex_schema)  # type: ignore[attr-defined]
+    HSV.__get_pydantic_core_schema__ = classmethod(_hsv_schema)  # type: ignore[attr-defined]
+    HSL.__get_pydantic_core_schema__ = classmethod(_hsl_schema)  # type: ignore[attr-defined]
+    CMYK.__get_pydantic_core_schema__ = classmethod(_cmyk_schema)  # type: ignore[attr-defined]
+    ASSA.__get_pydantic_core_schema__ = classmethod(_assa_schema)  # type: ignore[attr-defined]
+    webcolor.__get_pydantic_core_schema__ = classmethod(_webcolor_schema)  # type: ignore[attr-defined]

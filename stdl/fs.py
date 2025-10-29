@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from datetime import datetime
 from os import PathLike
 from pathlib import Path

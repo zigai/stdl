@@ -499,6 +499,8 @@ class TestASSA:
         # Test invalid characters
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("GGHHII")
+        with pytest.raises(ColorValueError):
+            ASSA("GGHHII")
 
         # Test wrong lengths
         with pytest.raises(ColorValueError):
