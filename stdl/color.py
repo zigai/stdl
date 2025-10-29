@@ -1167,13 +1167,13 @@ else:
         if not match:
             raise ValueError(f"Invalid CMYK repr: {value!r}")
 
-        c, m_, y, k = (
+        c, m, y, k = (
             float(match.group(1)),
             float(match.group(2)),
             float(match.group(3)),
             float(match.group(4)),
         )
-        return CMYK(c, m_, y, k)
+        return CMYK(c, m, y, k)
 
     def _parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
         if isinstance(value, Mapping):
