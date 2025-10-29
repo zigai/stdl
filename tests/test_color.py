@@ -183,7 +183,7 @@ class TestHEX:
 
     def test_hex_repr(self):
         hex_color = HEX("#ff8040")
-        assert repr(hex_color) == "hex('#ff8040')"
+        assert repr(hex_color) == "hex(#ff8040)"
 
     def test_hex_str(self):
         hex_color = HEX("#ff8040")
@@ -387,9 +387,9 @@ class TestCMYK:
 class TestASSA:
     def test_assa_repr(self):
         assa = ASSA("4080FF")
-        assert repr(assa) == "assa('4080ff')"
+        assert repr(assa) == "assa(4080ff)"
         assa_alpha = ASSA("804080FF")
-        assert repr(assa_alpha) == "assa('804080ff')"
+        assert repr(assa_alpha) == "assa(804080ff)"
 
     def test_assa_str(self):
         assa = ASSA("4080FF")

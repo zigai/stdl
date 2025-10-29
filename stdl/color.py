@@ -55,7 +55,7 @@ class Color(ABC):
         """Convert to ASS color format"""
         pass
 
-    def copy(self):
+    def copy(self) -> Color:
         return deepcopy(self)
 
     def dict(self) -> dict[str, int | float | str]:
@@ -241,7 +241,7 @@ class HEX(Color):
         return ["value"]
 
     def __repr__(self) -> str:
-        return f"hex('{self.value}')"
+        return f"hex({self.value})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HEX):
@@ -507,10 +507,7 @@ class ASSA(Color):
         return value.lower()
 
     def __repr__(self) -> str:
-        return f"assa('{self.clean_value}')"
-
-    def __str__(self) -> str:
-        return self.str()
+        return f"assa({self.clean_value})"
 
     def str(self) -> str:
         return self.value

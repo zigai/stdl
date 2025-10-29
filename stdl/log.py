@@ -1,13 +1,13 @@
 from collections.abc import Callable
 from shutil import get_terminal_size
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from stdl.st import ForegroundColor, colored
 
 IGNORE_BREAKS = False
 
 
-def color_tag(text: str, color: str):
+def color_tag(text: str, color: str) -> str:
     return f"<{color}>{text}</{color}>"
 
 
@@ -84,7 +84,7 @@ def get_logging_config(
     console_handler: str = "logging.StreamHandler",
     file_handler: str = "logging.handlers.TimedRotatingFileHandler",
     format_style: str = "{",
-):
+) -> dict[str, Any]:
     format = (
         format
         or "{asctime} | {levelname:<8s} | [ {name} ] {module}.{funcName}:{lineno} - {message}"
@@ -125,10 +125,10 @@ def get_logging_config(
 
 def br(
     c: str = "_",
-    length: int | None = None,  # type: ignore
-    handler: Callable = print,
+    length: int | None = None,
+    handler: Callable[[str], None] = print,
     *,
-    newline=False,
+    newline: bool = False,
 ) -> None:
     if IGNORE_BREAKS:
         return

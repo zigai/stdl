@@ -4,7 +4,7 @@ import textwrap
 from dataclasses import dataclass
 from platform import system
 from sys import stdout
-from typing import Literal
+from typing import Any, Literal
 
 CSI_RESET = "\033["
 NO_COLOR = bool(os.environ.get("NO_COLOR", False))
@@ -54,7 +54,7 @@ class ColorANSI:
         return [i for i in cls.dict.keys()]
 
     @classmethod
-    def print_all(cls):
+    def print_all(cls) -> None:
         for k, v in cls.dict().items():
             if k == "RESET":
                 continue
@@ -158,7 +158,7 @@ BackgroundColor = Literal[
 Style = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
 
 
-def _get_ansi_value(value: str | None, handler) -> str:
+def _get_ansi_value(value: str | None, handler: Any) -> str:
     if not value:
         return ""
     try:
@@ -172,7 +172,7 @@ def colored(
     color: ForegroundColor | str | None = None,
     background: BackgroundColor | str | None = None,
     style: Style | str | None = None,
-):
+) -> str:
     """
     Returns the text with ansi color, background color and text style codes.
 
@@ -210,7 +210,7 @@ def terminal_link(
     color: ForegroundColor = "white",
     background: BackgroundColor | None = None,
     style: Style | None = None,
-):
+) -> str:
     """
     Returns a hyperlink that can be used in terminals.
 
@@ -306,7 +306,7 @@ class sf:
         return f"{dirname}{os.sep}{filename}"
 
     @classmethod
-    def ascii(cls, s: str, replace_with: str = ""):
+    def ascii(cls, s: str, replace_with: str = "") -> str:
         """Removes or replaces non-ASCII characters from the string."""
         return keep(s, ASCII, replace_with)
 

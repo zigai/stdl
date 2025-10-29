@@ -63,7 +63,9 @@ def pickle_dump(data: Any, filepath: str | PathLike) -> None:
         pickle.dump(data, f)
 
 
-def json_load(path: str | PathLike, encoding="utf-8") -> dict[Any, Any] | list[dict[Any, Any]]:
+def json_load(
+    path: str | PathLike, encoding: str = "utf-8"
+) -> dict[Any, Any] | list[dict[Any, Any]]:
     """
     Load a JSON file from the given path.
 
@@ -79,10 +81,10 @@ def json_load(path: str | PathLike, encoding="utf-8") -> dict[Any, Any] | list[d
 
 
 def json_append(
-    data: dict | list[dict],
+    data: dict[Any, Any] | list[dict[Any, Any]],
     filepath: str | PathLike,
     encoding: str = "utf-8",
-    default=str,
+    default: Callable[[Any], str] = str,
     indent: int = 4,
 ) -> None:
     """
@@ -126,7 +128,11 @@ def json_append(
 
 
 def json_dump(
-    data: Any, path: str | PathLike, encoding: str = "utf-8", default=str, indent=4
+    data: Any,
+    path: str | PathLike,
+    encoding: str = "utf-8",
+    default: Callable[[Any], str] = str,
+    indent: int = 4,
 ) -> None:
     """
     Dumps data to a JSON file.
@@ -159,7 +165,7 @@ def yaml_load(
         return yaml.safe_load(f)
 
 
-def yaml_dump(data, path: str | PathLike, encoding: str = "utf-8") -> None:
+def yaml_dump(data: Any, path: str | PathLike, encoding: str = "utf-8") -> None:
     """
     Dumps data to a YAML file
     Args:

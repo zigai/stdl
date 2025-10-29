@@ -1,4 +1,5 @@
 import os
+from http.client import HTTPMessage
 from urllib.request import urlopen, urlretrieve
 
 from tqdm import tqdm
@@ -7,7 +8,7 @@ from stdl.fs import bytes_readable, readable_size_to_bytes
 
 
 class ProgressBarTQDM(tqdm):
-    def update_to(self, b=1, bsize=1, tsize=None):
+    def update_to(self, b: int = 1, bsize: int = 1, tsize: int | None = None) -> None:
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
@@ -18,7 +19,7 @@ class DownloadSizeExceededError(Exception):
         self.filesize = filesize
         self.maxsize = maxsize
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"File size {self.filesize} ({bytes_readable(self.filesize)}) exceeds maximum size limit of {self.maxsize} bytes ({bytes_readable(self.maxsize)})"
 
 
@@ -29,7 +30,7 @@ def download(
     maxsize: int | str | None = None,
     progressbar: bool = False,
     overwrite: bool = False,
-):
+) -> tuple[str, HTTPMessage]:
     """
     Download a file
 

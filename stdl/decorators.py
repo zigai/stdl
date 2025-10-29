@@ -4,15 +4,19 @@ import sys
 import time
 from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 def timer(
     r: int | None = 2,
-    sink: Callable = sys.stdout.write,
+    sink: Callable[[str], None] = sys.stdout.write,
     show_args: bool = False,
     serialize: bool = False,
-    sep=" | ",
-):
+    sep: str = " | ",
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     A decorator that displays the time taken for a function to execute.
 
@@ -24,9 +28,9 @@ def timer(
         sep (str, optional): Separator between the function/method name and the arguments. Defaults to " | ".
     """
 
-    def decorator(func: Callable):
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             time_start = time.perf_counter()
             result = func(*args, **kwargs)
 
@@ -65,13 +69,13 @@ def timer(
     return decorator
 
 
-def retry(attempts: int, delay: float = 0):
+def retry(attempts: int, delay: float = 0) -> Callable[[Callable[P, T]], Callable[P, T]]:
     if attempts < 1:
         raise ValueError("Attempts must be greater than 0")
 
-    def decorator(func):
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             for attempt in range(attempts):
                 try:
                     return func(*args, **kwargs)

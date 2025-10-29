@@ -1,6 +1,7 @@
 import importlib
 import sys
 import time
+from typing import Any
 
 
 class LazyImport:
@@ -16,10 +17,10 @@ class LazyImport:
         self.attr_name = attr_name
         self.verbose = verbose
 
-        self._cached_value = None
+        self._cached_value: Any = None
         self._loaded = False
 
-    def _load(self):
+    def _load(self) -> Any:
         if not self._loaded:
             if self.verbose:
                 start_time = time.time()
@@ -47,7 +48,7 @@ class LazyImport:
 
             if self.verbose and not module_already_loaded:
                 end_time = time.time()
-                import_time = end_time - start_time  # type:ignore
+                import_time = end_time - start_time
                 import_target = (
                     f"{self.module_name}.{self.attr_name}" if self.attr_name else self.module_name
                 )
@@ -61,19 +62,19 @@ class LazyImport:
 
         return self._cached_value
 
-    def __call__(self, *args, **kwargs):
-        return self._load()(*args, **kwargs)  # type:ignore
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._load()(*args, **kwargs)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._load(), name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         if name in ("module_name", "attr_name", "verbose", "_cached_value", "_loaded"):
             super().__setattr__(name, value)
         else:
             setattr(self._load(), name, value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._loaded:
             return repr(self._cached_value)
         return f"<LazyImport: {self.module_name}{('.' + self.attr_name) if self.attr_name else ''}>"
