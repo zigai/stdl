@@ -1,6 +1,6 @@
 [project]
 name = "stdl"
-version = "0.6.4"
+version = "0.6.5"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE" }
@@ -47,7 +47,7 @@ keywords = [
 
 
 [project.optional-dependencies]
-test = ["pytest", "coverage"]
+test = ["pytest", "coverage", "pydantic>=2"]
 dev = ["pytest", "coverage", "ruff", "pre-commit", "mypy", "codespell"]
 
 [project.urls]
@@ -71,6 +71,7 @@ select = [
     "E",       # Pycodestyle (Error)
     'I',       # isort
     'D',       # pydocstyle
+    'D213',    # pydocstyle
     'UP',      # pyupgrade
     'YTT',     # flake8-2020
     'B',       # flake8-bugbear
