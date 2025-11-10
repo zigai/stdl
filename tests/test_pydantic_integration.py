@@ -1,7 +1,7 @@
 import pytest
 
 pydantic = pytest.importorskip("pydantic")
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from stdl.color import ASSA, CMYK, HEX, HSL, HSV, RGB, RGBA
 
@@ -34,9 +34,7 @@ def test_model_dump_preserves_objects_and_json_serializes():
     assert isinstance(d["hsl"], HSL)
     assert isinstance(d["cmyk"], CMYK)
     assert isinstance(d["assa"], ASSA)
-    # Ensure JSON dump still uses repr strings
-    js = c.model_dump_json()
-    assert isinstance(js, str)
+    assert isinstance(c.model_dump_json(), str)
 
 
 def test_validate_from_repr_strings():
@@ -77,3 +75,57 @@ def test_validate_from_dicts():
     assert isinstance(c.hsl, HSL)
     assert isinstance(c.cmyk, CMYK)
     assert isinstance(c.assa, ASSA)
+
+
+def test_union_validation_accepts_hex_instance():
+    class NumberColorModel(BaseModel):
+        color: RGB | RGBA | HEX
+
+    payload = {"color": HEX("#2055b9")}
+
+    model = NumberColorModel.model_validate(payload)
+
+    assert isinstance(model.color, HEX)
+
+
+def test_union_validation_accepts_repr_for_late_branch():
+    class ColorUnionModel(BaseModel):
+        color: RGB | HEX
+
+    payload = {"color": "hex(#123456)"}
+
+    model = ColorUnionModel.model_validate(payload)
+
+    assert isinstance(model.color, HEX)
+    assert model.color.value == "#123456"
+
+
+def test_union_validation_accepts_mapping_for_late_branch():
+    class ColorUnionModel(BaseModel):
+        color: RGBA | HEX
+
+    payload = {"color": {"value": "#abcdef"}}
+
+    model = ColorUnionModel.model_validate(payload)
+
+    assert isinstance(model.color, HEX)
+    assert model.color.value == "#abcdef"
+
+
+def test_union_validation_keeps_first_branch_instance():
+    class ColorUnionModel(BaseModel):
+        color: RGB | HEX
+
+    rgb = RGB(1, 2, 3)
+
+    model = ColorUnionModel.model_validate({"color": rgb})
+
+    assert model.color is rgb
+
+
+def test_union_validation_reports_invalid_values():
+    class ColorUnionModel(BaseModel):
+        color: RGB | HEX
+
+    with pytest.raises(ValidationError):
+        ColorUnionModel.model_validate({"color": 42})
