@@ -256,7 +256,8 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
 
 
 def bytes_readable(size_bytes: int) -> str:
-    """Convert bytes to a human-readable string.
+    """
+    Convert bytes to a human-readable string.
 
     Args:
         size_bytes (int): The number of bytes
@@ -275,7 +276,8 @@ def bytes_readable(size_bytes: int) -> str:
 
 
 def readable_size_to_bytes(size: str, kb_size: Literal[1000, 1024] = 1024) -> int:
-    """Convert human-readable string to bytes.
+    """
+    Convert human-readable string to bytes.
 
     Args:
         size (str): The number of bytes in human-readable format
@@ -772,7 +774,8 @@ class PathBase(PathLike):
         return self
 
     def chmod(self, mode: int):
-        """Change the path's permissions.
+        """
+        Change the path's permissions.
 
         Args:
             mode (int): The new permissions mode.
@@ -784,7 +787,8 @@ class PathBase(PathLike):
         return self
 
     def chown(self, user: str, group: str):
-        """Change the path's owner and group.
+        """
+        Change the path's owner and group.
 
         Args:
             user (str): The new owner.
@@ -797,7 +801,8 @@ class PathBase(PathLike):
         return self
 
     def should_exist(self):
-        """Raise FileNotFoundError if the path does not exist.
+        """
+        Raise FileNotFoundError if the path does not exist.
 
         Returns:
             PathBase: The object.
@@ -807,7 +812,8 @@ class PathBase(PathLike):
         return self
 
     def should_not_exist(self):
-        """Raise FileExistsError if the path exists.
+        """
+        Raise FileExistsError if the path exists.
 
         Returns:
             PathBase: The object.
@@ -900,7 +906,8 @@ class PathBase(PathLike):
     if sys.platform != "win32":
 
         def get_xattr(self, name: str, group: str = "user") -> str:
-            """Retrieve the value of an extended attribute.
+            """
+            Retrieve the value of an extended attribute.
 
             Args:
                 name: The name of the extended attribute.
@@ -912,7 +919,8 @@ class PathBase(PathLike):
             return os.getxattr(self.path, f"{group}.{name}").decode()
 
         def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> PathBase:
-            """Set an extended attribute.
+            """
+            Set an extended attribute.
 
             Args:
                 value: The value of the extended attribute.
@@ -925,7 +933,8 @@ class PathBase(PathLike):
             return self
 
         def remove_xattr(self, name: str, group: str = "user") -> PathBase:
-            """Remove an extended attribute.
+            """
+            Remove an extended attribute.
 
             Args:
                 name: The name of the extended attribute.
@@ -943,7 +952,8 @@ class File(PathBase):
         *,
         abs: bool = False,
     ) -> None:
-        """Initialize a File object.
+        """
+        Initialize a File object.
 
         Args:
             path (str | PathLike): File path.
@@ -969,7 +979,8 @@ class File(PathBase):
 
     @property
     def ext(self) -> str:
-        """The file's extension (without the dot).
+        """
+        The file's extension (without the dot).
         Returns empty string if the file has no extension.
         """
         if "." in self.basename:
@@ -1052,7 +1063,8 @@ class File(PathBase):
         self._write(data, "a", newline=newline)
 
     def write_iter(self, data: Iterable, sep="\n"):
-        """Write data from an iterable to a file, overwriting any existing data.
+        """
+        Write data from an iterable to a file, overwriting any existing data.
 
         Args:
             data (Iterable): The data to write.
@@ -1061,7 +1073,8 @@ class File(PathBase):
         self._write_iter(data, "w", sep=sep)
 
     def append_iter(self, data: Iterable, sep="\n"):
-        """Append data from an iterable to a file.
+        """
+        Append data from an iterable to a file.
 
         Args:
             data (Iterable): The data to append.
@@ -1144,7 +1157,8 @@ class File(PathBase):
         return self
 
     def with_ext(self, ext: str):
-        """Change the extension of the file and return the new File object
+        """
+        Change the extension of the file and return the new File object
 
         Args:
             ext (str): The new extension of the file.
@@ -1214,7 +1228,8 @@ class Directory(PathBase):
         *,
         abs: bool = False,
     ) -> None:
-        """Initialize a Directory object.
+        """
+        Initialize a Directory object.
 
         Args:
             path (str | PathLike): Directory path.
