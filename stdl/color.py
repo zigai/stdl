@@ -795,7 +795,7 @@ CSS_COLOR_TO_HEX = {
     "aquamarine": "#7FFFD4",
     "azure": "#F0FFFF",
     "beige": "#F5F5DC",
-    "bisque": "#FFE4C4x",
+    "bisque": "#FFE4C4",
     "black": "#000000",
     "blanchedalmond": "#FFEBCD",
     "blue": "#0000FF",
@@ -1211,7 +1211,7 @@ else:
                 return _parser(v)
             if isinstance(v, Mapping):
                 return _parser(v)
-            raise TypeError(
+            raise ValueError(
                 f"Expected {_cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
 
