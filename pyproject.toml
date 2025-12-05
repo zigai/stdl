@@ -47,9 +47,17 @@ keywords = [
 
 
 [project.optional-dependencies]
-test = ["pytest", "coverage", "pydantic>=2"]
-dev = ["pytest", "coverage", "ruff", "pre-commit", "mypy", "codespell"]
+dev = [
+    "pytest",
+    "coverage",
+    "ruff",
+    "pre-commit",
+    "mypy",
+    "codespell",
+    "pydantic>=2",
+]
 
+test = ["pytest", "coverage", "pydantic>=2"]
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
 Issues = "https://github.com/zigai/stdl/issues"
