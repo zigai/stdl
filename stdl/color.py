@@ -90,7 +90,7 @@ class RGB(Color):
         return (self.red, self.green, self.blue)
 
     def RGB(self) -> RGB:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def HSV(self) -> HSV:
         r, g, b = self.red / 255, self.green / 255, self.blue / 255
@@ -197,7 +197,7 @@ class RGBA(Color):
         return RGB(self.red, self.green, self.blue)
 
     def RGBA(self) -> RGBA:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def HSV(self) -> HSV:
         return self.RGB().HSV()
@@ -266,7 +266,7 @@ class HEX(Color):
         return self.RGB().CMYK()
 
     def HEX(self) -> HEX:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def ASSA(self) -> ASSA:
         return self.RGB().ASSA()
@@ -329,7 +329,7 @@ class HSV(Color):
         return RGB(round((r + m) * 255), round((g + m) * 255), round((b + m) * 255))
 
     def HSV(self) -> HSV:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def HSL(self) -> HSL:
         return self.RGB().HSL()
@@ -415,7 +415,7 @@ class HSL(Color):
         return self.RGB().HSV()
 
     def HSL(self) -> HSL:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def CMYK(self) -> CMYK:
         return self.RGB().CMYK()
@@ -477,7 +477,7 @@ class CMYK(Color):
         return self.RGB().HSL()
 
     def CMYK(self) -> CMYK:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def HEX(self) -> HEX:
         return self.RGB().HEX()
@@ -587,7 +587,7 @@ class ASSA(Color):
         return self.RGB().HEX()
 
     def ASSA(self) -> ASSA:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def embed_text(self, text: str) -> str:
         """Embed text with this color in ASS format"""
@@ -637,7 +637,7 @@ class ASSA(Color):
         return "".join(c for c in value.upper() if c in "0123456789ABCDEF")
 
 
-CSS_COLOR_NAME = T.Literal[
+CssColorName = T.Literal[
     "aliceblue",
     "antiquewhite",
     "aqua",
@@ -943,7 +943,7 @@ CSS_COLOR_TO_HEX = {
 class webcolor(Color):
     COLORS = CSS_COLOR_TO_HEX
 
-    def __init__(self, name: CSS_COLOR_NAME):
+    def __init__(self, name: CssColorName):
         name = name.lower()  # type:ignore
         self.name = name
         self.validate()
@@ -983,7 +983,7 @@ class webcolor(Color):
         return self.hex_value
 
     def webcolor(self) -> webcolor:
-        return self.copy()
+        return self.copy()  # type:ignore
 
     def ASSA(self) -> ASSA:
         return self.hex_value.ASSA()
@@ -1010,7 +1010,7 @@ def hex_to_rgb(color: str) -> tuple[int, int, int]:
 def normalize_color(
     color: (
         str
-        | CSS_COLOR_NAME
+        | CssColorName
         | tuple[int, int, int]
         | tuple[int, int, int, float]
         | Sequence[int]
@@ -1034,30 +1034,16 @@ def normalize_color(
     raise ColorValueError(f"Unsupported color format: {color}")
 
 
-__all__ = [
-    "Color",
-    "RGB",
-    "RGBA",
-    "HEX",
-    "HSV",
-    "HSL",
-    "CMYK",
-    "ASSA",
-    "webcolor",
-    "CSS_COLOR_TO_HEX",
-    "CSS_COLOR_NAME",
-    "ColorValueError",
-    "normalize_color",
-]
-
 try:
     from pydantic import GetCoreSchemaHandler as _GetCoreSchemaHandler
+    from pydantic import GetJsonSchemaHandler as _GetJsonSchemaHandler
+    from pydantic.json_schema import JsonSchemaValue as _JsonSchemaValue
     from pydantic_core import core_schema as _core_schema
 except Exception:  # pragma: no cover
     pass  # Pydantic not installed
 else:
 
-    def _parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
+    def parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
         if isinstance(value, Mapping):
             data = dict(value)
             if {"red", "green", "blue"}.issubset(data):
@@ -1075,7 +1061,7 @@ else:
         r, g, b = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
         return RGB(r, g, b)
 
-    def _parse_rgba(value: str | Mapping[str, T.Any]) -> RGBA:
+    def parse_rgba(value: str | Mapping[str, T.Any]) -> RGBA:
         if isinstance(value, Mapping):
             data = dict(value)
             if {"red", "green", "blue", "alpha"}.issubset(data):
@@ -1095,7 +1081,7 @@ else:
         a = float(match.group(4))
         return RGBA(r, g, b, a)
 
-    def _parse_hex(value: str | Mapping[str, T.Any]) -> HEX:
+    def parse_hex(value: str | Mapping[str, T.Any]) -> HEX:
         if isinstance(value, Mapping):
             data = dict(value)
             if "value" in data:
@@ -1113,7 +1099,7 @@ else:
 
         return HEX(v)
 
-    def _parse_hsv(value: str | Mapping[str, T.Any]) -> HSV:
+    def parse_hsv(value: str | Mapping[str, T.Any]) -> HSV:
         if isinstance(value, Mapping):
             data = dict(value)
             if {"hue", "saturation", "value"}.issubset(data):
@@ -1132,7 +1118,7 @@ else:
         h, s, v = float(match.group(1)), float(match.group(2)), float(match.group(3))
         return HSV(h, s, v)
 
-    def _parse_hsl(value: str | Mapping[str, T.Any]) -> HSL:
+    def parse_hsl(value: str | Mapping[str, T.Any]) -> HSL:
         if isinstance(value, Mapping):
             data = dict(value)
             if {"hue", "saturation", "lightness"}.issubset(data):
@@ -1151,7 +1137,7 @@ else:
         h, s, l = float(match.group(1)), float(match.group(2)), float(match.group(3))
         return HSL(h, s, l)
 
-    def _parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
+    def parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
         if isinstance(value, Mapping):
             data = dict(value)
             if {"cyan", "magenta", "yellow", "key"}.issubset(data):
@@ -1175,7 +1161,7 @@ else:
         )
         return CMYK(c, m, y, k)
 
-    def _parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
+    def parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
         if isinstance(value, Mapping):
             data = dict(value)
             if "value" in data:
@@ -1190,7 +1176,7 @@ else:
 
         return ASSA(match.group(1))
 
-    def _parse_webcolor(value: str | Mapping[str, T.Any]) -> webcolor:
+    def parse_webcolor(value: str | Mapping[str, T.Any]) -> webcolor:
         if isinstance(value, Mapping):
             data = dict(value)
             if "name" in data:
@@ -1203,54 +1189,243 @@ else:
 
         return webcolor(match.group(2))
 
-    def _make_schema(_cls, _parser):
+    def _string_schema(
+        *,
+        title: str,
+        description: str | None = None,
+        pattern: str | None = None,
+        examples: list[str] | None = None,
+    ) -> _JsonSchemaValue:
+        schema: dict[str, T.Any] = {"type": "string", "title": title}
+        if description:
+            schema["description"] = description
+        if pattern:
+            schema["pattern"] = pattern
+        if examples:
+            schema["examples"] = examples
+        return schema
+
+    def _object_schema(
+        *,
+        title: str,
+        description: str | None,
+        properties: dict[str, T.Any],
+        required: list[str],
+    ) -> _JsonSchemaValue:
+        return {
+            "type": "object",
+            "title": title,
+            "description": description,
+            "properties": properties,
+            "required": required,
+            "additionalProperties": False,
+        }
+
+    def _register_color(
+        cls: type[Color],
+        parser: T.Callable[[str | Mapping[str, T.Any]], Color],
+        *,
+        title: str,
+        string_description: str,
+        string_pattern: str,
+        string_examples: list[str],
+        object_description: str,
+        object_properties: dict[str, T.Any],
+        object_required: list[str],
+    ) -> None:
+        string_schema = _string_schema(
+            title=title,
+            description=string_description,
+            pattern=string_pattern,
+            examples=string_examples,
+        )
+        object_schema = _object_schema(
+            title=title,
+            description=object_description,
+            properties=object_properties,
+            required=object_required,
+        )
+
         def _validator(v):
-            if isinstance(v, _cls):
+            if isinstance(v, cls):
                 return v
             if isinstance(v, str):
-                return _parser(v)
+                return parser(v)
             if isinstance(v, Mapping):
-                return _parser(v)
+                return parser(v)
             raise ValueError(
-                f"Expected {_cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
+                f"Expected {cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
 
-        return _core_schema.no_info_plain_validator_function(
+        core_schema = _core_schema.no_info_plain_validator_function(
             _validator,
             serialization=_core_schema.plain_serializer_function_ser_schema(
                 lambda v: repr(v), when_used="json"
             ),
         )
 
-    def _rgb_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(RGB, _parse_rgb)
+        def _core_schema_factory(_cls, _source, _handler: _GetCoreSchemaHandler):
+            return core_schema
 
-    def _rgba_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(RGBA, _parse_rgba)
+        def _json_schema_factory(
+            _cls,
+            _core_schema_obj: _core_schema.CoreSchema,
+            handler: _GetJsonSchemaHandler,
+        ) -> _JsonSchemaValue:
+            return {
+                "title": title,
+                "anyOf": [
+                    handler.resolve_ref_schema(string_schema),
+                    handler.resolve_ref_schema(object_schema),
+                ],
+            }
 
-    def _hex_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(HEX, _parse_hex)
+        cls.__get_pydantic_core_schema__ = classmethod(_core_schema_factory)  # type: ignore[attr-defined]
+        cls.__get_pydantic_json_schema__ = classmethod(_json_schema_factory)  # type: ignore[attr-defined]
 
-    def _hsv_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(HSV, _parse_hsv)
+    _register_color(
+        RGB,
+        parse_rgb,
+        title="RGB",
+        string_description="String representation rgb(r, g, b) with 0-255 integer channels",
+        string_pattern=r"^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$",
+        string_examples=["rgb(255, 0, 0)", "rgb(0, 0, 0)"],
+        object_description="Object with integer channels 0-255",
+        object_properties={
+            "red": {"type": "integer", "minimum": 0, "maximum": 255},
+            "green": {"type": "integer", "minimum": 0, "maximum": 255},
+            "blue": {"type": "integer", "minimum": 0, "maximum": 255},
+        },
+        object_required=["red", "green", "blue"],
+    )
 
-    def _hsl_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(HSL, _parse_hsl)
+    _register_color(
+        RGBA,
+        parse_rgba,
+        title="RGBA",
+        string_description="String representation rgba(r, g, b, a) with 0-255 integer channels and alpha 0-1",
+        string_pattern=r"^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(?:0|1|0?\.\d+)\s*\)$",
+        string_examples=["rgba(255, 0, 0, 1)", "rgba(0, 128, 255, 0.5)"],
+        object_description="Object with integer channels 0-255 and alpha 0-1",
+        object_properties={
+            "red": {"type": "integer", "minimum": 0, "maximum": 255},
+            "green": {"type": "integer", "minimum": 0, "maximum": 255},
+            "blue": {"type": "integer", "minimum": 0, "maximum": 255},
+            "alpha": {"type": "number", "minimum": 0, "maximum": 1},
+        },
+        object_required=["red", "green", "blue", "alpha"],
+    )
 
-    def _cmyk_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(CMYK, _parse_cmyk)
+    _register_color(
+        HEX,
+        parse_hex,
+        title="HEX",
+        string_description="String representation hex(#RRGGBB)",
+        string_pattern=r"^hex\(\s*#?[0-9A-Fa-f]{6}\s*\)$",
+        string_examples=["hex(#ffffff)", "hex(#0a1b2c)"],
+        object_description="Object with hex string value #RRGGBB",
+        object_properties={
+            "value": {
+                "type": "string",
+                "pattern": r"^#?[0-9A-Fa-f]{6}$",
+                "examples": ["#ffffff", "0A1B2C"],
+            }
+        },
+        object_required=["value"],
+    )
 
-    def _assa_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(ASSA, _parse_assa)
+    _register_color(
+        HSV,
+        parse_hsv,
+        title="HSV",
+        string_description="String representation hsv(h, s, v)",
+        string_pattern=r"^hsv\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_examples=["hsv(120.0, 100.0, 100.0)"],
+        object_description="Object with hue 0-360, saturation/value 0-100",
+        object_properties={
+            "hue": {"type": "number", "minimum": 0, "maximum": 360},
+            "saturation": {"type": "number", "minimum": 0, "maximum": 100},
+            "value": {"type": "number", "minimum": 0, "maximum": 100},
+        },
+        object_required=["hue", "saturation", "value"],
+    )
 
-    def _webcolor_schema(cls, _source, _handler: _GetCoreSchemaHandler):
-        return _make_schema(webcolor, _parse_webcolor)
+    _register_color(
+        HSL,
+        parse_hsl,
+        title="HSL",
+        string_description="String representation hsl(h, s, l)",
+        string_pattern=r"^hsl\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_examples=["hsl(240.0, 100.0, 50.0)"],
+        object_description="Object with hue 0-360, saturation/lightness 0-100",
+        object_properties={
+            "hue": {"type": "number", "minimum": 0, "maximum": 360},
+            "saturation": {"type": "number", "minimum": 0, "maximum": 100},
+            "lightness": {"type": "number", "minimum": 0, "maximum": 100},
+        },
+        object_required=["hue", "saturation", "lightness"],
+    )
 
-    RGB.__get_pydantic_core_schema__ = classmethod(_rgb_schema)  # type: ignore[attr-defined]
-    RGBA.__get_pydantic_core_schema__ = classmethod(_rgba_schema)  # type: ignore[attr-defined]
-    HEX.__get_pydantic_core_schema__ = classmethod(_hex_schema)  # type: ignore[attr-defined]
-    HSV.__get_pydantic_core_schema__ = classmethod(_hsv_schema)  # type: ignore[attr-defined]
-    HSL.__get_pydantic_core_schema__ = classmethod(_hsl_schema)  # type: ignore[attr-defined]
-    CMYK.__get_pydantic_core_schema__ = classmethod(_cmyk_schema)  # type: ignore[attr-defined]
-    ASSA.__get_pydantic_core_schema__ = classmethod(_assa_schema)  # type: ignore[attr-defined]
-    webcolor.__get_pydantic_core_schema__ = classmethod(_webcolor_schema)  # type: ignore[attr-defined]
+    _register_color(
+        CMYK,
+        parse_cmyk,
+        title="CMYK",
+        string_description="String representation cmyk(c, m, y, k)",
+        string_pattern=r"^cmyk\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_examples=["cmyk(0, 100, 100, 0)", "cmyk(10.5, 0, 25, 5)"],
+        object_description="Object with CMYK percentages 0-100",
+        object_properties={
+            "cyan": {"type": "number", "minimum": 0, "maximum": 100},
+            "magenta": {"type": "number", "minimum": 0, "maximum": 100},
+            "yellow": {"type": "number", "minimum": 0, "maximum": 100},
+            "key": {"type": "number", "minimum": 0, "maximum": 100},
+        },
+        object_required=["cyan", "magenta", "yellow", "key"],
+    )
+
+    _register_color(
+        ASSA,
+        parse_assa,
+        title="ASSA",
+        string_description="String representation assa(BBGGRR) or assa(AABBGGRR)",
+        string_pattern=r"^assa\(\s*[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\s*\)$",
+        string_examples=["assa(00ff00)", "assa(ff00ff00)"],
+        object_description="Object with ASSA hex value (BBGGRR or AABBGGRR)",
+        object_properties={
+            "value": {
+                "type": "string",
+                "pattern": r"^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+                "examples": ["00ff00", "ff00ff00"],
+            }
+        },
+        object_required=["value"],
+    )
+
+    _register_color(
+        webcolor,
+        parse_webcolor,
+        title="Web Color",
+        string_description="Named CSS color via webcolor('name')",
+        string_pattern=r"^webcolor\(\s*['\"]?[A-Za-z]+['\"]?\s*\)$",
+        string_examples=["webcolor('red')", 'webcolor("aliceblue")'],
+        object_description="Object with CSS color name",
+        object_properties={
+            "name": {"type": "string", "enum": list(CSS_COLOR_TO_HEX.keys())},
+        },
+        object_required=["name"],
+    )
+__all__ = [
+    "Color",
+    "RGB",
+    "RGBA",
+    "HEX",
+    "HSV",
+    "HSL",
+    "CMYK",
+    "ASSA",
+    "webcolor",
+    "CSS_COLOR_TO_HEX",
+    "CssColorName",
+    "ColorValueError",
+    "normalize_color",
+]
