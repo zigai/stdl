@@ -552,7 +552,7 @@ wheels = [
 
 [[package]]
 name = "stdl"
-version = "0.6.4"
+version = "0.6.5"
 source = { editable = "." }
 dependencies = [
     { name = "python-dateutil" },
@@ -567,6 +567,7 @@ dev = [
     { name = "coverage" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pydantic" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -583,7 +584,8 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'test'" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pydantic", marker = "extra == 'test'" },
+    { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2" },
+    { name = "pydantic", marker = "extra == 'test'", specifier = ">=2" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "python-dateutil", specifier = ">=2.8.2" },
@@ -592,7 +594,7 @@ requires-dist = [
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
-provides-extras = ["test", "dev"]
+provides-extras = ["dev", "test"]
 
 [[package]]
 name = "toml"
