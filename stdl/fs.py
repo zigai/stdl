@@ -18,7 +18,7 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Literal, Self
+from typing import IO, Any, Literal
 from urllib.request import pathname2url
 
 import toml
@@ -879,12 +879,12 @@ class PathBase(PathLike):
             raise ValueError(f"'{self.path}' is not relative to '{other}'")
         return os.path.relpath(self_abs, other)
 
-    def expanduser(self) -> Self:
+    def expanduser(self) -> PathBase:
         """
         Expand ~ and ~user constructs in the path.
 
         Returns:
-            Self: The object with the expanded path.
+            PathBase: The object with the expanded path.
         """
         self.path = os.path.expanduser(self.path)
         return self
@@ -1152,7 +1152,7 @@ class File(PathBase):
         *,
         mode: Literal["w", "wb"] = "w",
         newline: bool = True,
-    ) -> Self:
+    ) -> File:
         """
         Write data to a file, overwriting any existing data.
 
@@ -1162,7 +1162,7 @@ class File(PathBase):
             newline: Whether to add a newline at the end. Ignored in binary mode.
 
         Returns:
-            Self: The File object for method chaining.
+            File: The File object for method chaining.
         """
         self._write(data, mode, newline=newline)
         return self
@@ -1173,7 +1173,7 @@ class File(PathBase):
         *,
         mode: Literal["a", "ab"] = "a",
         newline: bool = True,
-    ) -> Self:
+    ) -> File:
         """
         Append data to a file.
 
@@ -1183,7 +1183,7 @@ class File(PathBase):
             newline: Whether to add a newline at the end. Ignored in binary mode.
 
         Returns:
-            Self: The File object for method chaining.
+            File: The File object for method chaining.
         """
         self._write(data, mode, newline=newline)
         return self
