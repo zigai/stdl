@@ -552,13 +552,12 @@ wheels = [
 
 [[package]]
 name = "stdl"
-version = "0.6.5"
+version = "0.6.7"
 source = { editable = "." }
 dependencies = [
     { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "toml" },
-    { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
@@ -570,6 +569,9 @@ dev = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "ruff" },
+]
+full = [
+    { name = "tqdm" },
 ]
 test = [
     { name = "coverage" },
@@ -592,9 +594,9 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "toml", specifier = ">=0.10.2" },
-    { name = "tqdm", specifier = ">=4.67.1" },
+    { name = "tqdm", marker = "extra == 'full'", specifier = ">=4.67.1" },
 ]
-provides-extras = ["dev", "test"]
+provides-extras = ["full", "dev", "test"]
 
 [[package]]
 name = "toml"
