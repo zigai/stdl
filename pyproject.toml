@@ -1,16 +1,12 @@
 [project]
 name = "stdl"
-version = "0.6.6"
+version = "0.6.7"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "python-dateutil>=2.8.2",
-    "pyyaml>=6.0.2",
-    "toml>=0.10.2",
-]
+dependencies = ["python-dateutil>=2.8.2", "pyyaml>=6.0.2", "toml>=0.10.2"]
 
 classifiers = [
     "License :: OSI Approved :: MIT License",
