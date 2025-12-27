@@ -4,7 +4,7 @@ import sys
 import time
 from collections.abc import Callable
 from functools import wraps
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -40,24 +40,26 @@ def timer(
                 time_elapsed = round(time_elapsed, r)
 
             is_method = "self" in list(inspect.signature(func).parameters.keys())
-            args = args[1:] if is_method else args
+            func_args = args[1:] if is_method else args
             name = func.__qualname__ if is_method else func.__name__
             message = f"'{name}' took {time_elapsed}s"
 
             if show_args:
                 kwargs_info = ", ".join(f"{k}={v}" for k, v in kwargs.items())
-                all_args = ", ".join(map(str, args)) + (", " + kwargs_info if kwargs_info else "")
+                all_args = ", ".join(map(str, func_args)) + (
+                    ", " + kwargs_info if kwargs_info else ""
+                )
                 message += f"{sep}Args: {all_args}"
 
             if serialize:
-                message_dict = {
+                message_dict: dict[str, Any] = {
                     "name": name,
                     "time": time_elapsed,
-                    "args": args,
+                    "args": func_args,
                     "kwargs": kwargs,
                 }
                 if show_args:
-                    message_dict["args"] = args
+                    message_dict["args"] = func_args
                     message_dict["kwargs"] = kwargs
                 message = json.dumps(message_dict)
 
