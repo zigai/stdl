@@ -1,4 +1,5 @@
 # stdl
+
 [![Tests](https://github.com/zigai/stdl/actions/workflows/tests.yml/badge.svg)](https://github.com/zigai/stdl/actions/workflows/tests.yml)
 [![Documentation Status](https://readthedocs.org/projects/stdl/badge/?version=latest)](https://stdl.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/stdl.svg)](https://badge.fury.io/py/stdl)
@@ -9,6 +10,7 @@
 `stdl` is a collection of Python utilities that complement the standard library. It provides common functions and tools that developers frequently need, with minimal external dependencies.
 
 ## Features
+
 - File and directory operations
 - String manipulation
 - ANSI color support for terminal output
@@ -19,20 +21,25 @@
 - [See docs](https://stdl.readthedocs.io/en/latest/?badge=latest)
 
 ## Dependencies
+
 - PyYAML
 - python-dateutil
 - toml
-- tqdm
 
 ## Installation
 
 #### Using pip
+
 ```
 pip install stdl
 ```
+
 #### From source
+
 ```
 pip install git+https://github.com/zigai/stdl
 ```
+
 ## License
+
 [MIT License](https://github.com/zigai/stdl/blob/master/LICENSE)
