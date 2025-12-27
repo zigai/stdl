@@ -179,14 +179,14 @@ def yaml_dump(data: Any, path: str | PathLike, encoding: str = "utf-8") -> None:
         yaml.safe_dump(data, f)
 
 
-def toml_load(path: str | PathLike, encoding: str = "utf-8"):
+def toml_load(path: str | PathLike, encoding: str = "utf-8") -> dict[str, Any]:
     with open(path, encoding=encoding) as f:
         return toml.load(f)
 
 
-def toml_dump(data, path: str | PathLike, encoding: str = "utf-8") -> str:
+def toml_dump(data: dict[str, Any], path: str | PathLike, encoding: str = "utf-8") -> None:
     with open(path, "w", encoding=encoding) as f:
-        return toml.dump(data, f)
+        toml.dump(data, f)
 
 
 def get_dir_size(directory: str | PathLike, *, readable: bool = False) -> str | int:
@@ -360,7 +360,7 @@ def mkdirs(dest: str | Path, names: list[str]) -> None:
 
 def yield_files_in(
     directory: str | Path,
-    ext: str | tuple | None = None,
+    ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
     abs: bool = True,
@@ -420,7 +420,7 @@ def yield_files_in(
 
 def get_files_in(
     directory: str | Path,
-    ext: str | tuple | None = None,
+    ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
     abs: bool = True,
@@ -498,7 +498,7 @@ def ensure_paths_exist(*args: str | PathLike | Iterable[str | PathLike]) -> None
         FileNotFoundError : if one of the provided paths does not exist.
     """
 
-    def check_path(path: str | PathLike):
+    def check_path(path: str | PathLike) -> None:
         if not os.path.exists(os.fspath(path)):
             raise FileNotFoundError(f"Path does not exist: '{path}'")
 
@@ -521,7 +521,7 @@ def ensure_paths_dont_exist(*args: str | PathLike | Iterable[str | PathLike]) ->
         FileNotFoundError : if one of the provided paths exists.
     """
 
-    def check_path(path: str | PathLike):
+    def check_path(path: str | PathLike) -> None:
         if os.path.exists(os.fspath(path)):
             raise FileExistsError(f"Path already exists: '{path}'")
 
@@ -555,7 +555,7 @@ class CompletedCommand(subprocess.CompletedProcess):
         super().__init__(args, returncode, stdout, stderr)
         self.time_taken = time_taken
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         args = [
             f"args={self.args!r}",
             f"returncode={self.returncode!r}",
@@ -581,7 +581,7 @@ class CompletedCommand(subprocess.CompletedProcess):
             return []
         return self.stderr.splitlines()
 
-    def dict(self) -> dict:
+    def dict(self) -> dict[str, Any]:
         return {
             "args": self.args,
             "returncode": self.returncode,
@@ -602,7 +602,7 @@ def exec_cmd(
     stdout: IO | None = None,  # type:ignore
     stderr: IO | None = None,  # type:ignore
     input: str | None | bytes = None,  # type:ignore
-    env: dict | None = None,  # type:ignore
+    env: dict[str, str] | None = None,  # type:ignore
     text: bool = True,
     *args,
     **kwargs,
@@ -705,13 +705,13 @@ class PathBase(PathLike):
         if abs:
             self.path = os.path.abspath(self.path)
 
-    def __fspath__(self):
+    def __fspath__(self) -> str:
         return self.path
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.path
 
-    def resolve(self, strict: bool = False):
+    def resolve(self, strict: bool = False) -> PathBase:
         """
         Make the path absolute, resolving any symlinks.
 
@@ -719,7 +719,7 @@ class PathBase(PathLike):
             strict: If True and path doesn't exist, raises FileNotFoundError. Defaults to False.
 
         Returns:
-            A new File object with resolved path.
+            PathBase: The object with resolved path.
         """
         self.path = os.path.realpath(self.path)
         if strict and not self.exists:
@@ -789,9 +789,6 @@ class PathBase(PathLike):
 
         Args:
             name (str): The new name.
-
-        Returns:
-            PathBase: The updated object.
         """
         new_path = os.path.join(self.parent.path, name)
         os.rename(self.path, new_path)
@@ -804,9 +801,6 @@ class PathBase(PathLike):
 
         Args:
             mode (int): The new permissions mode.
-
-        Returns:
-            PathBase: The updated object.
         """
         os.chmod(self.path, mode)
         return self
@@ -818,31 +812,18 @@ class PathBase(PathLike):
         Args:
             user (str): The new owner.
             group (str): The new group.
-
-        Returns:
-            PathBase: The updated object.
         """
         shutil.chown(self.path, user, group)
         return self
 
     def should_exist(self):
-        """
-        Raise FileNotFoundError if the path does not exist.
-
-        Returns:
-            PathBase: The object.
-        """
+        """Raise FileNotFoundError if the path does not exist."""
         if not self.exists:
             raise FileNotFoundError(f"No such path: '{self.path}'")
         return self
 
     def should_not_exist(self):
-        """
-        Raise FileExistsError if the path exists.
-
-        Returns:
-            PathBase: The object.
-        """
+        """Raise FileExistsError if the path exists."""
         if self.exists:
             raise FileExistsError(f"Path already exists: '{self.path}'")
         return self
@@ -1096,7 +1077,7 @@ class File(PathBase):
         return ""
 
     @property
-    def stem(self):
+    def stem(self) -> str:
         """The file's stem (base name without extension)."""
         base = self.basename
         if "." not in base:
@@ -1113,21 +1094,21 @@ class File(PathBase):
         """The file's size in a human-readable format if readable is set to True."""
         return bytes_readable(self.size)
 
-    def create(self):
+    def create(self) -> File:
         """Create an empty file if it doesn't exist."""
         if self.exists:
             return self
         open(self.path, "a", encoding=self.encoding).close()
         return self
 
-    def remove(self):
+    def remove(self) -> File:
         """Remove the file."""
         if not self.exists:
             return self
         os.remove(self.path)
         return self
 
-    def clear(self):
+    def clear(self) -> File:
         """Clear the contents of a file if it exists."""
         if not self.exists:
             return self
@@ -1160,7 +1141,7 @@ class File(PathBase):
                 if newline:
                     f.write("\n")
 
-    def _write_iter(self, data: Iterable, mode: str, sep: str = "\n") -> None:
+    def _write_iter(self, data: Iterable[Any], mode: str, sep: str = "\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
@@ -1225,7 +1206,7 @@ class File(PathBase):
             encoding = self.encoding
         return open(self.path, mode, encoding=encoding, **kwargs)
 
-    def write_iter(self, data: Iterable, sep="\n"):
+    def write_iter(self, data: Iterable[Any], sep: str = "\n") -> None:
         """
         Write data from an iterable to a file, overwriting any existing data.
 
@@ -1235,7 +1216,7 @@ class File(PathBase):
         """
         self._write_iter(data, "w", sep=sep)
 
-    def append_iter(self, data: Iterable, sep="\n"):
+    def append_iter(self, data: Iterable[Any], sep: str = "\n") -> None:
         """
         Append data from an iterable to a file.
 
@@ -1260,7 +1241,7 @@ class File(PathBase):
         *,
         mkdir: bool = False,
         overwrite: bool = True,
-    ):
+    ) -> File:
         """
         Move the file to a new directory.
 
@@ -1289,7 +1270,7 @@ class File(PathBase):
         *,
         mkdir: bool = False,
         overwrite: bool = True,
-    ):
+    ) -> File:
         """
         Copy the file to a new directory.
 
@@ -1311,7 +1292,7 @@ class File(PathBase):
         self.path = shutil.copy2(self.path, directory)
         return self
 
-    def with_dir(self, directory: str):
+    def with_dir(self, directory: str) -> File:
         """
         Change the directory of the file object. This will not move the actual file to that directory.
         Use File.move_to for that.
@@ -1319,7 +1300,7 @@ class File(PathBase):
         self.path = f"{directory}{SEP}{self.basename}"
         return self
 
-    def with_ext(self, ext: str):
+    def with_ext(self, ext: str) -> File:
         """
         Change the extension of the file and return the new File object
 
@@ -1334,7 +1315,7 @@ class File(PathBase):
         self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
         return self
 
-    def with_suffix(self, suffix: str):
+    def with_suffix(self, suffix: str) -> File:
         """Add a suffix to the file's name and return the new File object."""
         ext = self.ext
         if ext:
@@ -1343,7 +1324,7 @@ class File(PathBase):
         self.path = f"{self.dirname}{SEP}{filename}"
         return self
 
-    def with_prefix(self, prefix: str):
+    def with_prefix(self, prefix: str) -> File:
         """Add a prefix to the file's name and return the new File object."""
         ext = self.ext
         if ext:
@@ -1352,25 +1333,25 @@ class File(PathBase):
         self.path = f"{self.dirname}{SEP}{filename}"
         return self
 
-    def rename(self, name: str):
+    def rename(self, name: str) -> File:
         """Rename the file and return the new File object."""
         new_path = f"{self.dirname}{SEP}{name}"
         os.rename(self.path, new_path)
         self.path = new_path
         return self
 
-    def link(self, target: str, follow_symlinks: bool = True):
+    def link(self, target: str, follow_symlinks: bool = True) -> File:
         """Create a hard link to the file."""
         os.link(self.path, target, follow_symlinks=follow_symlinks)
         return self
 
-    def symlink(self, target: str):
+    def symlink(self, target: str) -> File:
         """Create a symbolic link to the file."""
         os.symlink(self.path, target)
         return self
 
     @classmethod
-    def rand(cls, prefix: str = "file", ext: str = ""):
+    def rand(cls, prefix: str = "file", ext: str = "") -> File:
         """
         Create a new random file with a specified prefix and extension.
 
