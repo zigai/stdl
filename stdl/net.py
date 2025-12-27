@@ -1,17 +1,24 @@
 import os
+import warnings
 from http.client import HTTPMessage
 from urllib.request import urlopen, urlretrieve
 
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - optional dependency
+    tqdm = None
 
 from stdl.fs import bytes_readable, readable_size_to_bytes
 
+if tqdm is not None:
 
-class ProgressBarTQDM(tqdm):
-    def update_to(self, b: int = 1, bsize: int = 1, tsize: int | None = None) -> None:
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)
+    class ProgressBarTQDM(tqdm):
+        def update_to(self, b: int = 1, bsize: int = 1, tsize: int | None = None) -> None:
+            if tsize is not None:
+                self.total = tsize
+            self.update(b * bsize - self.n)
+else:
+    ProgressBarTQDM = None
 
 
 class DownloadSizeExceededError(Exception):
@@ -55,11 +62,17 @@ def download(
     if os.path.exists(path) and not overwrite:
         raise FileExistsError(path)
 
-    if progressbar:
+    if progressbar and ProgressBarTQDM is not None:
         with ProgressBarTQDM(unit="B", unit_scale=True, unit_divisor=1024) as t:
             r = urlretrieve(url, path, reporthook=t.update_to, data=None)
         t.total = t.n
     else:
+        if progressbar and ProgressBarTQDM is None:
+            warnings.warn(
+                "progressbar=True requested but tqdm is not installed; downloading without progress bar.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         r = urlretrieve(url, path)
     return r
 
