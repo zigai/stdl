@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 import math
 import os
@@ -17,7 +18,8 @@ from datetime import datetime
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Literal
+from typing import IO, Any, Literal, Self
+from urllib.request import pathname2url
 
 import toml
 import yaml
@@ -758,6 +760,29 @@ class PathBase(PathLike):
         """The absolute path."""
         return os.path.abspath(self.path)
 
+    @property
+    def parents(self) -> tuple[Directory, ...]:
+        """All parent directories from immediate parent to root."""
+        result: list[Directory] = []
+        current = os.path.dirname(os.path.abspath(self.path))
+        while current:
+            result.append(Directory(current))
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+        return tuple(result)
+
+    @property
+    def is_absolute(self) -> bool:
+        """Whether the path is absolute."""
+        return os.path.isabs(self.path)
+
+    @property
+    def is_symlink(self) -> bool:
+        """Whether the path is a symbolic link."""
+        return os.path.islink(self.path)
+
     def rename(self, name: str):
         """
         Rename the path.
@@ -839,6 +864,79 @@ class PathBase(PathLike):
             str: The path as a string.
         """
         return str(self)
+
+    def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+        """
+        Return the stat info for this path.
+
+        Args:
+            follow_symlinks: If True, follow symlinks. If False, return info about the link itself.
+
+        Returns:
+            os.stat_result: The stat information.
+        """
+        return os.stat(self.path, follow_symlinks=follow_symlinks)
+
+    def relative_to(self, other: str | PathBase) -> str:
+        """
+        Make this path relative to another path.
+
+        Args:
+            other: The base path to make this path relative to.
+
+        Returns:
+            str: The relative path.
+
+        Raises:
+            ValueError: If this path is not relative to the other path.
+        """
+        if isinstance(other, PathBase):
+            other = other.path
+        other = os.path.abspath(other)
+        self_abs = os.path.abspath(self.path)
+        if not self_abs.startswith(other.rstrip(SEP) + SEP) and self_abs != other:
+            raise ValueError(f"'{self.path}' is not relative to '{other}'")
+        return os.path.relpath(self_abs, other)
+
+    def expanduser(self) -> Self:
+        """
+        Expand ~ and ~user constructs in the path.
+
+        Returns:
+            Self: The object with the expanded path.
+        """
+        self.path = os.path.expanduser(self.path)
+        return self
+
+    def as_posix(self) -> str:
+        """Return the path with forward slashes."""
+        return self.path.replace("\\", "/")
+
+    def as_uri(self) -> str:
+        """
+        Return the path as a file URI.
+
+        Returns:
+            str: The file URI (e.g., 'file:///path/to/file').
+
+        Raises:
+            ValueError: If the path is not absolute.
+        """
+        if not self.is_absolute:
+            raise ValueError("relative path can't be expressed as a file URI")
+        return "file://" + pathname2url(os.path.abspath(self.path))
+
+    def match(self, pattern: str) -> bool:
+        """
+        Check if the path matches the given glob pattern.
+
+        Args:
+            pattern: A glob pattern to match against.
+
+        Returns:
+            bool: True if the path matches the pattern.
+        """
+        return fnmatch.fnmatch(self.basename, pattern)
 
     @property
     def exists(self) -> bool:
@@ -988,6 +1086,16 @@ class File(PathBase):
         return ""
 
     @property
+    def suffix(self) -> str:
+        """The file extension WITH the dot (e.g., '.txt'). Empty string if no extension."""
+        base = os.path.basename(self.path)
+        if "." in base and not base.startswith("."):
+            return "." + base.rsplit(".", 1)[-1]
+        if base.startswith(".") and base.count(".") > 1:
+            return "." + base.rsplit(".", 1)[-1]
+        return ""
+
+    @property
     def stem(self):
         """The file's stem (base name without extension)."""
         base = self.basename
@@ -1026,41 +1134,96 @@ class File(PathBase):
         open(self.path, "w", encoding=self.encoding).close()
         return self
 
-    def read(self) -> str:
-        """Read the contents of a file."""
-        with open(self.path, encoding=self.encoding) as f:
+    def read(self, mode: Literal["r", "rb"] = "r") -> str | bytes:
+        """
+        Read the contents of a file.
+
+        Args:
+            mode: The mode to open the file in. Use 'r' for text, 'rb' for binary.
+
+        Returns:
+            str | bytes: The file contents as string (text mode) or bytes (binary mode).
+        """
+        if mode == "rb":
+            with open(self.path, mode) as f:
+                return f.read()
+        with open(self.path, mode, encoding=self.encoding) as f:
             return f.read()
 
-    def _write(self, data, mode: str, *, newline: bool = True):
-        with open(self.path, mode, encoding=self.encoding) as f:
-            f.write(data)
-            if newline:
-                f.write("\n")
+    def _write(self, data: str | bytes, mode: str, *, newline: bool = True) -> None:
+        if "b" in mode:
+            with open(self.path, mode) as f:
+                f.write(data)
+        else:
+            with open(self.path, mode, encoding=self.encoding) as f:
+                f.write(data)
+                if newline:
+                    f.write("\n")
 
-    def _write_iter(self, data: Iterable, mode: str, sep="\n") -> None:
+    def _write_iter(self, data: Iterable, mode: str, sep: str = "\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             for entry in data:
                 f.write(f"{entry}{sep}")
 
-    def write(self, data, *, newline: bool = True) -> None:
+    def write(
+        self,
+        data: str | bytes,
+        *,
+        mode: Literal["w", "wb"] = "w",
+        newline: bool = True,
+    ) -> Self:
         """
         Write data to a file, overwriting any existing data.
 
         Args:
-            data (Any): The data to write.
-            newline (bool, optional): Whether to add a newline at the end of the data.
-        """
-        self._write(data, "w", newline=newline)
+            data: The data to write.
+            mode: The mode to open the file in. Use 'w' for text, 'wb' for binary.
+            newline: Whether to add a newline at the end. Ignored in binary mode.
 
-    def append(self, data, *, newline: bool = True):
+        Returns:
+            Self: The File object for method chaining.
+        """
+        self._write(data, mode, newline=newline)
+        return self
+
+    def append(
+        self,
+        data: str | bytes,
+        *,
+        mode: Literal["a", "ab"] = "a",
+        newline: bool = True,
+    ) -> Self:
         """
         Append data to a file.
 
         Args:
-            data (Any): The data to append.
-            newline (bool, optional): Whether to add a newline at the end of the data.
+            data: The data to append.
+            mode: The mode to open the file in. Use 'a' for text, 'ab' for binary.
+            newline: Whether to add a newline at the end. Ignored in binary mode.
+
+        Returns:
+            Self: The File object for method chaining.
         """
-        self._write(data, "a", newline=newline)
+        self._write(data, mode, newline=newline)
+        return self
+
+    def open(self, mode: str = "r", encoding: str | None = None, **kwargs) -> IO:
+        """
+        Open the file and return a file handle.
+
+        Args:
+            mode: The mode to open the file in.
+            encoding: The encoding to use. Defaults to self.encoding for text modes.
+            **kwargs: Additional arguments passed to the built-in open().
+
+        Returns:
+            IO: A file handle.
+        """
+        if "b" in mode:
+            return open(self.path, mode, **kwargs)
+        if encoding is None:
+            encoding = self.encoding
+        return open(self.path, mode, encoding=encoding, **kwargs)
 
     def write_iter(self, data: Iterable, sep="\n"):
         """
@@ -1089,7 +1252,7 @@ class File(PathBase):
 
     def splitlines(self) -> list[str]:
         """Equivalent to File.read().splitlines()"""
-        return self.read().splitlines()
+        return self.read(mode="r").splitlines()  # type:ignore
 
     def move_to(
         self,
@@ -1266,7 +1429,10 @@ class Directory(PathBase):
         return Directory(joinpath(os.getcwd(), safe_filename(rand_filename(prefix))))
 
     def move_to(
-        self, directory: str | PathLike | Directory, *, overwrite: bool = True
+        self,
+        directory: str | PathLike | Directory,
+        *,
+        overwrite: bool = True,
     ) -> Directory:
         """
         Move this directory to become a child of the target location.
@@ -1288,7 +1454,11 @@ class Directory(PathBase):
         return self
 
     def copy_to(
-        self, directory: str | PathLike | Directory, *, overwrite: bool = True, mkdir: bool = False
+        self,
+        directory: str | PathLike | Directory,
+        *,
+        overwrite: bool = True,
+        mkdir: bool = False,
     ) -> Directory:
         """
         Copy this directory to become a child of the target location.
@@ -1321,56 +1491,108 @@ class Directory(PathBase):
         return self
 
     def yield_files(
-        self, ext: str | tuple | None = None, recursive: bool = True
+        self,
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
     ) -> Generator[File, None, None]:
         """
         Yield files in the directory.
 
+        All filter parameters use AND logic - files must match all specified filters.
+
         Args:
-            ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
-            recursive (bool, optional): Whether to search recursively. Defaults to True.
+            ext: If provided, only yield files with provided extensions.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
 
         Yields:
             Generator[File, None, None]: The files in the directory.
         """
-        for file in yield_files_in(self.path, ext=ext, recursive=recursive):
-            yield File(file)
+        glob_pattern = re.compile(fnmatch.translate(glob)) if isinstance(glob, str) else glob
+        regex_pattern = re.compile(regex) if isinstance(regex, str) else regex
+        for file_path in yield_files_in(self.path, ext=ext, recursive=recursive):
+            basename = os.path.basename(file_path)
+            if glob_pattern and not glob_pattern.match(basename):
+                continue
+            if regex_pattern and not regex_pattern.search(basename):
+                continue
+            yield File(file_path)
 
-    def get_files(self, ext: str | tuple | None = None, recursive: bool = True) -> list[File]:
+    def get_files(
+        self,
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> list[File]:
         """
         Get files in the directory.
 
+        All filter parameters use AND logic - files must match all specified filters.
+
         Args:
-            ext (str | tuple[str, ...], optional): If provided, only yield files with provided extensions. Defaults to None.
-            recursive (bool, optional): Whether to search recursively. Defaults to True.
+            ext: If provided, only yield files with provided extensions.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
 
         Returns:
             list[File]: The files in the directory.
         """
-        return list(self.yield_files(ext=ext, recursive=recursive))
+        return list(self.yield_files(ext=ext, glob=glob, regex=regex, recursive=recursive))
 
-    def yield_subdirs(self, recursive: bool = True) -> Generator[Directory, None, None]:
+    def yield_subdirs(
+        self,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> Generator[Directory, None, None]:
         """
         Yield subdirectories in the directory.
 
+        All filter parameters use AND logic - directories must match all specified filters.
+
         Args:
-            recursive (bool, optional): Whether to search recursively. Defaults to True.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
 
+        Yields:
+            Generator[Directory, None, None]: The subdirectories in the directory.
         """
-        for directory in yield_dirs_in(self.path, recursive=recursive):
-            yield Directory(directory)
+        glob_pattern = re.compile(fnmatch.translate(glob)) if isinstance(glob, str) else glob
+        regex_pattern = re.compile(regex) if isinstance(regex, str) else regex
+        for dir_path in yield_dirs_in(self.path, recursive=recursive):
+            basename = os.path.basename(dir_path)
+            if glob_pattern and not glob_pattern.match(basename):
+                continue
+            if regex_pattern and not regex_pattern.search(basename):
+                continue
+            yield Directory(dir_path)
 
-    def get_subdirs(self, recursive: bool = True) -> list[Directory]:
+    def get_subdirs(
+        self,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> list[Directory]:
         """
         Get subdirectories in the directory.
 
+        All filter parameters use AND logic - directories must match all specified filters.
+
         Args:
-            recursive (bool, optional): Whether to search recursively. Defaults to True.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
 
         Returns:
             list[Directory]: The subdirectories in the directory.
         """
-        return list(self.yield_subdirs(recursive=recursive))
+        return list(self.yield_subdirs(glob=glob, regex=regex, recursive=recursive))
 
     def file(self, name: str) -> File:
         return File(joinpath(self.path, safe_filename(name)))
