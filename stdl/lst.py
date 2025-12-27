@@ -104,7 +104,7 @@ def occurrences(l: Sequence[T], val: Any) -> int:
 
 def nodups(l: Sequence[T]) -> list[T]:
     """Remove duplicates from a list and maintain the order"""
-    result = []
+    result: list[T] = []
     for i in l:
         if i not in result:
             result.append(i)

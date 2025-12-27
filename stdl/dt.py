@@ -2,11 +2,11 @@ import random
 import time
 from collections.abc import Generator
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 
 from dateutil.parser import parse as parse_datetime_str
 
-local_timezone = datetime.now().astimezone().tzinfo
+local_timezone: tzinfo | None = datetime.now().astimezone().tzinfo
 
 
 @dataclass
@@ -31,7 +31,7 @@ class TimerStop:
 class Timer:
     """A simple timer class that keeps track of all the stops."""
 
-    def __init__(self, *, ms: bool = True):
+    def __init__(self, *, ms: bool = True) -> None:
         self.ms = ms
         self.reset()
 

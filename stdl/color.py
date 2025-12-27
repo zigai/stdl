@@ -1246,7 +1246,7 @@ else:
             required=object_required,
         )
 
-        def _validator(v):
+        def _validator(v: T.Any) -> Color:
             if isinstance(v, cls):
                 return v
             if isinstance(v, str):
@@ -1264,11 +1264,13 @@ else:
             ),
         )
 
-        def _core_schema_factory(_cls, _source, _handler: _GetCoreSchemaHandler):
+        def _core_schema_factory(
+            _cls: type[Color], _source: T.Any, _handler: _GetCoreSchemaHandler
+        ) -> _core_schema.CoreSchema:
             return core_schema
 
         def _json_schema_factory(
-            _cls,
+            _cls: type[Color],
             _core_schema_obj: _core_schema.CoreSchema,
             handler: _GetJsonSchemaHandler,
         ) -> _JsonSchemaValue:

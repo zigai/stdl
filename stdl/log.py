@@ -21,7 +21,7 @@ class LoguruFormatter:
     extra_key_skips: ClassVar[list[str]] = ["title"]
     extra_key_name_color: ForegroundColor = "white"
 
-    def format(self, record: dict) -> str:
+    def format(self, record: dict[str, Any]) -> str:
         """
         Example:
             ```python
@@ -52,7 +52,7 @@ class LoguruFormatter:
 
 
 class SimpleLoguruFormatter(LoguruFormatter):
-    def format(self, record: dict) -> str:
+    def format(self, record: dict[str, Any]) -> str:
         extras = ""
         if len(record["extra"]):
             for key in record["extra"].keys():
