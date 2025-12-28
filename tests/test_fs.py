@@ -868,3 +868,614 @@ class TestFileXattr:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
             raise
+
+
+@pytest.fixture
+def temp_directory(tmp_path: Path) -> fs.Directory:
+    """Create a temporary directory with some files."""
+    test_dir = tmp_path / "testdir"
+    test_dir.mkdir()
+    (test_dir / "file1.txt").write_text("content1")
+    (test_dir / "file2.txt").write_text("content2")
+    (test_dir / "file3.py").write_text("print('hello')")
+    return fs.Directory(str(test_dir))
+
+
+@pytest.fixture
+def nested_directory(tmp_path: Path) -> fs.Directory:
+    """Create a nested directory structure."""
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "file1.txt").write_text("root file")
+    sub1 = root / "sub1"
+    sub1.mkdir()
+    (sub1 / "sub1_file.txt").write_text("sub1 content")
+    sub2 = root / "sub2"
+    sub2.mkdir()
+    (sub2 / "sub2_file.py").write_text("print('sub2')")
+    deep = sub1 / "deep"
+    deep.mkdir()
+    (deep / "deep_file.txt").write_text("deep content")
+    return fs.Directory(str(root))
+
+
+class TestDirectoryInit:
+    def test_directory_init(self, tmp_path: Path):
+        """Create Directory with string path."""
+        path = str(tmp_path / "testdir")
+        directory = fs.Directory(path)
+        assert directory.path == path
+
+    def test_directory_init_with_pathlike(self, tmp_path: Path):
+        """Create Directory with PathLike object."""
+        path = tmp_path / "testdir"
+        directory = fs.Directory(path)
+        assert directory.path == str(path)
+
+    def test_directory_init_abs(self, tmp_path: Path):
+        """Create Directory with abs=True."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            directory = fs.Directory("testdir", abs=True)
+            assert os.path.isabs(directory.path)
+            assert directory.path == os.path.abspath("testdir")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_directory_exists_true(self, temp_directory: fs.Directory):
+        """Check exists returns True for existing directory."""
+        assert temp_directory.exists is True
+
+    def test_directory_exists_false(self, tmp_path: Path):
+        """Check exists returns False for non-existent directory."""
+        directory = fs.Directory(str(tmp_path / "nonexistent"))
+        assert directory.exists is False
+
+    def test_directory_path_property(self, temp_directory: fs.Directory):
+        """Verify path returns correct string."""
+        assert isinstance(temp_directory.path, str)
+        assert temp_directory.path.endswith("testdir")
+
+    def test_directory_fspath(self, temp_directory: fs.Directory):
+        """Verify __fspath__ protocol."""
+        assert os.fspath(temp_directory) == temp_directory.path
+
+    def test_directory_str(self, temp_directory: fs.Directory):
+        """Verify __str__ returns path."""
+        assert str(temp_directory) == temp_directory.path
+
+
+class TestDirectoryPathComponents:
+    def test_directory_basename(self, temp_directory: fs.Directory):
+        """basename returns directory name only."""
+        assert temp_directory.basename == "testdir"
+
+    def test_directory_parent(self, temp_directory: fs.Directory):
+        """parent returns Directory object."""
+        parent = temp_directory.parent
+        assert isinstance(parent, fs.Directory)
+        assert parent.path == os.path.dirname(temp_directory.path)
+
+    def test_directory_abspath(self, tmp_path: Path):
+        """abspath returns absolute path."""
+        test_dir = tmp_path / "testdir"
+        test_dir.mkdir()
+        directory = fs.Directory(str(test_dir))
+        assert os.path.isabs(directory.abspath)
+
+    def test_directory_nodes(self, temp_directory: fs.Directory):
+        """nodes returns path parts as list."""
+        nodes = temp_directory.nodes
+        assert isinstance(nodes, list)
+        assert "testdir" in nodes
+
+
+class TestDirectoryPathBooleans:
+    def test_directory_is_absolute_true(self, temp_directory: fs.Directory):
+        """is_absolute returns True for absolute path."""
+        assert temp_directory.is_absolute is True
+
+    def test_directory_is_absolute_false(self, tmp_path: Path):
+        """is_absolute returns False for relative path."""
+        directory = fs.Directory("relative/path")
+        assert directory.is_absolute is False
+
+    def test_directory_is_symlink_true(self, tmp_path: Path):
+        """is_symlink returns True for symlink."""
+        target = tmp_path / "target"
+        target.mkdir()
+        link = tmp_path / "link"
+        link.symlink_to(target)
+        directory = fs.Directory(str(link))
+        assert directory.is_symlink is True
+
+    def test_directory_is_symlink_false(self, temp_directory: fs.Directory):
+        """is_symlink returns False for regular directory."""
+        assert temp_directory.is_symlink is False
+
+
+class TestDirectoryMetadata:
+    def test_directory_size(self, temp_directory: fs.Directory):
+        """size returns total size of directory."""
+        size = temp_directory.size
+        assert isinstance(size, int)
+        assert size > 0
+
+    def test_directory_size_empty(self, tmp_path: Path):
+        """size returns 0 for empty directory."""
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+        directory = fs.Directory(str(empty_dir))
+        assert directory.size == 0
+
+    def test_directory_ctime(self, temp_directory: fs.Directory):
+        """ctime/created returns creation timestamp."""
+        ctime = temp_directory.ctime
+        assert isinstance(ctime, float)
+        assert ctime > 0
+        assert temp_directory.created == ctime
+
+    def test_directory_mtime(self, temp_directory: fs.Directory):
+        """mtime/modified returns modification timestamp."""
+        mtime = temp_directory.mtime
+        assert isinstance(mtime, float)
+        assert mtime > 0
+        assert temp_directory.modified == mtime
+
+    def test_directory_atime(self, temp_directory: fs.Directory):
+        """atime/accessed returns access timestamp."""
+        atime = temp_directory.atime
+        assert isinstance(atime, float)
+        assert atime > 0
+        assert temp_directory.accessed == atime
+
+    def test_directory_stat(self, temp_directory: fs.Directory):
+        """stat() returns os.stat_result."""
+        result = temp_directory.stat()
+        assert isinstance(result, os.stat_result)
+        assert stat.S_ISDIR(result.st_mode)
+
+
+class TestDirectoryCreationDeletion:
+    def test_directory_create(self, tmp_path: Path):
+        """create() creates new directory."""
+        directory = fs.Directory(str(tmp_path / "newdir"))
+        assert not directory.exists
+        directory.create()
+        assert directory.exists
+
+    def test_directory_create_nested(self, tmp_path: Path):
+        """create() creates nested directories."""
+        directory = fs.Directory(str(tmp_path / "a" / "b" / "c"))
+        assert not directory.exists
+        directory.create()
+        assert directory.exists
+
+    def test_directory_create_existing(self, temp_directory: fs.Directory):
+        """create() on existing directory does nothing."""
+        temp_directory.create()
+        assert temp_directory.exists
+
+    def test_directory_create_returns_self(self, tmp_path: Path):
+        """create() returns self for chaining."""
+        directory = fs.Directory(str(tmp_path / "newdir"))
+        result = directory.create()
+        assert result is directory
+
+    def test_directory_create_with_mode(self, tmp_path: Path):
+        """create() respects mode parameter."""
+        directory = fs.Directory(str(tmp_path / "modedir"))
+        directory.create(mode=0o755)
+        assert directory.exists
+        mode = os.stat(directory.path).st_mode
+        assert mode & 0o777 == 0o755
+
+    def test_directory_remove(self, temp_directory: fs.Directory):
+        """remove() deletes directory and contents."""
+        assert temp_directory.exists
+        temp_directory.remove()
+        assert not temp_directory.exists
+
+    def test_directory_remove_nonexistent(self, tmp_path: Path):
+        """remove() on non-existent directory does nothing."""
+        directory = fs.Directory(str(tmp_path / "nonexistent"))
+        directory.remove()
+
+    def test_directory_remove_returns_self(self, temp_directory: fs.Directory):
+        """remove() returns self for chaining."""
+        result = temp_directory.remove()
+        assert result is temp_directory
+
+
+class TestDirectoryOperators:
+    def test_directory_truediv(self, temp_directory: fs.Directory):
+        """/ operator returns sub-Directory."""
+        sub = temp_directory / "subdir"
+        assert isinstance(sub, fs.Directory)
+        assert sub.path.endswith("subdir")
+        assert temp_directory.path in sub.path
+
+    def test_directory_floordiv(self, temp_directory: fs.Directory):
+        """// operator returns File in directory."""
+        file_obj = temp_directory // "myfile.txt"
+        assert isinstance(file_obj, fs.File)
+        assert file_obj.path.endswith("myfile.txt")
+        assert temp_directory.path in file_obj.path
+
+
+class TestDirectoryFileAccess:
+    def test_directory_file(self, temp_directory: fs.Directory):
+        """file() returns File object."""
+        file_obj = temp_directory.file("test.txt")
+        assert isinstance(file_obj, fs.File)
+        assert file_obj.basename == "test.txt"
+        assert temp_directory.path in file_obj.path
+
+    def test_directory_directory(self, temp_directory: fs.Directory):
+        """directory() returns Directory object."""
+        sub_dir = temp_directory.directory("subdir")
+        assert isinstance(sub_dir, fs.Directory)
+        assert sub_dir.basename == "subdir"
+        assert temp_directory.path in sub_dir.path
+
+
+class TestDirectoryYieldFiles:
+    def test_directory_yield_files(self, temp_directory: fs.Directory):
+        """yield_files() yields File objects."""
+        files = list(temp_directory.yield_files())
+        assert len(files) == 3
+        assert all(isinstance(file_obj, fs.File) for file_obj in files)
+
+    def test_directory_yield_files_ext(self, temp_directory: fs.Directory):
+        """yield_files(ext='txt') filters by extension."""
+        files = list(temp_directory.yield_files(ext="txt"))
+        assert len(files) == 2
+        assert all(file_obj.ext == "txt" for file_obj in files)
+
+    def test_directory_yield_files_tuple_ext(self, temp_directory: fs.Directory):
+        """yield_files(ext=('txt', 'py')) filters by multiple extensions."""
+        files = list(temp_directory.yield_files(ext=("txt", "py")))
+        assert len(files) == 3
+
+    def test_directory_yield_files_glob(self, temp_directory: fs.Directory):
+        """yield_files(glob='file*.txt') filters by glob pattern."""
+        files = list(temp_directory.yield_files(glob="file*.txt"))
+        assert len(files) == 2
+        assert all("file" in file_obj.basename and file_obj.ext == "txt" for file_obj in files)
+
+    def test_directory_yield_files_regex(self, temp_directory: fs.Directory):
+        """yield_files(regex=r'\\d') filters by regex."""
+        files = list(temp_directory.yield_files(regex=r"\d"))
+        assert len(files) == 3
+
+    def test_directory_yield_files_recursive(self, nested_directory: fs.Directory):
+        """yield_files(recursive=True) finds nested files."""
+        files = list(nested_directory.yield_files(recursive=True))
+        assert len(files) == 4
+
+    def test_directory_yield_files_non_recursive(self, nested_directory: fs.Directory):
+        """yield_files(recursive=False) only top-level."""
+        files = list(nested_directory.yield_files(recursive=False))
+        assert len(files) == 1
+
+    def test_directory_yield_files_combined_filters(self, nested_directory: fs.Directory):
+        """yield_files with multiple filters uses AND logic."""
+        files = list(nested_directory.yield_files(ext="txt", glob="*file*"))
+        basenames = [file_obj.basename for file_obj in files]
+        assert all("file" in name and name.endswith(".txt") for name in basenames)
+
+
+class TestDirectoryGetFiles:
+    def test_directory_get_files(self, temp_directory: fs.Directory):
+        """get_files() returns list of File objects."""
+        files = temp_directory.get_files()
+        assert isinstance(files, list)
+        assert len(files) == 3
+        assert all(isinstance(file_obj, fs.File) for file_obj in files)
+
+    def test_directory_get_files_ext(self, temp_directory: fs.Directory):
+        """get_files(ext='py') filters by extension."""
+        files = temp_directory.get_files(ext="py")
+        assert len(files) == 1
+        assert files[0].ext == "py"
+
+
+class TestDirectoryYieldSubdirs:
+    def test_directory_yield_subdirs(self, nested_directory: fs.Directory):
+        """yield_subdirs() yields Directory objects."""
+        subdirs = list(nested_directory.yield_subdirs())
+        assert len(subdirs) == 3
+        assert all(isinstance(sub_dir, fs.Directory) for sub_dir in subdirs)
+
+    def test_directory_yield_subdirs_non_recursive(self, nested_directory: fs.Directory):
+        """yield_subdirs(recursive=False) only immediate subdirs."""
+        subdirs = list(nested_directory.yield_subdirs(recursive=False))
+        assert len(subdirs) == 2
+
+    def test_directory_yield_subdirs_glob(self, nested_directory: fs.Directory):
+        """yield_subdirs(glob='sub*') filters by pattern."""
+        subdirs = list(nested_directory.yield_subdirs(glob="sub*"))
+        assert len(subdirs) == 2
+        assert all(sub_dir.basename.startswith("sub") for sub_dir in subdirs)
+
+    def test_directory_yield_subdirs_regex(self, nested_directory: fs.Directory):
+        """yield_subdirs(regex=r'\\d') filters by regex."""
+        subdirs = list(nested_directory.yield_subdirs(regex=r"\d"))
+        assert len(subdirs) == 2
+
+
+class TestDirectoryGetSubdirs:
+    def test_directory_get_subdirs(self, nested_directory: fs.Directory):
+        """get_subdirs() returns list of Directory objects."""
+        subdirs = nested_directory.get_subdirs()
+        assert isinstance(subdirs, list)
+        assert len(subdirs) == 3
+        assert all(isinstance(sub_dir, fs.Directory) for sub_dir in subdirs)
+
+    def test_directory_get_subdirs_non_recursive(self, nested_directory: fs.Directory):
+        """get_subdirs(recursive=False) only immediate subdirs."""
+        subdirs = nested_directory.get_subdirs(recursive=False)
+        assert len(subdirs) == 2
+
+
+class TestDirectoryMoveCopy:
+    def test_directory_move_to(self, temp_directory: fs.Directory, tmp_path: Path):
+        """move_to() moves directory."""
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        original_path = temp_directory.path
+        temp_directory.move_to(str(dest))
+        assert not os.path.exists(original_path)
+        assert temp_directory.exists
+        assert str(dest) in temp_directory.path
+
+    def test_directory_move_to_updates_path(self, temp_directory: fs.Directory, tmp_path: Path):
+        """move_to() updates self.path."""
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        temp_directory.move_to(str(dest))
+        assert dest.name in temp_directory.path
+
+    def test_directory_move_to_nonexistent(self, temp_directory: fs.Directory, tmp_path: Path):
+        """move_to() raises FileNotFoundError for nonexistent dest."""
+        nonexistent = tmp_path / "nonexistent"
+        with pytest.raises(FileNotFoundError):
+            temp_directory.move_to(str(nonexistent))
+
+    def test_directory_move_to_returns_self(self, temp_directory: fs.Directory, tmp_path: Path):
+        """move_to() returns self for chaining."""
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        result = temp_directory.move_to(str(dest))
+        assert result is temp_directory
+
+    def test_directory_copy_to(self, temp_directory: fs.Directory, tmp_path: Path):
+        """copy_to() copies directory."""
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        original_path = temp_directory.path
+        temp_directory.copy_to(str(dest))
+        assert os.path.exists(original_path)
+        assert temp_directory.exists
+        assert str(dest) in temp_directory.path
+
+    def test_directory_copy_to_mkdir(self, temp_directory: fs.Directory, tmp_path: Path):
+        """copy_to(mkdir=True) creates dest directory."""
+        dest = tmp_path / "newdest"
+        assert not dest.exists()
+        temp_directory.copy_to(str(dest), mkdir=True)
+        assert dest.exists()
+        assert temp_directory.exists
+
+    def test_directory_copy_to_nonexistent(self, temp_directory: fs.Directory, tmp_path: Path):
+        """copy_to() raises FileNotFoundError for nonexistent dest."""
+        nonexistent = tmp_path / "nonexistent"
+        with pytest.raises(FileNotFoundError):
+            temp_directory.copy_to(str(nonexistent))
+
+    def test_directory_copy_to_returns_self(self, temp_directory: fs.Directory, tmp_path: Path):
+        """copy_to() returns self for chaining."""
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        result = temp_directory.copy_to(str(dest))
+        assert result is temp_directory
+
+
+class TestDirectoryPathTransformations:
+    def test_directory_resolve(self, tmp_path: Path):
+        """resolve() makes path absolute."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            test_dir = tmp_path / "testdir"
+            test_dir.mkdir()
+            directory = fs.Directory("testdir")
+            directory.resolve()
+            assert os.path.isabs(directory.path)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_directory_resolve_strict(self, tmp_path: Path):
+        """resolve(strict=True) raises if not exists."""
+        directory = fs.Directory(str(tmp_path / "nonexistent"))
+        with pytest.raises(FileNotFoundError):
+            directory.resolve(strict=True)
+
+    def test_directory_relative_to(self, temp_directory: fs.Directory):
+        """relative_to() returns relative path."""
+        parent_dir = os.path.dirname(temp_directory.path)
+        relative = temp_directory.relative_to(parent_dir)
+        assert relative == "testdir"
+
+    def test_directory_expanduser(self, tmp_path: Path):
+        """expanduser() expands ~."""
+        directory = fs.Directory("~/testdir")
+        directory.expanduser()
+        assert "~" not in directory.path
+        assert os.path.expanduser("~") in directory.path
+
+    def test_directory_as_posix(self, temp_directory: fs.Directory):
+        """as_posix() returns forward-slash path."""
+        posix = temp_directory.as_posix()
+        assert "\\" not in posix
+        assert "/" in posix
+
+    def test_directory_as_uri(self, temp_directory: fs.Directory):
+        """as_uri() returns file:// URI."""
+        uri = temp_directory.as_uri()
+        assert uri.startswith("file://")
+
+    def test_directory_match(self, temp_directory: fs.Directory):
+        """match() matches glob pattern."""
+        assert temp_directory.match("test*") is True
+        assert temp_directory.match("*dir") is True
+
+    def test_directory_match_no_match(self, temp_directory: fs.Directory):
+        """match() returns False on no match."""
+        assert temp_directory.match("other*") is False
+
+    def test_directory_to_path(self, temp_directory: fs.Directory):
+        """to_path() returns pathlib.Path."""
+        path_obj = temp_directory.to_path()
+        assert isinstance(path_obj, Path)
+        assert str(path_obj) == temp_directory.path
+
+    def test_directory_to_str(self, temp_directory: fs.Directory):
+        """to_str() returns string."""
+        string_path = temp_directory.to_str()
+        assert isinstance(string_path, str)
+        assert string_path == temp_directory.path
+
+
+class TestDirectoryAssertions:
+    def test_directory_should_exist(self, temp_directory: fs.Directory):
+        """should_exist() passes for existing directory."""
+        result = temp_directory.should_exist()
+        assert result is temp_directory
+
+    def test_directory_should_exist_raises(self, tmp_path: Path):
+        """should_exist() raises FileNotFoundError."""
+        directory = fs.Directory(str(tmp_path / "nonexistent"))
+        with pytest.raises(FileNotFoundError):
+            directory.should_exist()
+
+    def test_directory_should_not_exist(self, tmp_path: Path):
+        """should_not_exist() passes for missing directory."""
+        directory = fs.Directory(str(tmp_path / "nonexistent"))
+        result = directory.should_not_exist()
+        assert result is directory
+
+    def test_directory_should_not_exist_raises(self, temp_directory: fs.Directory):
+        """should_not_exist() raises FileExistsError."""
+        with pytest.raises(FileExistsError):
+            temp_directory.should_not_exist()
+
+
+class TestDirectoryRename:
+    def test_directory_rename(self, temp_directory: fs.Directory):
+        """rename() renames directory on disk."""
+        original_path = temp_directory.path
+        temp_directory.rename("renamed")
+        assert not os.path.exists(original_path)
+        assert temp_directory.exists
+        assert temp_directory.basename == "renamed"
+
+    def test_directory_rename_updates_path(self, temp_directory: fs.Directory):
+        """rename() updates self.path."""
+        temp_directory.rename("renamed")
+        assert "renamed" in temp_directory.path
+
+    def test_directory_rename_returns_self(self, temp_directory: fs.Directory):
+        """rename() returns self for chaining."""
+        result = temp_directory.rename("renamed")
+        assert result is temp_directory
+
+
+class TestDirectoryPermissions:
+    def test_directory_chmod(self, temp_directory: fs.Directory):
+        """chmod() changes permissions."""
+        temp_directory.chmod(0o755)
+        mode = os.stat(temp_directory.path).st_mode
+        assert mode & 0o777 == 0o755
+        temp_directory.chmod(0o777)
+
+
+class TestDirectoryParents:
+    def test_directory_parents(self, temp_directory: fs.Directory):
+        """parents returns tuple of Directory objects."""
+        parents = temp_directory.parents
+        assert isinstance(parents, tuple)
+        assert all(isinstance(parent_dir, fs.Directory) for parent_dir in parents)
+        assert len(parents) > 0
+
+    def test_directory_parents_order(self, temp_directory: fs.Directory):
+        """parents in order from immediate to root."""
+        parents = temp_directory.parents
+        assert parents[0].path == os.path.dirname(temp_directory.path)
+        if sys.platform != "win32":
+            assert parents[-1].path == "/"
+
+
+class TestDirectoryClassMethods:
+    def test_directory_home(self):
+        """Directory.home() returns home directory."""
+        home = fs.Directory.home()
+        assert isinstance(home, fs.Directory)
+        assert home.exists
+        assert home.path == os.path.expanduser("~")
+
+    def test_directory_cwd(self):
+        """Directory.cwd() returns current working directory."""
+        cwd = fs.Directory.cwd()
+        assert isinstance(cwd, fs.Directory)
+        assert cwd.exists
+        assert cwd.path == os.getcwd()
+
+    def test_directory_rand(self):
+        """Directory.rand() creates random directory name."""
+        directory = fs.Directory.rand()
+        assert isinstance(directory, fs.Directory)
+        assert directory.basename.startswith("dir")
+
+    def test_directory_rand_with_prefix(self):
+        """Directory.rand(prefix='test') uses custom prefix."""
+        directory = fs.Directory.rand(prefix="test")
+        assert directory.basename.startswith("test")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
+class TestDirectoryXattr:
+    """Tests for extended attribute operations on directories (Unix only)."""
+
+    def test_directory_set_xattr(self, temp_directory: fs.Directory):
+        """set_xattr() sets extended attribute."""
+        try:
+            temp_directory.set_xattr("test_value", "test_attr")
+        except OSError as e:
+            if e.errno == 95:  # EOPNOTSUPP
+                pytest.skip("Extended attributes not supported on this filesystem")
+            raise
+
+    def test_directory_get_xattr(self, temp_directory: fs.Directory):
+        """get_xattr() retrieves extended attribute."""
+        try:
+            temp_directory.set_xattr("test_value", "test_attr")
+            value = temp_directory.get_xattr("test_attr")
+            assert value == "test_value"
+        except OSError as e:
+            if e.errno == 95:  # EOPNOTSUPP
+                pytest.skip("Extended attributes not supported on this filesystem")
+            raise
+
+    def test_directory_remove_xattr(self, temp_directory: fs.Directory):
+        """remove_xattr() removes extended attribute."""
+        try:
+            temp_directory.set_xattr("test_value", "test_attr")
+            temp_directory.remove_xattr("test_attr")
+            with pytest.raises(OSError):
+                temp_directory.get_xattr("test_attr")
+        except OSError as e:
+            if e.errno == 95:  # EOPNOTSUPP
+                pytest.skip("Extended attributes not supported on this filesystem")
+            raise
