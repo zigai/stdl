@@ -806,7 +806,10 @@ class TestFilePermissions:
         assert mode & 0o777 == 0o400
         temp_file.chmod(0o644)
 
-    @pytest.mark.skipif(os.geteuid() != 0, reason="Requires root privileges")
+    @pytest.mark.skipif(
+        not hasattr(os, "geteuid") or os.geteuid() != 0,
+        reason="Requires root privileges on Unix",
+    )
     def test_file_chown(self, temp_file: File):
         """chown() changes owner (skip if not root)."""
         import grp
@@ -833,9 +836,12 @@ class TestFileParents:
             assert parents[-1].path == "/"
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="Linux only - os.setxattr not available on macOS/Windows",
+)
 class TestFileXattr:
-    """Tests for extended attribute operations (Unix only)."""
+    """Tests for extended attribute operations (Linux only)."""
 
     def test_file_set_xattr(self, temp_file: File):
         """set_xattr() sets extended attribute."""
@@ -1444,9 +1450,12 @@ class TestDirectoryClassMethods:
         assert directory.basename.startswith("test")
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="Linux only - os.setxattr not available on macOS/Windows",
+)
 class TestDirectoryXattr:
-    """Tests for extended attribute operations on directories (Unix only)."""
+    """Tests for extended attribute operations on directories (Linux only)."""
 
     def test_directory_set_xattr(self, temp_directory: fs.Directory):
         """set_xattr() sets extended attribute."""
