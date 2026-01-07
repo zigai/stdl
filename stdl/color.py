@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import builtins
 import re
 import typing as T
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from collections.abc import Sequence as SequenceType
-from copy import deepcopy
 
 
 class ColorValueError(Exception):
@@ -15,7 +15,15 @@ class ColorValueError(Exception):
 class Color(ABC):
     """Base class for all color representations"""
 
-    def str(self) -> str:
+    __slots__ = ("_frozen",)
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "_frozen", False)
+
+    def _freeze(self) -> None:
+        object.__setattr__(self, "_frozen", True)
+
+    def to_str(self) -> builtins.str:
         return self.__repr__()
 
     @abstractmethod
@@ -23,53 +31,67 @@ class Color(ABC):
         pass
 
     @abstractmethod
-    def get_value_keys(self) -> list[str]:
+    def get_value_keys(self) -> list[builtins.str]:
         pass
 
     @abstractmethod
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         """Convert to RGB color space"""
         pass
 
     @abstractmethod
-    def HEX(self) -> HEX:
+    def to_hex(self) -> HEX:
         """Convert to HEX color space"""
         pass
 
     @abstractmethod
-    def HSV(self) -> HSV:
+    def to_hsv(self) -> HSV:
         """Convert to HSV color space"""
         pass
 
     @abstractmethod
-    def HSL(self) -> HSL:
+    def to_hsl(self) -> HSL:
         """Convert to HSL color space"""
         pass
 
     @abstractmethod
-    def CMYK(self) -> CMYK:
+    def to_cmyk(self) -> CMYK:
         """Convert to CMYK color space"""
         pass
 
     @abstractmethod
-    def ASSA(self) -> ASSA:
+    def to_assa(self) -> ASSA:
         """Convert to ASS color format"""
         pass
 
     def copy(self) -> Color:
-        return deepcopy(self)
+        return self
 
-    def dict(self) -> dict[str, int | float | str]:
+    def dict(self) -> dict[builtins.str, int | float | builtins.str]:
         return {k: getattr(self, k) for k in self.get_value_keys()}
+
+    def __setattr__(self, name: builtins.str, value: T.Any) -> None:
+        if getattr(self, "_frozen", False):
+            raise AttributeError(f"{self.__class__.__name__} is immutable")
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name: builtins.str) -> None:
+        raise AttributeError(f"{self.__class__.__name__} is immutable")
 
 
 class RGB(Color):
+    __slots__ = ("red", "green", "blue")
+    red: int
+    green: int
+    blue: int
+
     def __init__(self, red: int, green: int, blue: int):
         super().__init__()
         self.red = int(red)
         self.green = int(green)
         self.blue = int(blue)
         self.validate()
+        self._freeze()
 
     def validate(self) -> None:
         if not all(isinstance(x, int) and 0 <= x <= 255 for x in self.tuple()):
@@ -89,17 +111,17 @@ class RGB(Color):
     def tuple(self) -> tuple[int, int, int]:
         return (self.red, self.green, self.blue)
 
-    def RGB(self) -> RGB:
-        return self.copy()  # type:ignore
+    def to_rgb(self) -> RGB:
+        return self
 
-    def HSV(self) -> HSV:
+    def to_hsv(self) -> HSV:
         r, g, b = self.red / 255, self.green / 255, self.blue / 255
         cmax = max(r, g, b)
         cmin = min(r, g, b)
         diff = cmax - cmin
 
         if cmax == cmin:
-            h = 0
+            h = 0.0
         elif cmax == r:
             h = (60 * ((g - b) / diff) + 360) % 360
         elif cmax == g:
@@ -112,7 +134,7 @@ class RGB(Color):
 
         return HSV(h, s * 100, v * 100)
 
-    def HSL(self) -> HSL:
+    def to_hsl(self) -> HSL:
         r, g, b = self.red / 255, self.green / 255, self.blue / 255
         cmax = max(r, g, b)
         cmin = min(r, g, b)
@@ -121,8 +143,8 @@ class RGB(Color):
         l = (cmax + cmin) / 2
 
         if diff == 0:
-            h = 0
-            s = 0
+            h = 0.0
+            s = 0.0
         else:
             s = diff / (2 - cmax - cmin) if l > 0.5 else diff / (cmax + cmin)
 
@@ -135,12 +157,12 @@ class RGB(Color):
 
         return HSL(h, s * 100, l * 100)
 
-    def CMYK(self) -> CMYK:
+    def to_cmyk(self) -> CMYK:
         r, g, b = self.red / 255, self.green / 255, self.blue / 255
 
         k = 1 - max(r, g, b)
         if k == 1:
-            c = m = y = 0
+            c = m = y = 0.0
         else:
             c = (1 - r - k) / (1 - k)
             m = (1 - g - k) / (1 - k)
@@ -148,23 +170,31 @@ class RGB(Color):
 
         return CMYK(c * 100, m * 100, y * 100, k * 100)
 
-    def HEX(self) -> HEX:
+    def to_hex(self) -> HEX:
         return HEX(f"#{self.red:02x}{self.green:02x}{self.blue:02x}")
 
-    def RGBA(self, alpha: float = 1.0) -> RGBA:
+    def to_rgba(self, alpha: float = 1.0) -> RGBA:
         return RGBA(self.red, self.green, self.blue, alpha)
 
-    def ASSA(self) -> ASSA:
-        return ASSA.from_RGB(self)
+    def to_assa(self) -> ASSA:
+        return ASSA.from_rgb(self)
 
 
 class RGBA(Color):
+    __slots__ = ("red", "green", "blue", "alpha")
+    red: int
+    green: int
+    blue: int
+    alpha: float
+
     def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0):
+        super().__init__()
         self.red = int(red)
         self.green = int(green)
         self.blue = int(blue)
         self.alpha = float(alpha)
         self.validate()
+        self._freeze()
 
     def __repr__(self) -> str:
         return f"rgba({self.red}, {self.green}, {self.blue}, {self.alpha})"
@@ -193,30 +223,30 @@ class RGBA(Color):
     def tuple(self) -> tuple[int, int, int, float]:
         return (self.red, self.green, self.blue, self.alpha)
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         return RGB(self.red, self.green, self.blue)
 
-    def RGBA(self) -> RGBA:
-        return self.copy()  # type:ignore
+    def to_rgba(self) -> RGBA:
+        return self
 
-    def HSV(self) -> HSV:
-        return self.RGB().HSV()
+    def to_hsv(self) -> HSV:
+        return self.to_rgb().to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.RGB().HSL()
+    def to_hsl(self) -> HSL:
+        return self.to_rgb().to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.RGB().CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.to_rgb().to_cmyk()
 
-    def HEX(self) -> HEX:
-        return self.RGB().HEX()
+    def to_hex(self) -> HEX:
+        return self.to_rgb().to_hex()
 
-    def ASSA(self) -> ASSA:
-        return ASSA.from_RGBA(self)
+    def to_assa(self) -> ASSA:
+        return ASSA.from_rgba(self)
 
     @classmethod
     def from_assa(cls, assa: ASSA) -> RGBA:
-        rgb = assa.RGB()
+        rgb = assa.to_rgb()
         alpha = assa.alpha
         if alpha is None:
             return cls(rgb.red, rgb.green, rgb.blue, 1.0)
@@ -225,11 +255,16 @@ class RGBA(Color):
 
 
 class HEX(Color):
+    __slots__ = ("value",)
+    value: str
+
     def __init__(self, value: str):
+        super().__init__()
         if value.startswith("#"):
             value = value[1:]
         self.value = f"#{value.lower()}"
         self.validate()
+        self._freeze()
 
     def validate(self) -> None:
         if not isinstance(self.value, str):
@@ -249,38 +284,45 @@ class HEX(Color):
             return NotImplemented
         return self.value.lower() == other.value.lower()
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return self.value
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         hex_value = self.value.lstrip("#")
         return RGB(int(hex_value[0:2], 16), int(hex_value[2:4], 16), int(hex_value[4:6], 16))
 
-    def HSV(self) -> HSV:
-        return self.RGB().HSV()
+    def to_hsv(self) -> HSV:
+        return self.to_rgb().to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.RGB().HSL()
+    def to_hsl(self) -> HSL:
+        return self.to_rgb().to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.RGB().CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.to_rgb().to_cmyk()
 
-    def HEX(self) -> HEX:
-        return self.copy()  # type:ignore
+    def to_hex(self) -> HEX:
+        return self
 
-    def ASSA(self) -> ASSA:
-        return self.RGB().ASSA()
+    def to_assa(self) -> ASSA:
+        return self.to_rgb().to_assa()
 
-    def webcolor(self) -> webcolor:
+    def to_webcolor(self) -> webcolor:
         return webcolor.from_hex(self.value)
 
 
 class HSV(Color):
+    __slots__ = ("hue", "saturation", "value")
+    hue: float
+    saturation: float
+    value: float
+
     def __init__(self, hue: float, saturation: float, value: float):
+        super().__init__()
         self.hue = float(hue)
         self.saturation = float(saturation)
         self.value = float(value)
         self.validate()
+        self._freeze()
 
     def validate(self) -> None:
         if not (0 <= self.hue <= 360 and 0 <= self.saturation <= 100 and 0 <= self.value <= 100):
@@ -292,7 +334,7 @@ class HSV(Color):
     def __repr__(self) -> str:
         return f"hsv({self.hue}, {self.saturation}, {self.value})"
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return f"hsv({self.hue}°, {self.saturation}%, {self.value}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -307,49 +349,56 @@ class HSV(Color):
     def tuple(self) -> tuple[float, float, float]:
         return (self.hue, self.saturation, self.value)
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         h, s, v = self.hue, self.saturation / 100, self.value / 100
         c = v * s
         x = c * (1 - abs((h / 60) % 2 - 1))
         m = v - c
 
         if 0 <= h < 60:
-            r, g, b = c, x, 0
+            r, g, b = c, x, 0.0
         elif 60 <= h < 120:
-            r, g, b = x, c, 0
+            r, g, b = x, c, 0.0
         elif 120 <= h < 180:
-            r, g, b = 0, c, x
+            r, g, b = 0.0, c, x
         elif 180 <= h < 240:
-            r, g, b = 0, x, c
+            r, g, b = 0.0, x, c
         elif 240 <= h < 300:
-            r, g, b = x, 0, c
+            r, g, b = x, 0.0, c
         else:
-            r, g, b = c, 0, x
+            r, g, b = c, 0.0, x
 
         return RGB(round((r + m) * 255), round((g + m) * 255), round((b + m) * 255))
 
-    def HSV(self) -> HSV:
-        return self.copy()  # type:ignore
+    def to_hsv(self) -> HSV:
+        return self
 
-    def HSL(self) -> HSL:
-        return self.RGB().HSL()
+    def to_hsl(self) -> HSL:
+        return self.to_rgb().to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.RGB().CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.to_rgb().to_cmyk()
 
-    def HEX(self) -> HEX:
-        return self.RGB().HEX()
+    def to_hex(self) -> HEX:
+        return self.to_rgb().to_hex()
 
-    def ASSA(self) -> ASSA:
-        return self.RGB().ASSA()
+    def to_assa(self) -> ASSA:
+        return self.to_rgb().to_assa()
 
 
 class HSL(Color):
+    __slots__ = ("hue", "saturation", "lightness")
+    hue: float
+    saturation: float
+    lightness: float
+
     def __init__(self, hue: float, saturation: float, lightness: float):
+        super().__init__()
         self.hue = float(hue)
         self.saturation = float(saturation)
         self.lightness = float(lightness)
         self.validate()
+        self._freeze()
 
     def validate(self) -> None:
         if not (
@@ -363,7 +412,7 @@ class HSL(Color):
     def __repr__(self) -> str:
         return f"hsl({self.hue}, {self.saturation}, {self.lightness})"
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return f"hsl({self.hue}°, {self.saturation}%, {self.lightness}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -378,7 +427,7 @@ class HSL(Color):
     def tuple(self) -> tuple[float, float, float]:
         return (self.hue, self.saturation, self.lightness)
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         hue, saturation, lightness = self.hue / 360, self.saturation / 100, self.lightness / 100
 
         if saturation == 0:
@@ -411,29 +460,37 @@ class HSL(Color):
 
         return RGB(round(r * 255), round(g * 255), round(b * 255))
 
-    def HSV(self) -> HSV:
-        return self.RGB().HSV()
+    def to_hsv(self) -> HSV:
+        return self.to_rgb().to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.copy()  # type:ignore
+    def to_hsl(self) -> HSL:
+        return self
 
-    def CMYK(self) -> CMYK:
-        return self.RGB().CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.to_rgb().to_cmyk()
 
-    def HEX(self) -> HEX:
-        return self.RGB().HEX()
+    def to_hex(self) -> HEX:
+        return self.to_rgb().to_hex()
 
-    def ASSA(self) -> ASSA:
-        return self.RGB().ASSA()
+    def to_assa(self) -> ASSA:
+        return self.to_rgb().to_assa()
 
 
 class CMYK(Color):
+    __slots__ = ("cyan", "magenta", "yellow", "key")
+    cyan: float
+    magenta: float
+    yellow: float
+    key: float
+
     def __init__(self, cyan: float, magenta: float, yellow: float, key: float):
+        super().__init__()
         self.cyan = float(cyan)
         self.magenta = float(magenta)
         self.yellow = float(yellow)
         self.key = float(key)
         self.validate()
+        self._freeze()
 
     def validate(self) -> None:
         if not all(0 <= x <= 100 for x in (self.cyan, self.magenta, self.yellow, self.key)):
@@ -445,7 +502,7 @@ class CMYK(Color):
     def __repr__(self) -> str:
         return f"cmyk({self.cyan}, {self.magenta}, {self.yellow}, {self.key})"
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return f"cmyk({self.cyan}%, {self.magenta}%, {self.yellow}%, {self.key}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -461,7 +518,7 @@ class CMYK(Color):
     def tuple(self) -> tuple[float, float, float, float]:
         return (self.cyan, self.magenta, self.yellow, self.key)
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         c, m, y, k = self.cyan / 100, self.magenta / 100, self.yellow / 100, self.key / 100
 
         r = 255 * (1 - c) * (1 - k)
@@ -470,32 +527,37 @@ class CMYK(Color):
 
         return RGB(round(r), round(g), round(b))
 
-    def HSV(self) -> HSV:
-        return self.RGB().HSV()
+    def to_hsv(self) -> HSV:
+        return self.to_rgb().to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.RGB().HSL()
+    def to_hsl(self) -> HSL:
+        return self.to_rgb().to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.copy()  # type:ignore
+    def to_cmyk(self) -> CMYK:
+        return self
 
-    def HEX(self) -> HEX:
-        return self.RGB().HEX()
+    def to_hex(self) -> HEX:
+        return self.to_rgb().to_hex()
 
-    def ASSA(self) -> ASSA:
-        return self.RGB().ASSA()
+    def to_assa(self) -> ASSA:
+        return self.to_rgb().to_assa()
 
 
 class ASSA(Color):
+    __slots__ = ("value",)
+    value: str
+
     def __init__(self, value: str):
         """
         Initialize ASSA color with just hex numbers:
         - 'BBGGRR' for color
         - 'AABBGGRR' for color with alpha
         """
+        super().__init__()
         clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
         self.value = f"&H{clean_value}&"
         self.validate()
+        self._freeze()
 
     def get_value_keys(self) -> list[str]:
         return ["value"]
@@ -510,7 +572,7 @@ class ASSA(Color):
     def __repr__(self) -> str:
         return f"assa({self.clean_value})"
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return self.value
 
     def __eq__(self, other: object) -> bool:
@@ -530,7 +592,7 @@ class ASSA(Color):
     def is_AABBGGRR_format(self) -> bool:
         return len(self.clean_value) == 8
 
-    def RGB(self) -> RGB:
+    def to_rgb(self) -> RGB:
         clean = self.clean_value
         if len(clean) == 6:
             blue_hex = clean[0:2]
@@ -574,20 +636,20 @@ class ASSA(Color):
         else:
             return int(clean[0:2], 16)
 
-    def HSV(self) -> HSV:
-        return self.RGB().HSV()
+    def to_hsv(self) -> HSV:
+        return self.to_rgb().to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.RGB().HSL()
+    def to_hsl(self) -> HSL:
+        return self.to_rgb().to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.RGB().CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.to_rgb().to_cmyk()
 
-    def HEX(self) -> HEX:
-        return self.RGB().HEX()
+    def to_hex(self) -> HEX:
+        return self.to_rgb().to_hex()
 
-    def ASSA(self) -> ASSA:
-        return self.copy()  # type:ignore
+    def to_assa(self) -> ASSA:
+        return self
 
     def embed_text(self, text: str) -> str:
         """Embed text with this color in ASS format"""
@@ -605,7 +667,7 @@ class ASSA(Color):
         return cls(f"{alpha:02X}000000")
 
     @classmethod
-    def from_RGB(cls, rgb: RGB, alpha: int | None = None) -> ASSA:
+    def from_rgb(cls, rgb: RGB, alpha: int | None = None) -> ASSA:
         if alpha is not None and not 0 <= alpha <= 255:
             raise ColorValueError("Alpha value must be 0-255")
         if alpha is None:
@@ -614,8 +676,8 @@ class ASSA(Color):
             return cls(f"{alpha:02X}{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
 
     @classmethod
-    def from_RGBA(cls, rgba: RGBA) -> ASSA:
-        return cls.from_RGB(rgba.RGB(), alpha=round((1 - rgba.alpha) * 255))
+    def from_rgba(cls, rgba: RGBA) -> ASSA:
+        return cls.from_rgb(rgba.to_rgb(), alpha=round((1 - rgba.alpha) * 255))
 
     @classmethod
     def from_clean_value(cls, value: str) -> ASSA:
@@ -941,13 +1003,18 @@ CSS_COLOR_TO_HEX = {
 
 
 class webcolor(Color):
+    __slots__ = ("name", "hex_value")
+    name: str
+    hex_value: HEX
     COLORS = CSS_COLOR_TO_HEX
 
     def __init__(self, name: CssColorName):
+        super().__init__()
         name = name.lower()  # type:ignore
         self.name = name
         self.validate()
         self.hex_value = HEX(self.COLORS[name])
+        self._freeze()
 
     def validate(self) -> None:
         if self.name not in self.COLORS:
@@ -964,29 +1031,29 @@ class webcolor(Color):
             return NotImplemented
         return self.name == other.name
 
-    def str(self) -> str:
+    def to_str(self) -> builtins.str:
         return self.name
 
-    def RGB(self) -> RGB:
-        return self.hex_value.RGB()
+    def to_rgb(self) -> RGB:
+        return self.hex_value.to_rgb()
 
-    def HSV(self) -> HSV:
-        return self.hex_value.HSV()
+    def to_hsv(self) -> HSV:
+        return self.hex_value.to_hsv()
 
-    def HSL(self) -> HSL:
-        return self.hex_value.HSL()
+    def to_hsl(self) -> HSL:
+        return self.hex_value.to_hsl()
 
-    def CMYK(self) -> CMYK:
-        return self.hex_value.CMYK()
+    def to_cmyk(self) -> CMYK:
+        return self.hex_value.to_cmyk()
 
-    def HEX(self) -> HEX:
+    def to_hex(self) -> HEX:
         return self.hex_value
 
-    def webcolor(self) -> webcolor:
-        return self.copy()  # type:ignore
+    def to_webcolor(self) -> webcolor:
+        return self
 
-    def ASSA(self) -> ASSA:
-        return self.hex_value.ASSA()
+    def to_assa(self) -> ASSA:
+        return self.hex_value.to_assa()
 
     @classmethod
     def from_hex(cls, value: str) -> webcolor:
@@ -1257,10 +1324,15 @@ else:
                 f"Expected {cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
 
+        def _serializer(v: T.Any, info: _core_schema.SerializationInfo) -> T.Any:
+            if info.mode == "json":
+                return repr(v)
+            return v
+
         core_schema = _core_schema.no_info_plain_validator_function(
             _validator,
             serialization=_core_schema.plain_serializer_function_ser_schema(
-                lambda v: repr(v), when_used="json"
+                _serializer, info_arg=True
             ),
         )
 
