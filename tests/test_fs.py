@@ -781,6 +781,9 @@ class TestFileAssertions:
 
 
 class TestFileLinks:
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="follow_symlinks=True unavailable on Windows"
+    )
     def test_file_link(self, temp_file: File, tmp_path: Path):
         """link() creates hard link."""
         target = str(tmp_path / "hardlink.txt")
