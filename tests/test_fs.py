@@ -789,6 +789,9 @@ class TestFileLinks:
         assert os.stat(target).st_ino == os.stat(temp_file.path).st_ino
         assert result is temp_file
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows symlinks return extended path format"
+    )
     def test_file_symlink(self, temp_file: File, tmp_path: Path):
         """symlink() creates symbolic link."""
         target = str(tmp_path / "symlink.txt")
@@ -799,6 +802,9 @@ class TestFileLinks:
 
 
 class TestFilePermissions:
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows does not support Unix-style permissions"
+    )
     def test_file_chmod(self, temp_file: File):
         """chmod() changes permissions."""
         temp_file.chmod(0o400)
@@ -1069,6 +1075,9 @@ class TestDirectoryCreationDeletion:
         result = directory.create()
         assert result is directory
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows does not support Unix-style permissions"
+    )
     def test_directory_create_with_mode(self, tmp_path: Path):
         """create() respects mode parameter."""
         directory = fs.Directory(str(tmp_path / "modedir"))
@@ -1399,6 +1408,9 @@ class TestDirectoryRename:
 
 
 class TestDirectoryPermissions:
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows does not support Unix-style permissions"
+    )
     def test_directory_chmod(self, temp_directory: fs.Directory):
         """chmod() changes permissions."""
         temp_directory.chmod(0o755)
