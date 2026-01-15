@@ -19,6 +19,12 @@ from os import PathLike
 from pathlib import Path
 from queue import Queue
 from typing import IO, Any, Literal
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 from urllib.request import pathname2url
 
 import toml
@@ -330,7 +336,7 @@ def is_wsl() -> bool:
     return sys.platform == "linux" and "microsoft" in platform.platform()
 
 
-def mkdir(path: str | Path, mode: int = 511, exist_ok: bool = True) -> None:
+def mkdir(path: str | PathLike, mode: int = 511, exist_ok: bool = True) -> None:
     """
     Creates a directory.
 
@@ -342,7 +348,7 @@ def mkdir(path: str | Path, mode: int = 511, exist_ok: bool = True) -> None:
     os.makedirs(os.fspath(path), exist_ok=exist_ok, mode=mode)
 
 
-def mkdirs(dest: str | Path, names: list[str]) -> None:
+def mkdirs(dest: str | PathLike, names: list[str]) -> None:
     """
     Creates directories inside a destination directory.
 
@@ -359,7 +365,7 @@ def mkdirs(dest: str | Path, names: list[str]) -> None:
 
 
 def yield_files_in(
-    directory: str | Path,
+    directory: str | PathLike,
     ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
@@ -419,7 +425,7 @@ def yield_files_in(
 
 
 def get_files_in(
-    directory: str | Path,
+    directory: str | PathLike,
     ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
@@ -445,7 +451,7 @@ def get_files_in(
 
 
 def yield_dirs_in(
-    directory: str | Path, *, recursive: bool = True, abs: bool = True
+    directory: str | PathLike, *, recursive: bool = True, abs: bool = True
 ) -> Generator[str, None, None]:
     """
     Yields paths to all directories in the specified directory.
@@ -471,7 +477,9 @@ def yield_dirs_in(
                 yield os.path.abspath(entry.path) if abs else entry.path
 
 
-def get_dirs_in(directory: str | Path, *, recursive: bool = True, abs: bool = True) -> list[str]:
+def get_dirs_in(
+    directory: str | PathLike, *, recursive: bool = True, abs: bool = True
+) -> list[str]:
     """
     Returns all directories in the specified directory.
     Returned paths are converted to absolute paths.
@@ -546,7 +554,7 @@ def safe_filepath(path: str) -> str:
 class CompletedCommand(subprocess.CompletedProcess):
     def __init__(
         self,
-        args,
+        args: str | list[str],
         returncode: int,
         time_taken: float,
         stdout: Any | None = None,
@@ -604,8 +612,8 @@ def exec_cmd(
     input: str | None | bytes = None,  # type:ignore
     env: dict[str, str] | None = None,  # type:ignore
     text: bool = True,
-    *args,
-    **kwargs,
+    *args: Any,
+    **kwargs: Any,
 ) -> CompletedCommand:
     """
     Wrapper for subprocess.run with nicer default arguments.
@@ -783,7 +791,7 @@ class PathBase(PathLike):
         """Whether the path is a symbolic link."""
         return os.path.islink(self.path)
 
-    def rename(self, name: str):
+    def rename(self, name: str) -> Self:
         """
         Rename the path.
 
@@ -795,7 +803,7 @@ class PathBase(PathLike):
         self.path = new_path
         return self
 
-    def chmod(self, mode: int):
+    def chmod(self, mode: int) -> Self:
         """
         Change the path's permissions.
 
@@ -805,7 +813,7 @@ class PathBase(PathLike):
         os.chmod(self.path, mode)
         return self
 
-    def chown(self, user: str, group: str):
+    def chown(self, user: str, group: str) -> Self:
         """
         Change the path's owner and group.
 
@@ -816,13 +824,13 @@ class PathBase(PathLike):
         shutil.chown(self.path, user, group)
         return self
 
-    def should_exist(self):
+    def should_exist(self) -> Self:
         """Raise FileNotFoundError if the path does not exist."""
         if not self.exists:
             raise FileNotFoundError(f"No such path: '{self.path}'")
         return self
 
-    def should_not_exist(self):
+    def should_not_exist(self) -> Self:
         """Raise FileExistsError if the path exists."""
         if self.exists:
             raise FileExistsError(f"Path already exists: '{self.path}'")
@@ -919,6 +927,13 @@ class PathBase(PathLike):
         """
         return fnmatch.fnmatch(self.basename, pattern)
 
+    def with_name(self, name: str) -> PathBase:
+        """Return a new path with the name changed."""
+        parent = os.path.dirname(self.path)
+        if parent:
+            return self.__class__(f"{parent}{SEP}{name}")
+        return self.__class__(name)
+
     @property
     def exists(self) -> bool:
         """Check if the path exists."""
@@ -937,16 +952,16 @@ class PathBase(PathLike):
     def size_readable(self) -> str:
         raise NotImplementedError
 
-    def remove(self):
+    def remove(self) -> Self:
         raise NotImplementedError
 
-    def delete(self):
+    def delete(self) -> Self:
         return self.remove()
 
-    def create(self):
+    def create(self) -> Self:
         raise NotImplementedError
 
-    def clear(self):
+    def clear(self) -> Self:
         raise NotImplementedError
 
     def move_to(self, directory: str | Directory | PathLike, *, overwrite: bool = True) -> PathBase:
@@ -1188,7 +1203,7 @@ class File(PathBase):
         self._write(data, mode, newline=newline)
         return self
 
-    def open(self, mode: str = "r", encoding: str | None = None, **kwargs) -> IO:
+    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: Any) -> IO:
         """
         Open the file and return a file handle.
 
@@ -1332,6 +1347,11 @@ class File(PathBase):
         filename = f"{prefix}{self.stem}{ext}"
         self.path = f"{self.dirname}{SEP}{filename}"
         return self
+
+    def with_stem(self, stem: str) -> File:
+        """Return a new File with the stem changed, keeping the suffix."""
+        suffix = self.suffix
+        return File(f"{self.dirname}{SEP}{stem}{suffix}", encoding=self.encoding)
 
     def rename(self, name: str) -> File:
         """Rename the file and return the new File object."""
