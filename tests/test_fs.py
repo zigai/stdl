@@ -657,6 +657,36 @@ class TestFilePathManipulation:
         temp_file.with_prefix("new_")
         assert "new_test.txt" in temp_file.path
 
+    def test_file_with_name(self, temp_file: File):
+        """with_name() returns new File with different name."""
+        original_dir = temp_file.dirname
+        new_file = temp_file.with_name("other.py")
+        assert new_file.basename == "other.py"
+        assert new_file.dirname == original_dir
+        assert new_file is not temp_file
+
+    def test_file_with_name_no_parent(self):
+        """with_name() works with no parent directory."""
+        f = fs.File("just_a_file.txt")
+        new_f = f.with_name("renamed.py")
+        assert new_f.path == "renamed.py"
+
+    def test_file_with_stem(self, temp_file: File):
+        """with_stem() returns new File with different stem."""
+        new_file = temp_file.with_stem("different")
+        assert new_file.stem == "different"
+        assert new_file.suffix == ".txt"
+        assert new_file is not temp_file
+
+    def test_file_with_stem_no_extension(self, tmp_path: Path):
+        """with_stem() works with files without extension."""
+        f = tmp_path / "noext"
+        f.touch()
+        file = fs.File(str(f))
+        new_file = file.with_stem("changed")
+        assert new_file.basename == "changed"
+        assert new_file.suffix == ""
+
 
 class TestFileRename:
     def test_file_rename(self, temp_file: File):
@@ -1364,6 +1394,20 @@ class TestDirectoryPathTransformations:
         string_path = temp_directory.to_str()
         assert isinstance(string_path, str)
         assert string_path == temp_directory.path
+
+    def test_directory_with_name(self, temp_directory: fs.Directory):
+        """with_name() returns new Directory with different name."""
+        original_parent = os.path.dirname(temp_directory.path)
+        new_dir = temp_directory.with_name("otherdir")
+        assert new_dir.basename == "otherdir"
+        assert os.path.dirname(new_dir.path) == original_parent
+        assert new_dir is not temp_directory
+
+    def test_directory_with_name_no_parent(self):
+        """with_name() works with no parent directory."""
+        d = fs.Directory("mydir")
+        new_d = d.with_name("renamed")
+        assert new_d.path == "renamed"
 
 
 class TestDirectoryAssertions:
