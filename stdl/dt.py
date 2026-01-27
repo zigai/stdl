@@ -233,6 +233,40 @@ def date_range(start: date, end: date) -> Generator[date, None, None]:
         yield start + timedelta(n)
 
 
+def datetime_range(
+    start: datetime,
+    end: datetime,
+    step: timedelta,
+) -> Generator[datetime, None, None]:
+    """
+    Returns a generator for datetimes between ``start`` and ``end`` with a given ``step``.
+
+    Example:
+        ```python
+        >>> for dt in datetime_range(
+        ...     datetime(2026, 1, 27, 0, 0),
+        ...     datetime(2026, 1, 27, 3, 0),
+        ...     timedelta(hours=1)
+        ... ):
+        ...     print(dt)
+        2026-01-27 00:00:00
+        2026-01-27 01:00:00
+        2026-01-27 02:00:00
+        ```
+    """
+    current = start
+    if step.total_seconds() == 0:
+        raise ValueError("step cannot be zero")
+    if step.total_seconds() > 0:
+        while current < end:
+            yield current
+            current += step
+    else:
+        while current > end:
+            yield current
+            current += step
+
+
 def sleep(lo: float, hi: float | None = None) -> float:
     """
     Sleeps for a random duration within a specified range.
@@ -346,6 +380,7 @@ __all__ = [
     "time_fmt",
     "date_fmt",
     "date_range",
+    "datetime_range",
     "sleep",
     "local_timezone",
     "timezone",
