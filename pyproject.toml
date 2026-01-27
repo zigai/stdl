@@ -1,6 +1,6 @@
 [project]
 name = "stdl"
-version = "0.6.7"
+version = "0.6.8"
 description = "Extended Python Standard Library"
 authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = { file = "LICENSE" }
