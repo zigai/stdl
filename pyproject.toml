@@ -19,6 +19,9 @@ classifiers = [
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Topic :: System :: Filesystems",
+    "Topic :: Text Processing :: General",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -35,14 +38,12 @@ keywords = [
     "python utilities",
     "filesystem",
     "list utils",
-    "string utils",
-    "logging configuration",
-    "ANSI colors",
-    "color formats",
-    "terminal output",
-    "terminal links",
-    "lazy import",
-    "python lazy import",
+    "ansi-colors",
+    "color-formats",
+    "terminal-links",
+    "lazy-import",
+    "text-processing",
+
 ]
 
 
