@@ -34,18 +34,16 @@ classifiers = [
 
 keywords = [
     "stdl",
-    "standard library",
-    "python utilities",
+    "standard-library",
+    "python-utilities",
     "filesystem",
-    "list utils",
+    "list-utils",
     "ansi-colors",
     "color-formats",
     "terminal-links",
     "lazy-import",
     "text-processing",
-
 ]
-
 
 [project.optional-dependencies]
 full = ["tqdm>=4.67.1"]
