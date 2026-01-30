@@ -1,9 +1,9 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Type
 
 import pytest
 
-from stdl.dt import date_fmt, datetime_fmt, hms_to_seconds, seconds_to_hms, time_fmt
+from stdl.dt import date_fmt, datetime_fmt, datetime_range, hms_to_seconds, seconds_to_hms, time_fmt
 
 
 @pytest.mark.parametrize(
@@ -107,3 +107,125 @@ def test_datetime_fmt():
 def test_date_fmt():
     assert date_fmt(date(1970, 1, 1)) == "1970-01-01"
     assert date_fmt(0) == "1970-01-01"
+
+
+class TestDatetimeRange:
+    def test_basic_positive_step(self):
+        """Test datetime_range with positive step."""
+        start = datetime(2026, 1, 27, 0, 0)
+        end = datetime(2026, 1, 27, 3, 0)
+        step = timedelta(hours=1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27, 0, 0),
+            datetime(2026, 1, 27, 1, 0),
+            datetime(2026, 1, 27, 2, 0),
+        ]
+        assert result == expected
+
+    def test_basic_negative_step(self):
+        """Test datetime_range with negative step (going backwards)."""
+        start = datetime(2026, 1, 27, 3, 0)
+        end = datetime(2026, 1, 27, 0, 0)
+        step = timedelta(hours=-1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27, 3, 0),
+            datetime(2026, 1, 27, 2, 0),
+            datetime(2026, 1, 27, 1, 0),
+        ]
+        assert result == expected
+
+    def test_zero_step_raises(self):
+        """Test that zero step raises ValueError."""
+        start = datetime(2026, 1, 27, 0, 0)
+        end = datetime(2026, 1, 27, 3, 0)
+        step = timedelta(0)
+        with pytest.raises(ValueError, match="step cannot be zero"):
+            list(datetime_range(start, end, step))
+
+    def test_empty_range_positive_step(self):
+        """Test when start >= end with positive step."""
+        start = datetime(2026, 1, 27, 3, 0)
+        end = datetime(2026, 1, 27, 0, 0)
+        step = timedelta(hours=1)
+        result = list(datetime_range(start, end, step))
+        assert result == []
+
+    def test_empty_range_negative_step(self):
+        """Test when start <= end with negative step."""
+        start = datetime(2026, 1, 27, 0, 0)
+        end = datetime(2026, 1, 27, 3, 0)
+        step = timedelta(hours=-1)
+        result = list(datetime_range(start, end, step))
+        assert result == []
+
+    def test_minute_step(self):
+        """Test with minute-level precision."""
+        start = datetime(2026, 1, 27, 0, 0)
+        end = datetime(2026, 1, 27, 0, 5)
+        step = timedelta(minutes=1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27, 0, 0),
+            datetime(2026, 1, 27, 0, 1),
+            datetime(2026, 1, 27, 0, 2),
+            datetime(2026, 1, 27, 0, 3),
+            datetime(2026, 1, 27, 0, 4),
+        ]
+        assert result == expected
+
+    def test_second_step(self):
+        """Test with second-level precision."""
+        start = datetime(2026, 1, 27, 0, 0, 0)
+        end = datetime(2026, 1, 27, 0, 0, 3)
+        step = timedelta(seconds=1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27, 0, 0, 0),
+            datetime(2026, 1, 27, 0, 0, 1),
+            datetime(2026, 1, 27, 0, 0, 2),
+        ]
+        assert result == expected
+
+    def test_day_step(self):
+        """Test with day-level step across multiple days."""
+        start = datetime(2026, 1, 27)
+        end = datetime(2026, 1, 30)
+        step = timedelta(days=1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27),
+            datetime(2026, 1, 28),
+            datetime(2026, 1, 29),
+        ]
+        assert result == expected
+
+    def test_partial_step(self):
+        """Test when end is not exactly reachable by step."""
+        start = datetime(2026, 1, 27, 0, 0)
+        end = datetime(2026, 1, 27, 2, 30)
+        step = timedelta(hours=1)
+        result = list(datetime_range(start, end, step))
+        expected = [
+            datetime(2026, 1, 27, 0, 0),
+            datetime(2026, 1, 27, 1, 0),
+            datetime(2026, 1, 27, 2, 0),
+        ]
+        assert result == expected
+
+    def test_documentation_example(self):
+        """Test the exact example from the docstring."""
+        result = list(
+            datetime_range(
+                datetime(2026, 1, 27, 0, 0),
+                datetime(2026, 1, 27, 3, 0),
+                timedelta(hours=1),
+            )
+        )
+        expected = [
+            datetime(2026, 1, 27, 0, 0),
+            datetime(2026, 1, 27, 1, 0),
+            datetime(2026, 1, 27, 2, 0),
+        ]
+        assert result == expected
