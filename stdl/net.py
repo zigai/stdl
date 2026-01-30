@@ -22,6 +22,14 @@ else:
 
 
 class DownloadSizeExceededError(Exception):
+    """
+    Exception raised when a file download exceeds the maximum allowed size.
+
+    Attributes:
+        filesize (int): The actual file size in bytes.
+        maxsize (int): The maximum allowed size in bytes.
+    """
+
     def __init__(self, filesize: int, maxsize: int):
         self.filesize = filesize
         self.maxsize = maxsize
