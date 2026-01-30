@@ -24,7 +24,6 @@ theme:
     - navigation.instant.prefetch
     - navigation.instant.preview
     - navigation.instant.progress
-    - search.highlight
     - search.share
     - search.highlight
     - search.suggest
