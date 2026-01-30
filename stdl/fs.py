@@ -1059,6 +1059,7 @@ class File(PathBase):
 
     @property
     def exists(self) -> bool:
+        """Whether the file exists."""
         return os.path.isfile(self.path)
 
     @property
@@ -1409,6 +1410,7 @@ class Directory(PathBase):
 
     @property
     def size(self) -> int:
+        """Total size of the directory and all its contents in bytes."""
         return get_dir_size(self.path, readable=False)  # type:ignore
 
     @property
@@ -1423,6 +1425,7 @@ class Directory(PathBase):
 
     @property
     def parent(self) -> Directory:
+        """The parent directory."""
         return Directory(os.path.dirname(self.path))
 
     @classmethod
