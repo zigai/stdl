@@ -130,6 +130,15 @@ def br(
     *,
     newline: bool = False,
 ) -> None:
+    """
+    Print a horizontal line break across the terminal.
+
+    Args:
+        c (str): Character to repeat. Defaults to "_".
+        length (int | None): Line length. Defaults to terminal width.
+        handler (Callable[[str], None]): Function to output the line. Defaults to print.
+        newline (bool): Whether to append a newline. Defaults to False.
+    """
     if IGNORE_BREAKS:
         return
     length = length or get_terminal_size().columns
