@@ -552,12 +552,13 @@ wheels = [
 
 [[package]]
 name = "stdl"
-version = "0.6.7"
+version = "0.6.8"
 source = { editable = "." }
 dependencies = [
     { name = "python-dateutil" },
     { name = "pyyaml" },
     { name = "toml" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 
 [package.optional-dependencies]
@@ -595,6 +596,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tqdm", marker = "extra == 'full'", specifier = ">=4.67.1" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.0" },
 ]
 provides-extras = ["full", "dev", "test"]
 
