@@ -163,70 +163,70 @@ class TestFileInit:
 
 class TestFilePathComponents:
     def test_file_basename(self, temp_file: File):
-        """basename returns filename only."""
+        """Basename returns filename only."""
         assert temp_file.basename == "test.txt"
 
     def test_file_dirname(self, temp_file: File):
-        """dirname returns directory path."""
+        """Dirname returns directory path."""
         dirname = temp_file.dirname
         assert os.path.isdir(dirname)
         assert "test.txt" not in dirname
 
     def test_file_parent(self, temp_file: File):
-        """parent returns Directory object."""
+        """Parent returns Directory object."""
         parent = temp_file.parent
         assert isinstance(parent, fs.Directory)
         assert parent.path == os.path.dirname(temp_file.path)
 
     def test_file_ext(self, temp_file: File):
-        """ext returns extension without dot."""
+        """Ext returns extension without dot."""
         assert temp_file.ext == "txt"
 
     def test_file_ext_no_extension(self, tmp_path: Path):
-        """ext returns empty string for no extension."""
+        """Ext returns empty string for no extension."""
         f = tmp_path / "noext"
         f.touch()
         file = fs.File(str(f))
         assert file.ext == ""
 
     def test_file_ext_dotfile(self, tmp_path: Path):
-        """ext handles dotfiles correctly (e.g., .gitignore)."""
+        """Ext handles dotfiles correctly (e.g., .gitignore)."""
         f = tmp_path / ".gitignore"
         f.touch()
         file = fs.File(str(f))
         assert file.ext == "gitignore"
 
     def test_file_suffix(self, temp_file: File):
-        """suffix returns extension with dot."""
+        """Suffix returns extension with dot."""
         assert temp_file.suffix == ".txt"
 
     def test_file_suffix_no_extension(self, tmp_path: Path):
-        """suffix returns empty string for no extension."""
+        """Suffix returns empty string for no extension."""
         f = tmp_path / "noext"
         f.touch()
         file = fs.File(str(f))
         assert file.suffix == ""
 
     def test_file_suffix_dotfile(self, tmp_path: Path):
-        """suffix handles dotfiles correctly."""
+        """Suffix handles dotfiles correctly."""
         f = tmp_path / ".gitignore"
         f.touch()
         file = fs.File(str(f))
         assert file.suffix == ""
 
     def test_file_stem(self, temp_file: File):
-        """stem returns name without extension."""
+        """Stem returns name without extension."""
         assert temp_file.stem == "test"
 
     def test_file_stem_no_extension(self, tmp_path: Path):
-        """stem returns full name when no extension."""
+        """Stem returns full name when no extension."""
         f = tmp_path / "noext"
         f.touch()
         file = fs.File(str(f))
         assert file.stem == "noext"
 
     def test_file_stem_multiple_dots(self, tmp_path: Path):
-        """stem handles file.tar.gz correctly."""
+        """Stem handles file.tar.gz correctly."""
         f = tmp_path / "archive.tar.gz"
         f.touch()
         file = fs.File(str(f))
@@ -234,14 +234,14 @@ class TestFilePathComponents:
         assert file.ext == "gz"
 
     def test_file_abspath(self, tmp_path: Path):
-        """abspath returns absolute path."""
+        """Abspath returns absolute path."""
         f = tmp_path / "test.txt"
         f.touch()
         file = fs.File(str(f))
         assert os.path.isabs(file.abspath)
 
     def test_file_nodes(self, temp_file: File):
-        """nodes returns path parts as list."""
+        """Nodes returns path parts as list."""
         nodes = temp_file.nodes
         assert isinstance(nodes, list)
         assert "test.txt" in nodes
@@ -273,7 +273,7 @@ class TestFilePathBooleans:
 
 class TestFileMetadata:
     def test_file_size(self, temp_file: File):
-        """size returns correct byte count."""
+        """Size returns correct byte count."""
         assert temp_file.size == 11  # "hello world" = 11 bytes
 
     def test_file_size_readable(self, temp_file: File):
@@ -861,14 +861,14 @@ class TestFilePermissions:
 
 class TestFileParents:
     def test_file_parents(self, temp_file: File):
-        """parents returns tuple of Directory objects."""
+        """Parents returns tuple of Directory objects."""
         parents = temp_file.parents
         assert isinstance(parents, tuple)
         assert all(isinstance(p, fs.Directory) for p in parents)
         assert len(parents) > 0
 
     def test_file_parents_order(self, temp_file: File):
-        """parents in order from immediate to root."""
+        """Parents in order from immediate to root."""
         parents = temp_file.parents
         assert parents[0].path == temp_file.dirname
         if sys.platform != "win32":
@@ -993,24 +993,24 @@ class TestDirectoryInit:
 
 class TestDirectoryPathComponents:
     def test_directory_basename(self, temp_directory: fs.Directory):
-        """basename returns directory name only."""
+        """Basename returns directory name only."""
         assert temp_directory.basename == "testdir"
 
     def test_directory_parent(self, temp_directory: fs.Directory):
-        """parent returns Directory object."""
+        """Parent returns Directory object."""
         parent = temp_directory.parent
         assert isinstance(parent, fs.Directory)
         assert parent.path == os.path.dirname(temp_directory.path)
 
     def test_directory_abspath(self, tmp_path: Path):
-        """abspath returns absolute path."""
+        """Abspath returns absolute path."""
         test_dir = tmp_path / "testdir"
         test_dir.mkdir()
         directory = fs.Directory(str(test_dir))
         assert os.path.isabs(directory.abspath)
 
     def test_directory_nodes(self, temp_directory: fs.Directory):
-        """nodes returns path parts as list."""
+        """Nodes returns path parts as list."""
         nodes = temp_directory.nodes
         assert isinstance(nodes, list)
         assert "testdir" in nodes
@@ -1042,13 +1042,13 @@ class TestDirectoryPathBooleans:
 
 class TestDirectoryMetadata:
     def test_directory_size(self, temp_directory: fs.Directory):
-        """size returns total size of directory."""
+        """Size returns total size of directory."""
         size = temp_directory.size
         assert isinstance(size, int)
         assert size > 0
 
     def test_directory_size_empty(self, tmp_path: Path):
-        """size returns 0 for empty directory."""
+        """Size returns 0 for empty directory."""
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
         directory = fs.Directory(str(empty_dir))
@@ -1468,14 +1468,14 @@ class TestDirectoryPermissions:
 
 class TestDirectoryParents:
     def test_directory_parents(self, temp_directory: fs.Directory):
-        """parents returns tuple of Directory objects."""
+        """Parents returns tuple of Directory objects."""
         parents = temp_directory.parents
         assert isinstance(parents, tuple)
         assert all(isinstance(parent_dir, fs.Directory) for parent_dir in parents)
         assert len(parents) > 0
 
     def test_directory_parents_order(self, temp_directory: fs.Directory):
-        """parents in order from immediate to root."""
+        """Parents in order from immediate to root."""
         parents = temp_directory.parents
         assert parents[0].path == os.path.dirname(temp_directory.path)
         if sys.platform != "win32":

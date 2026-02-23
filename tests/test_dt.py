@@ -1,5 +1,4 @@
 from datetime import date, datetime, timedelta
-from typing import Type
 
 import pytest
 
@@ -24,7 +23,7 @@ from stdl.dt import date_fmt, datetime_fmt, datetime_range, hms_to_seconds, seco
         (90321.789, True, "25:05:21.789"),
     ],
 )
-def test_seconds_to_hms(time_input: float, ms: bool, expected_output: Type[Exception]):
+def test_seconds_to_hms(time_input: float, ms: bool, expected_output: type[Exception]):
     assert seconds_to_hms(time_input, ms) == expected_output
 
 
@@ -56,7 +55,7 @@ def test_hms_to_seconds(
     time_input: str,
     ms: bool,
     expected_output: str,
-    expected_exception: Type[Exception],
+    expected_exception: type[Exception],
 ):
     if expected_exception:
         with pytest.raises(expected_exception):
