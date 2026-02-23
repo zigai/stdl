@@ -1,4 +1,7 @@
 import os
+from dataclasses import FrozenInstanceError
+
+import pytest
 
 from stdl import st
 from stdl.st import (
@@ -107,6 +110,13 @@ def test_ansi_rjust():
     assert rjust_bold_red.endswith(bold_red_text)
 
     assert ansi_rjust("", 5) == "     "
+
+
+def test_text_style_is_immutable():
+    style = st.TextStyle(color="red", style="bold")
+    assert st.with_style("hello", style) == colored("hello", color="red", style="bold")
+    with pytest.raises(FrozenInstanceError):
+        style.color = "blue"
 
 
 class TestStringFilter:
