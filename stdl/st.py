@@ -4,10 +4,10 @@ import textwrap
 from dataclasses import dataclass
 from platform import system
 from sys import stdout
-from typing import Any, Literal
+from typing import Literal
 
 CSI_RESET = "\033["
-NO_COLOR = bool(os.environ.get("NO_COLOR", False))
+NO_COLOR = bool(os.environ.get("NO_COLOR"))
 
 
 def ansi_code(n: int) -> str:
@@ -50,18 +50,18 @@ class ColorANSI:
 
     @classmethod
     def get_names(cls) -> list[str]:
-        return [i for i in cls.dict.keys()]
+        return list(cls.dict())
 
     @classmethod
     def print_all(cls) -> None:
         for k, v in cls.dict().items():
             if k == "RESET":
                 continue
-            print(colored(k, v))  # type:ignore
+            print(colored(k, color=v))
 
 
 class FG(ColorANSI):
-    """Foreground Color"""
+    """Foreground color."""
 
     BLACK = ansi_code(30)
     RED = ansi_code(31)
@@ -83,7 +83,7 @@ class FG(ColorANSI):
 
 
 class BG(ColorANSI):
-    """Background Color"""
+    """Background color."""
 
     BLACK = ansi_code(40)
     RED = ansi_code(41)
@@ -104,7 +104,7 @@ class BG(ColorANSI):
 
 
 class ST(ColorANSI):
-    """Style"""
+    """Style."""
 
     RESET = ansi_code(0)
     BOLD = ansi_code(1)
@@ -157,7 +157,7 @@ BackgroundColor = Literal[
 Style = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
 
 
-def _get_ansi_value(value: str | None, handler: Any) -> str:
+def _get_ansi_value(value: str | None, handler: type[ColorANSI]) -> str:
     if not value:
         return ""
     try:
@@ -186,9 +186,9 @@ def colored(
     """
     if NO_COLOR or not stdout.isatty():
         return text
-    color = _get_ansi_value(color, FG)  # type: ignore
-    background = _get_ansi_value(background, BG)  # type: ignore
-    style = _get_ansi_value(style, ST)  # type: ignore
+    color = _get_ansi_value(color, FG)
+    background = _get_ansi_value(background, BG)
+    style = _get_ansi_value(style, ST)
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
@@ -233,10 +233,7 @@ def terminal_link(
     if label is None:
         label = uri
 
-    if stdout.isatty():
-        link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
-    else:
-        link = uri
+    link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\" if stdout.isatty() else uri
     link = colored(link, color, background, style)
     return link
 
@@ -284,7 +281,7 @@ def keep(s: str, chars: str | set, replace_with: str = "") -> str:
 ASCII = set("".join(chr(x) for x in range(128)))
 
 
-class sf:
+class sf:  # noqa: N801
     """A collection of functions that can be used to filter strings."""
 
     @classmethod
@@ -298,7 +295,7 @@ class sf:
         if not filepath:
             return ""
         dirname, filename = os.path.split(filepath)
-        filename = sf.filename(filename, replace_with)
+        filename = cls.filename(filename, replace_with)
         dirname = remove(dirname, '|?*<>:"')
         return f"{dirname}{os.sep}{filename}"
 

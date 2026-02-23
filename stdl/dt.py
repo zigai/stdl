@@ -95,7 +95,7 @@ def datetime_fmt(
     utc: bool = True,
 ) -> str:
     """
-    Format date and time
+    Format date and time.
 
     Args:
         d (str | float | None | datetime, optional): Input datetime. Defaults to current date and time.
@@ -122,12 +122,12 @@ def datetime_fmt(
         ```
     """
     if d is None:
-        d = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
+        d = datetime.fromtimestamp(time.time(), tz=timezone.utc if utc else None)
 
     elif isinstance(d, str):
         d = parse_datetime_str(d)
     elif isinstance(d, (float, int)):
-        d = datetime.fromtimestamp(d, **{"tz": timezone.utc} if utc else {})
+        d = datetime.fromtimestamp(d, tz=timezone.utc if utc else None)
     elif isinstance(d, datetime):
         pass
     else:
@@ -144,7 +144,7 @@ def time_fmt(
     t: float | datetime | int | None = None, sep: str = ":", *, ms: bool = False, utc: bool = True
 ) -> str:
     """
-    Format time
+    Format time.
 
     Args:
         t (float | datetime | int | None, optional): Input time. Defaults to current time.
@@ -159,11 +159,11 @@ def time_fmt(
         str: Formatted time.
     """
     if t is None:
-        tm = datetime.fromtimestamp(time.time(), **{"tz": timezone.utc} if utc else {})
+        tm = datetime.fromtimestamp(time.time(), tz=timezone.utc if utc else None)
     elif isinstance(t, datetime):
         tm = t.time()
     elif isinstance(t, (int, float)):
-        tm = datetime.fromtimestamp(t, **{"tz": timezone.utc} if utc else {})
+        tm = datetime.fromtimestamp(t, tz=timezone.utc if utc else None)
     else:
         raise TypeError(type(t))
     ts = tm.strftime(f"%H{sep}%M{sep}%S")
@@ -179,7 +179,7 @@ def date_fmt(
     sep: str = "-",
 ) -> str:
     """
-    Format date
+    Format date.
 
     Args:
         d (float | date | datetime | int | None ): Input date. Defaults to current date.
@@ -205,9 +205,9 @@ def date_fmt(
         ```
     """
     if d is None:
-        d = date.fromtimestamp(time.time())
+        d = datetime.fromtimestamp(time.time(), tz=timezone.utc).astimezone().date()
     elif isinstance(d, (float, int)):
-        d = date.fromtimestamp(d)
+        d = datetime.fromtimestamp(d, tz=timezone.utc).astimezone().date()
     elif isinstance(d, datetime):
         d = d.date()
     elif isinstance(d, date):
@@ -219,7 +219,7 @@ def date_fmt(
 
 def date_range(start: date, end: date) -> Generator[date, None, None]:
     """
-    Returns a generator for dates between ``start`` and ``end``
+    Return a generator for dates between ``start`` and ``end``.
 
     Example:
         ```python
@@ -286,14 +286,14 @@ def sleep(lo: float, hi: float | None = None) -> float:
         return lo
     if lo < hi:
         raise ValueError(f"Minimum sleep time is higher that maximum. {(lo, hi)}")
-    t = random.uniform(lo, hi)
+    t = random.uniform(lo, hi)  # noqa: S311 - Non-cryptographic jitter for sleep timing is intentional.
     time.sleep(t)
     return t
 
 
 def seconds_to_hms(time: int | float, ms: bool = False) -> str:
     """
-    Converts time in seconds to a string in the format HH:MM:SS[.mmm]
+    Convert time in seconds to a string in the format HH:MM:SS[.mmm].
 
     Example:
         >>> seconds_to_hms(123.456)
@@ -312,9 +312,37 @@ def seconds_to_hms(time: int | float, ms: bool = False) -> str:
     time_str = f"{sign}{h:02d}:{m:02d}:{s:02d}"
 
     if ms:
-        milis = int(round((time - int(time)) * 1000))
-        time_str += f".{milis:03d}"
+        millis = round((time - int(time)) * 1000)
+        time_str += f".{millis:03d}"
     return time_str
+
+
+def _parse_milliseconds(second_part: str, original_time: str, ms: bool) -> tuple[str, float]:
+    if ms and "." in second_part:
+        second_part, millis_str = second_part.split(".", 1)
+        if not millis_str.isdigit():
+            raise ValueError(f"Invalid milliseconds in time: '{original_time}'")
+        return second_part, int(millis_str.ljust(3, "0")) / 1000
+    return second_part, 0.0
+
+
+def _to_seconds_with_minutes(parts: list[str]) -> int:
+    minute_part, second_part = parts
+    minutes = int(minute_part)
+    seconds = int(second_part)
+    if seconds >= 60:
+        raise ValueError(f"Seconds ({seconds}) must be < 60.")
+    return minutes * 60 + seconds
+
+
+def _to_seconds_with_hours(parts: list[str]) -> int:
+    hour_part, minute_part, second_part = parts
+    hours = int(hour_part)
+    minutes = int(minute_part)
+    seconds = int(second_part)
+    if minutes >= 60 or seconds >= 60:
+        raise ValueError(f"Minutes ({minutes}) or seconds ({seconds}) must be < 60.")
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def hms_to_seconds(time: str, ms: bool = False) -> float | None:
@@ -339,37 +367,14 @@ def hms_to_seconds(time: str, ms: bool = False) -> float | None:
     parts = time.split(":")
     if len(parts) == 1:
         return float(parts[0])
-    time_milis = 0.0
-
-    if ms:
-        if "." in parts[-1]:
-            dot_split = parts[-1].split(".", 1)
-            parts[-1], millis_str = dot_split
-            if not millis_str.isdigit():
-                raise ValueError(f"Invalid milliseconds in time: '{time}'")
-            millis = int(millis_str.ljust(3, "0"))
-            time_milis = millis / 1000
+    parts[-1], time_millis = _parse_milliseconds(parts[-1], time, ms)
 
     if len(parts) not in (2, 3):
         raise ValueError("Invalid number of time segments.")
 
-    if len(parts) == 2:
-        minute_part, second_part = parts
-        m = int(minute_part)
-        s = int(second_part)
-        if s >= 60:
-            raise ValueError(f"Seconds ({s}) must be < 60.")
-        total = m * 60 + s
-    else:
-        hour_part, minute_part, second_part = parts
-        h = int(hour_part)
-        m = int(minute_part)
-        s = int(second_part)
-        if m >= 60 or s >= 60:
-            raise ValueError(f"Minutes ({m}) or seconds ({s}) must be < 60.")
-        total = h * 3600 + m * 60 + s
+    total = _to_seconds_with_minutes(parts) if len(parts) == 2 else _to_seconds_with_hours(parts)
 
-    result = total + time_milis
+    result = total + time_millis
     return -result if negative else result
 
 

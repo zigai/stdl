@@ -1,25 +1,27 @@
 import pytest
 
-from stdl.lst import *
+from stdl.lst import chunks, split
 
 
 def test_chunks():
-    l = list(range(1, 11))
-    assert chunks(l, size=3) == [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
-    assert chunks(l, size=len(l)) == [l]
-    assert chunks(l, size=1) == [[i] for i in l]
-    with pytest.raises(ValueError):
-        chunks(l, size=len(l) + 1)
+    values = list(range(1, 11))
+    assert chunks(values, size=3) == [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
+    assert chunks(values, size=len(values)) == [values]
+    assert chunks(values, size=1) == [[i] for i in values]
+
+    invalid_size = len(values) + 1
+    with pytest.raises(ValueError, match=rf"^{invalid_size}$"):
+        chunks(values, size=invalid_size)
 
 
 def test_split_with_valid_input():
-    l = [1, 2, 3, 4, 5]
-    assert split(l, 3) == [[1], [2, 3], [4, 5]]
+    values = [1, 2, 3, 4, 5]
+    assert split(values, 3) == [[1], [2, 3], [4, 5]]
 
 
 def test_split_with_invalid_input():
-    l = [1, 2, 3]
-    with pytest.raises(ValueError):
-        split(l, 4)
-    with pytest.raises(ValueError):
-        split(l, 0)
+    values = [1, 2, 3]
+    with pytest.raises(ValueError, match=r"^4$"):
+        split(values, 4)
+    with pytest.raises(ValueError, match=r"^0$"):
+        split(values, 0)

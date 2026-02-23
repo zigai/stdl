@@ -39,7 +39,7 @@ def test_yield_files_in_without_ext():
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
         files_found = fs.get_files_in(temp_dir)
-    assert set(files_found) == set([str(i) for i in files])
+    assert set(files_found) == {str(i) for i in files}
 
 
 def test_yield_files_in_with_ext():
@@ -75,7 +75,7 @@ def test_yield_files_in_with_recursive():
         files = [temp_dir_path / i for i in filenames]
         files_found = fs.get_files_in(temp_dir, recursive=False)
 
-    assert set(files_found) == set([str(i) for i in files])
+    assert set(files_found) == {str(i) for i in files}
 
 
 def test_bytes_readable():
@@ -86,7 +86,7 @@ def test_bytes_readable():
     assert fs.bytes_readable(1073741824) == "1.0 GB"
     assert fs.bytes_readable(1500) == "1.46 KB"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"-1"):
         fs.bytes_readable(-1)
 
 
@@ -100,11 +100,11 @@ def test_readable_size_to_bytes():
     assert fs.readable_size_to_bytes("1 KB") == 1024
     assert fs.readable_size_to_bytes("1KB", kb_size=1000) == 1000
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid size format"):
         fs.readable_size_to_bytes("1XB")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid size format"):
         fs.readable_size_to_bytes("-1KB")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid kb_size"):
         fs.readable_size_to_bytes("1KB", kb_size=1023)
 
 
@@ -428,7 +428,7 @@ class TestFileTextReadWrite:
         assert content.endswith("new line\n")
 
     def test_file_readlines(self, tmp_path: Path):
-        """readlines() returns list of lines with \\n."""
+        r"""readlines() returns list of lines with \n."""
         f = tmp_path / "lines.txt"
         f.write_text("line1\nline2\nline3\n")
         file = fs.File(str(f))
@@ -436,7 +436,7 @@ class TestFileTextReadWrite:
         assert lines == ["line1\n", "line2\n", "line3\n"]
 
     def test_file_splitlines(self, tmp_path: Path):
-        """splitlines() returns list without \\n."""
+        r"""splitlines() returns list without \n."""
         f = tmp_path / "lines.txt"
         f.write_text("line1\nline2\nline3")
         file = fs.File(str(f))
@@ -736,7 +736,7 @@ class TestFilePathTransformations:
 
     def test_file_relative_to_not_relative(self, temp_file: File):
         """relative_to() raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"is not relative to"):
             temp_file.relative_to("/completely/different/path")
 
     def test_file_expanduser(self, tmp_path: Path):
@@ -760,7 +760,7 @@ class TestFilePathTransformations:
     def test_file_as_uri_relative(self, tmp_path: Path):
         """as_uri() raises on relative path."""
         file = fs.File("relative/path.txt")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"file URI"):
             file.as_uri()
 
     def test_file_match(self, temp_file: File):
@@ -907,7 +907,7 @@ class TestFileXattr:
         try:
             temp_file.set_xattr("test_value", "test_attr")
             temp_file.remove_xattr("test_attr")
-            with pytest.raises(OSError):
+            with pytest.raises(OSError, match=r".*"):
                 temp_file.get_xattr("test_attr")
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
@@ -1193,7 +1193,7 @@ class TestDirectoryYieldFiles:
         assert all("file" in file_obj.basename and file_obj.ext == "txt" for file_obj in files)
 
     def test_directory_yield_files_regex(self, temp_directory: fs.Directory):
-        """yield_files(regex=r'\\d') filters by regex."""
+        r"""yield_files(regex=r'\d') filters by regex."""
         files = list(temp_directory.yield_files(regex=r"\d"))
         assert len(files) == 3
 
@@ -1248,7 +1248,7 @@ class TestDirectoryYieldSubdirs:
         assert all(sub_dir.basename.startswith("sub") for sub_dir in subdirs)
 
     def test_directory_yield_subdirs_regex(self, nested_directory: fs.Directory):
-        """yield_subdirs(regex=r'\\d') filters by regex."""
+        r"""yield_subdirs(regex=r'\d') filters by regex."""
         subdirs = list(nested_directory.yield_subdirs(regex=r"\d"))
         assert len(subdirs) == 2
 
@@ -1541,7 +1541,7 @@ class TestDirectoryXattr:
         try:
             temp_directory.set_xattr("test_value", "test_attr")
             temp_directory.remove_xattr("test_attr")
-            with pytest.raises(OSError):
+            with pytest.raises(OSError, match=r".*"):
                 temp_directory.get_xattr("test_attr")
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP

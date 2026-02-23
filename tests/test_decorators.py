@@ -5,6 +5,10 @@ import pytest
 from stdl.decorators import retry, timer
 
 
+class RetryFailureError(Exception):
+    """Test exception used for retry behavior assertions."""
+
+
 class TestTimer:
     def test_basic(self):
         @timer()
@@ -83,9 +87,9 @@ class TestRetryDecorator:
         @retry(attempts=3)
         def failing_func():
             counter[0] += 1
-            raise Exception("Failure")
+            raise RetryFailureError("Failure")
 
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(RetryFailureError, match="Failure") as excinfo:
             failing_func()
         assert str(excinfo.value) == "Failure"
         assert counter[0] == 3
@@ -97,7 +101,7 @@ class TestRetryDecorator:
         def func_with_success_on_second():
             counter[0] += 1
             if counter[0] < 2:
-                raise Exception("Failure")
+                raise RetryFailureError("Failure")
             return "Success"
 
         assert func_with_success_on_second() == "Success"

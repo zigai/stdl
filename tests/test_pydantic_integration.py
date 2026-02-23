@@ -1,9 +1,14 @@
 import pytest
 
-pydantic = pytest.importorskip("pydantic")
-from pydantic import BaseModel, ValidationError
-
 from stdl.color import ASSA, CMYK, HEX, HSL, HSV, RGB, RGBA
+
+try:
+    pydantic = pytest.importorskip("pydantic")
+except SyntaxError:
+    pytest.skip("pydantic import failed due to environment SyntaxError", allow_module_level=True)
+
+BaseModel = pydantic.BaseModel
+ValidationError = pydantic.ValidationError
 
 
 class ColorContainer(BaseModel):

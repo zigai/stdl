@@ -6,19 +6,19 @@ import math
 import os
 import pickle
 import platform
-import random
 import re
+import secrets
 import shlex
 import shutil
 import subprocess
 import sys
 import time
 from collections.abc import Callable, Generator, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Literal
+from typing import IO, Any, Literal, overload
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -59,13 +59,46 @@ move = shutil.move
 chown = shutil.chown
 
 
-def pickle_load(filepath: str | PathLike) -> Any:
+def _iter_file_paths(directory: str | PathLike, *, recursive: bool) -> Generator[str, None, None]:
+    if not recursive:
+        for entry in os.scandir(directory):
+            if entry.is_file():
+                yield entry.path
+        return
+
+    queue = Queue()
+    queue.put(directory)
+    while not queue.empty():
+        next_dir = queue.get()
+        for entry in os.scandir(next_dir):
+            if entry.is_dir():
+                queue.put(entry.path)
+            elif entry.is_file():
+                yield entry.path
+
+
+def _normalized_ext(ext: str | tuple[str, ...] | None) -> str | tuple[str, ...] | None:
+    if ext is None:
+        return None
+    if isinstance(ext, str):
+        return ext.lower()
+    return tuple(extension.lower() for extension in ext)
+
+
+def _remove_existing_path(path: str) -> None:
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
+
+
+def pickle_load(filepath: str | PathLike) -> object:
     """Loads a pickled file."""
     with open(filepath, "rb") as f:
-        return pickle.load(f)
+        return pickle.load(f)  # noqa: S301
 
 
-def pickle_dump(data: Any, filepath: str | PathLike) -> None:
+def pickle_dump(data: object, filepath: str | PathLike) -> None:
     """Dumps an object to the specified filepath."""
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
@@ -92,7 +125,7 @@ def json_append(
     data: dict[Any, Any] | list[dict[Any, Any]],
     filepath: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[Any], str] = str,
+    default: Callable[[object], str] = str,
     indent: int = 4,
 ) -> None:
     """
@@ -136,10 +169,10 @@ def json_append(
 
 
 def json_dump(
-    data: Any,
+    data: object,
     path: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[Any], str] = str,
+    default: Callable[[object], str] = str,
     indent: int = 4,
 ) -> None:
     """
@@ -173,9 +206,10 @@ def yaml_load(
         return yaml.safe_load(f)
 
 
-def yaml_dump(data: Any, path: str | PathLike, encoding: str = "utf-8") -> None:
+def yaml_dump(data: object, path: str | PathLike, encoding: str = "utf-8") -> None:
     """
-    Dumps data to a YAML file
+    Dumps data to a YAML file.
+
     Args:
         data: data to be dumped
         path (Pathlike): path to the output file
@@ -195,9 +229,17 @@ def toml_dump(data: dict[str, Any], path: str | PathLike, encoding: str = "utf-8
         toml.dump(data, f)
 
 
+@overload
+def get_dir_size(directory: str | PathLike, *, readable: Literal[False] = False) -> int: ...
+
+
+@overload
+def get_dir_size(directory: str | PathLike, *, readable: Literal[True]) -> str: ...
+
+
 def get_dir_size(directory: str | PathLike, *, readable: bool = False) -> str | int:
     """
-    Moves files to a specified directory
+    Calculates total size of a directory.
 
     Args:
         directory (str, Path): target directory
@@ -219,7 +261,7 @@ def move_files(
     files: list[str | PathLike], directory: str | PathLike, *, mkdir: bool = False
 ) -> None:
     """
-    Moves files to a specified directory
+    Moves files to a specified directory.
 
     Args:
         files (list[str | PathLike]): List of files to be moved
@@ -254,9 +296,11 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
     """
     if ext and not ext.startswith("."):
         ext = f".{ext}"
-    num = str(random.randrange(1000000000, 9999999999)).zfill(10)
+    num = str(secrets.randbelow(9_000_000_000) + 1_000_000_000).zfill(10)
     if include_datetime:
-        creation_time = datetime.now().strftime("%Y-%m-%d.%H-%M-%S-%f")[:-3]
+        creation_time = (
+            datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d.%H-%M-%S-%f")[:-3]
+        )
         filename = f"{prefix}.{num}.{creation_time}{ext}"
     else:
         filename = f"{prefix}.{num}{ext}"
@@ -276,7 +320,7 @@ def bytes_readable(size_bytes: int) -> str:
         raise ValueError(size_bytes)
     if size_bytes == 0:
         return "0B"
-    i = int(math.floor(math.log(size_bytes, 1024)))
+    i = math.floor(math.log(size_bytes, 1024))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
@@ -369,7 +413,7 @@ def yield_files_in(
     ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
-    abs: bool = True,
+    abs: bool = True,  # noqa: A002
 ) -> Generator[str, None, None]:
     """
     Yields the paths of files in a directory.
@@ -387,38 +431,12 @@ def yield_files_in(
     Yields:
         Generator[str, None, None]: The absolute paths of the files in the directory, matching the provided extension.
     """
-    if not recursive:
-        for entry in os.scandir(directory):
-            if not entry.is_file():
-                continue
-            path = entry.path
-            if abs:
-                path = os.path.abspath(entry.path)
-            if ext is None or path.lower().endswith(ext):
-                yield path
-        return
+    normalized_ext = _normalized_ext(ext)
 
-    queue = Queue()
-    queue.put(directory)
-
-    if ext is None:
-        while not queue.empty():
-            next_dir = queue.get()
-            for entry in os.scandir(next_dir):
-                if entry.is_dir():
-                    queue.put(entry.path)
-                elif entry.is_file():
-                    yield os.path.abspath(entry.path) if abs else entry.path
-        return
-
-    while not queue.empty():
-        next_dir = queue.get()
-        for entry in os.scandir(next_dir):
-            if entry.is_dir():
-                queue.put(entry.path)
-            elif entry.is_file():
-                if entry.path.lower().endswith(ext):
-                    yield os.path.abspath(entry.path) if abs else entry.path
+    for file_path in _iter_file_paths(directory, recursive=recursive):
+        if normalized_ext is not None and not file_path.lower().endswith(normalized_ext):
+            continue
+        yield os.path.abspath(file_path) if abs else file_path
 
 
 def get_files_in(
@@ -426,7 +444,7 @@ def get_files_in(
     ext: str | tuple[str, ...] | None = None,
     *,
     recursive: bool = True,
-    abs: bool = True,
+    abs: bool = True,  # noqa: A002
 ) -> list[str]:
     """
     Returns the paths of files in a directory.
@@ -448,7 +466,10 @@ def get_files_in(
 
 
 def yield_dirs_in(
-    directory: str | PathLike, *, recursive: bool = True, abs: bool = True
+    directory: str | PathLike,
+    *,
+    recursive: bool = True,
+    abs: bool = True,  # noqa: A002
 ) -> Generator[str, None, None]:
     """
     Yields paths to all directories in the specified directory.
@@ -475,7 +496,10 @@ def yield_dirs_in(
 
 
 def get_dirs_in(
-    directory: str | PathLike, *, recursive: bool = True, abs: bool = True
+    directory: str | PathLike,
+    *,
+    recursive: bool = True,
+    abs: bool = True,  # noqa: A002
 ) -> list[str]:
     """
     Returns all directories in the specified directory.
@@ -554,8 +578,8 @@ class CompletedCommand(subprocess.CompletedProcess):
         args: str | list[str],
         returncode: int,
         time_taken: float,
-        stdout: Any | None = None,
-        stderr: Any | None = None,
+        stdout: str | bytes | None = None,
+        stderr: str | bytes | None = None,
     ) -> None:
         super().__init__(args, returncode, stdout, stderr)
         self.time_taken = time_taken
@@ -598,19 +622,19 @@ class CompletedCommand(subprocess.CompletedProcess):
 
 def exec_cmd(
     cmd: list[str] | str,
-    timeout: float | None = None,  # type:ignore
+    timeout: float | None = None,
     shell: bool = False,
     capture_output: bool = True,
     check: bool = False,
-    cwd: str | None = None,  # type:ignore
-    stdin: IO | None = None,  # type:ignore
-    stdout: IO | None = None,  # type:ignore
-    stderr: IO | None = None,  # type:ignore
-    input: str | None | bytes = None,  # type:ignore
-    env: dict[str, str] | None = None,  # type:ignore
+    cwd: str | None = None,
+    stdin: IO | None = None,
+    stdout: IO | None = None,
+    stderr: IO | None = None,
+    input: str | None | bytes = None,
+    env: dict[str, str] | None = None,
     text: bool = True,
-    *args: Any,
-    **kwargs: Any,
+    *args: object,
+    **kwargs: object,
 ) -> CompletedCommand:
     """
     Wrapper for subprocess.run with nicer default arguments.
@@ -639,8 +663,9 @@ def exec_cmd(
 
     start_time = time.time()
 
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         cmd,
+        *args,
         timeout=timeout,
         shell=shell,
         check=check,
@@ -683,7 +708,7 @@ def start_file(path: str | PathLike) -> None:
     if is_wsl():
         exec_cmd(f"cmd.exe /C start '{path}'", check=True)
     elif sys.platform == "win32":
-        os.startfile(path)
+        os.startfile(path)  # noqa: S606
     elif sys.platform == "darwin":
         exec_cmd(f"open {path}", check=True)
     elif sys.platform == "linux":
@@ -697,7 +722,7 @@ class PathBase(PathLike):
         self,
         path: str | PathLike,
         *,
-        abs: bool = False,
+        abs: bool = False,  # noqa: A002
     ) -> None:
         """
         Initialize a PathBase object.
@@ -1041,7 +1066,7 @@ class File(PathBase):
         path: str | PathLike,
         encoding: str = "utf-8",
         *,
-        abs: bool = False,
+        abs: bool = False,  # noqa: A002
     ) -> None:
         """
         Initialize a File object.
@@ -1200,7 +1225,7 @@ class File(PathBase):
         self._write(data, mode, newline=newline)
         return self
 
-    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: Any) -> IO:
+    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: object) -> IO:
         """
         Open the file and return a file handle.
 
@@ -1239,13 +1264,16 @@ class File(PathBase):
         self._write_iter(data, "a", sep=sep)
 
     def readlines(self) -> list[str]:
-        """Equivalent to TextIOWrapper.readlines()"""
+        """Equivalent to TextIOWrapper.readlines()."""
         with open(self.path, encoding=self.encoding) as f:
             return f.readlines()
 
     def splitlines(self) -> list[str]:
-        """Equivalent to File.read().splitlines()"""
-        return self.read(mode="r").splitlines()  # type:ignore
+        """Equivalent to File.read().splitlines()."""
+        data = self.read(mode="r")
+        if isinstance(data, bytes):
+            data = data.decode(self.encoding)
+        return data.splitlines()
 
     def move_to(
         self,
@@ -1314,7 +1342,7 @@ class File(PathBase):
 
     def with_ext(self, ext: str) -> File:
         """
-        Change the extension of the file and return the new File object
+        Change the extension of the file and return the new File object.
 
         Args:
             ext (str): The new extension of the file.
@@ -1387,7 +1415,7 @@ class Directory(PathBase):
         self,
         path: str | PathLike,
         *,
-        abs: bool = False,
+        abs: bool = False,  # noqa: A002
     ) -> None:
         """
         Initialize a Directory object.
@@ -1407,7 +1435,7 @@ class Directory(PathBase):
     @property
     def size(self) -> int:
         """Total size of the directory and all its contents in bytes."""
-        return get_dir_size(self.path, readable=False)  # type:ignore
+        return get_dir_size(self.path, readable=False)
 
     @property
     def exists(self) -> bool:
@@ -1449,6 +1477,10 @@ class Directory(PathBase):
             raise FileNotFoundError(f"Destination directory does not exist: {directory}")
 
         dest = f"{directory}{SEP}{self.basename}"
+        if os.path.exists(dest):
+            if not overwrite:
+                raise FileExistsError(dest)
+            _remove_existing_path(dest)
         shutil.move(self.path, dest)
         self.path = dest
         return self
@@ -1479,6 +1511,10 @@ class Directory(PathBase):
                 raise FileNotFoundError(f"Destination directory does not exist: {directory}")
 
         dest = f"{directory}{SEP}{self.basename}"
+        if os.path.exists(dest):
+            if not overwrite:
+                raise FileExistsError(dest)
+            _remove_existing_path(dest)
         shutil.copytree(self.path, dest)
         self.path = dest
         return self

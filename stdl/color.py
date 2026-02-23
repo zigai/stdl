@@ -13,7 +13,7 @@ class ColorValueError(Exception):
 
 
 class Color(ABC):
-    """Base class for all color representations"""
+    """Base class for all color representations."""
 
     __slots__ = ("_frozen",)
 
@@ -36,27 +36,27 @@ class Color(ABC):
 
     @abstractmethod
     def to_rgb(self) -> RGB:
-        """Convert to RGB color space"""
+        """Convert to RGB color space."""
 
     @abstractmethod
     def to_hex(self) -> HEX:
-        """Convert to HEX color space"""
+        """Convert to HEX color space."""
 
     @abstractmethod
     def to_hsv(self) -> HSV:
-        """Convert to HSV color space"""
+        """Convert to HSV color space."""
 
     @abstractmethod
     def to_hsl(self) -> HSL:
-        """Convert to HSL color space"""
+        """Convert to HSL color space."""
 
     @abstractmethod
     def to_cmyk(self) -> CMYK:
-        """Convert to CMYK color space"""
+        """Convert to CMYK color space."""
 
     @abstractmethod
     def to_assa(self) -> ASSA:
-        """Convert to ASS color format"""
+        """Convert to ASS color format."""
 
     def copy(self) -> Color:
         return self
@@ -64,13 +64,17 @@ class Color(ABC):
     def dict(self) -> dict[builtins.str, int | float | builtins.str]:
         return {k: getattr(self, k) for k in self.get_value_keys()}
 
-    def __setattr__(self, name: builtins.str, value: T.Any) -> None:
+    def __setattr__(self, name: builtins.str, value: object) -> None:
         if getattr(self, "_frozen", False):
             raise AttributeError(f"{self.__class__.__name__} is immutable")
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: builtins.str) -> None:
         raise AttributeError(f"{self.__class__.__name__} is immutable")
+
+    def __hash__(self) -> int:
+        values = tuple(getattr(self, key) for key in self.get_value_keys())
+        return hash((self.__class__, values))
 
 
 class RGB(Color):
@@ -79,7 +83,7 @@ class RGB(Color):
     green: int
     blue: int
 
-    def __init__(self, red: int, green: int, blue: int):
+    def __init__(self, red: int, green: int, blue: int) -> None:
         super().__init__()
         self.red = int(red)
         self.green = int(green)
@@ -101,6 +105,8 @@ class RGB(Color):
         if not isinstance(other, RGB):
             return NotImplemented
         return (self.red, self.green, self.blue) == (other.red, other.green, other.blue)
+
+    __hash__ = Color.__hash__
 
     def tuple(self) -> tuple[int, int, int]:
         return (self.red, self.green, self.blue)
@@ -134,13 +140,13 @@ class RGB(Color):
         cmin = min(r, g, b)
         diff = cmax - cmin
 
-        l = (cmax + cmin) / 2
+        lightness = (cmax + cmin) / 2
 
         if diff == 0:
             h = 0.0
             s = 0.0
         else:
-            s = diff / (2 - cmax - cmin) if l > 0.5 else diff / (cmax + cmin)
+            s = diff / (2 - cmax - cmin) if lightness > 0.5 else diff / (cmax + cmin)
 
             if cmax == r:
                 h = (60 * ((g - b) / diff) + 360) % 360
@@ -149,7 +155,7 @@ class RGB(Color):
             else:
                 h = (60 * ((r - g) / diff) + 240) % 360
 
-        return HSL(h, s * 100, l * 100)
+        return HSL(h, s * 100, lightness * 100)
 
     def to_cmyk(self) -> CMYK:
         r, g, b = self.red / 255, self.green / 255, self.blue / 255
@@ -181,7 +187,7 @@ class RGBA(Color):
     blue: int
     alpha: float
 
-    def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0):
+    def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0) -> None:
         super().__init__()
         self.red = int(red)
         self.green = int(green)
@@ -202,6 +208,8 @@ class RGBA(Color):
             other.blue,
             other.alpha,
         )
+
+    __hash__ = Color.__hash__
 
     def validate(self) -> None:
         if not all(
@@ -252,7 +260,7 @@ class HEX(Color):
     __slots__ = ("value",)
     value: str
 
-    def __init__(self, value: str):
+    def __init__(self, value: str) -> None:
         super().__init__()
         value = value.removeprefix("#")
         self.value = f"#{value.lower()}"
@@ -277,6 +285,8 @@ class HEX(Color):
             return NotImplemented
         return self.value.lower() == other.value.lower()
 
+    __hash__ = Color.__hash__
+
     def to_str(self) -> builtins.str:
         return self.value
 
@@ -299,8 +309,8 @@ class HEX(Color):
     def to_assa(self) -> ASSA:
         return self.to_rgb().to_assa()
 
-    def to_webcolor(self) -> webcolor:
-        return webcolor.from_hex(self.value)
+    def to_webcolor(self) -> WebColor:
+        return WebColor.from_hex(self.value)
 
 
 class HSV(Color):
@@ -309,7 +319,7 @@ class HSV(Color):
     saturation: float
     value: float
 
-    def __init__(self, hue: float, saturation: float, value: float):
+    def __init__(self, hue: float, saturation: float, value: float) -> None:
         super().__init__()
         self.hue = float(hue)
         self.saturation = float(saturation)
@@ -338,6 +348,8 @@ class HSV(Color):
             other.saturation,
             other.value,
         )
+
+    __hash__ = Color.__hash__
 
     def tuple(self) -> tuple[float, float, float]:
         return (self.hue, self.saturation, self.value)
@@ -385,7 +397,7 @@ class HSL(Color):
     saturation: float
     lightness: float
 
-    def __init__(self, hue: float, saturation: float, lightness: float):
+    def __init__(self, hue: float, saturation: float, lightness: float) -> None:
         super().__init__()
         self.hue = float(hue)
         self.saturation = float(saturation)
@@ -416,6 +428,8 @@ class HSL(Color):
             other.saturation,
             other.lightness,
         )
+
+    __hash__ = Color.__hash__
 
     def tuple(self) -> tuple[float, float, float]:
         return (self.hue, self.saturation, self.lightness)
@@ -476,7 +490,7 @@ class CMYK(Color):
     yellow: float
     key: float
 
-    def __init__(self, cyan: float, magenta: float, yellow: float, key: float):
+    def __init__(self, cyan: float, magenta: float, yellow: float, key: float) -> None:
         super().__init__()
         self.cyan = float(cyan)
         self.magenta = float(magenta)
@@ -507,6 +521,8 @@ class CMYK(Color):
             other.yellow,
             other.key,
         )
+
+    __hash__ = Color.__hash__
 
     def tuple(self) -> tuple[float, float, float, float]:
         return (self.cyan, self.magenta, self.yellow, self.key)
@@ -540,12 +556,8 @@ class ASSA(Color):
     __slots__ = ("value",)
     value: str
 
-    def __init__(self, value: str):
-        """
-        Initialize ASSA color with just hex numbers:
-        - 'BBGGRR' for color
-        - 'AABBGGRR' for color with alpha
-        """
+    def __init__(self, value: str) -> None:
+        """Initialize ASSA color with hex digits."""
         super().__init__()
         clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
         self.value = f"&H{clean_value}&"
@@ -558,7 +570,7 @@ class ASSA(Color):
     @property
     def clean_value(self) -> str:
         value = self.value
-        if (value.startswith("&H") or value.startswith("&h")) and value.endswith("&"):
+        if value.startswith(("&H", "&h")) and value.endswith("&"):
             return value[2:-1].lower()
         return value.lower()
 
@@ -573,16 +585,18 @@ class ASSA(Color):
             return NotImplemented
         return self.value == other.value
 
+    __hash__ = Color.__hash__
+
     def validate(self) -> None:
         if not self.is_valid_format(self.value):
             raise ColorValueError(
                 "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hexadecimal digits"
             )
 
-    def is_BBGGRR_format(self) -> bool:
+    def is_bbggrr_format(self) -> bool:
         return len(self.clean_value) == 6
 
-    def is_AABBGGRR_format(self) -> bool:
+    def is_aabbggrr_format(self) -> bool:
         return len(self.clean_value) == 8
 
     def to_rgb(self) -> RGB:
@@ -641,7 +655,7 @@ class ASSA(Color):
         return self
 
     def embed_text(self, text: str) -> str:
-        """Embed text with this color in ASS format"""
+        """Embed text with this color in ASS format."""
         return f"{{\\c{self.value}}}{text}{{\\c}}"
 
     @staticmethod
@@ -685,6 +699,10 @@ class ASSA(Color):
     @staticmethod
     def _clean_hex(value: str) -> str:
         return "".join(c for c in value.upper() if c in "0123456789ABCDEF")
+
+
+ASSA.is_BBGGRR_format = ASSA.is_bbggrr_format
+ASSA.is_AABBGGRR_format = ASSA.is_aabbggrr_format
 
 
 CssColorName = T.Literal[
@@ -990,18 +1008,17 @@ CSS_COLOR_TO_HEX = {
 }
 
 
-class webcolor(Color):
+class WebColor(Color):
     __slots__ = ("hex_value", "name")
     name: str
     hex_value: HEX
     COLORS = CSS_COLOR_TO_HEX
 
-    def __init__(self, name: CssColorName):
+    def __init__(self, name: CssColorName) -> None:
         super().__init__()
-        name = name.lower()  # type:ignore
-        self.name = name
+        self.name = name.lower()
         self.validate()
-        self.hex_value = HEX(self.COLORS[name])
+        self.hex_value = HEX(self.COLORS[self.name])
         self._freeze()
 
     def validate(self) -> None:
@@ -1015,9 +1032,11 @@ class webcolor(Color):
         return f"webcolor('{self.name}')"
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, webcolor):
+        if not isinstance(other, WebColor):
             return NotImplemented
         return self.name == other.name
+
+    __hash__ = Color.__hash__
 
     def to_str(self) -> builtins.str:
         return self.name
@@ -1037,19 +1056,22 @@ class webcolor(Color):
     def to_hex(self) -> HEX:
         return self.hex_value
 
-    def to_webcolor(self) -> webcolor:
+    def to_webcolor(self) -> WebColor:
         return self
 
     def to_assa(self) -> ASSA:
         return self.hex_value.to_assa()
 
     @classmethod
-    def from_hex(cls, value: str) -> webcolor:
+    def from_hex(cls, value: str) -> WebColor:
         value = value.lower()
         for name, color in cls.COLORS.items():
             if color.lower() == value:
                 return cls(name)
         raise ColorValueError(f"No web color name matches hex value {value}")
+
+
+webcolor = WebColor
 
 
 def hex_to_rgb(color: str) -> tuple[int, int, int]:
@@ -1082,9 +1104,9 @@ def normalize_color(
     if isinstance(color, str):
         if color.startswith("#"):
             return HEX(color)
-        if color.startswith("&h") or color.startswith("&H"):
+        if color.startswith(("&h", "&H")):
             return ASSA.from_value(color)
-        return webcolor(color)
+        return WebColor(color)
     raise ColorValueError(f"Unsupported color format: {color}")
 
 
@@ -1093,9 +1115,12 @@ try:
     from pydantic import GetJsonSchemaHandler as _GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue as _JsonSchemaValue
     from pydantic_core import core_schema as _core_schema
-except Exception:  # pragma: no cover
-    pass  # Pydantic not installed
+except (ImportError, SyntaxError):  # pragma: no cover - optional dependency
+    _HAS_PYDANTIC = False
 else:
+    _HAS_PYDANTIC = True
+
+if _HAS_PYDANTIC:
 
     def parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
         if isinstance(value, Mapping):
@@ -1188,8 +1213,8 @@ else:
         if not match:
             raise ValueError(f"Invalid HSL repr: {value!r}")
 
-        h, s, l = float(match.group(1)), float(match.group(2)), float(match.group(3))
-        return HSL(h, s, l)
+        h, s, lightness = float(match.group(1)), float(match.group(2)), float(match.group(3))
+        return HSL(h, s, lightness)
 
     def parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
         if isinstance(value, Mapping):
@@ -1230,18 +1255,18 @@ else:
 
         return ASSA(match.group(1))
 
-    def parse_webcolor(value: str | Mapping[str, T.Any]) -> webcolor:
+    def parse_webcolor(value: str | Mapping[str, T.Any]) -> WebColor:
         if isinstance(value, Mapping):
             data = dict(value)
             if "name" in data:
-                return webcolor(data["name"])
+                return WebColor(data["name"])
             raise ValueError(f"Invalid webcolor mapping: {value!r}")
 
         match = re.fullmatch(r"\s*webcolor\(\s*(['\"])\s*([A-Za-z]+)\s*\1\s*\)\s*", value)
         if not match:
             raise ValueError(f"Invalid webcolor repr: {value!r}")
 
-        return webcolor(match.group(2))
+        return WebColor(match.group(2))
 
     def _string_schema(
         *,
@@ -1300,7 +1325,7 @@ else:
             required=object_required,
         )
 
-        def _validator(v: T.Any) -> Color:
+        def _validator(v: object) -> Color:
             if isinstance(v, cls):
                 return v
             if isinstance(v, str):
@@ -1311,7 +1336,7 @@ else:
                 f"Expected {cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
 
-        def _serializer(v: T.Any, info: _core_schema.SerializationInfo) -> T.Any:
+        def _serializer(v: Color, info: _core_schema.SerializationInfo) -> object:
             if info.mode == "json":
                 return repr(v)
             return v
@@ -1324,7 +1349,7 @@ else:
         )
 
         def _core_schema_factory(
-            _cls: type[Color], _source: T.Any, _handler: _GetCoreSchemaHandler
+            _cls: type[Color], _source: object, _handler: _GetCoreSchemaHandler
         ) -> _core_schema.CoreSchema:
             return core_schema
 
@@ -1463,7 +1488,7 @@ else:
     )
 
     _register_color(
-        webcolor,
+        WebColor,
         parse_webcolor,
         title="Web Color",
         string_description="Named CSS color via webcolor('name')",

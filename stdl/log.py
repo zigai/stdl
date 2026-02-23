@@ -23,6 +23,8 @@ class LoguruFormatter:
 
     def format(self, record: dict[str, Any]) -> str:
         """
+        Format a Loguru record.
+
         Example:
             ```python
             >>> import sys
@@ -33,7 +35,7 @@ class LoguruFormatter:
         """
         extras = ""
         if len(record["extra"]):
-            for key in record["extra"].keys():
+            for key in record["extra"]:
                 if key in self.extra_key_skips:
                     continue
                 extras = (
@@ -55,7 +57,7 @@ class SimpleLoguruFormatter(LoguruFormatter):
     def format(self, record: dict[str, Any]) -> str:
         extras = ""
         if len(record["extra"]):
-            for key in record["extra"].keys():
+            for key in record["extra"]:
                 if key in self.extra_key_skips:
                     continue
                 extras = (
@@ -76,7 +78,7 @@ simple_loguru_formater = SimpleLoguruFormatter().format
 
 
 def get_logging_config(
-    format: str | None = None,
+    format: str | None = None,  # noqa: A002
     level: str = "INFO",
     filename: str | None = None,
     backup_count: int = 0,
@@ -85,7 +87,7 @@ def get_logging_config(
     file_handler: str = "logging.handlers.TimedRotatingFileHandler",
     format_style: str = "{",
 ) -> dict[str, Any]:
-    format = (
+    resolved_format = (
         format
         or "{asctime} | {levelname:<8s} | [ {name} ] {module}.{funcName}:{lineno} - {message}"
     )
@@ -95,7 +97,7 @@ def get_logging_config(
         "disable_existing_loggers": disable_existing,
         "formatters": {
             "standard": {
-                "format": format,
+                "format": resolved_format,
                 "datefmt": "%Y-%m-%d %H:%M:%S",
                 "style": format_style,
             }

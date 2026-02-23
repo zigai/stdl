@@ -30,7 +30,7 @@ class DownloadSizeExceededError(Exception):
         maxsize (int): The maximum allowed size in bytes.
     """
 
-    def __init__(self, filesize: int, maxsize: int):
+    def __init__(self, filesize: int, maxsize: int) -> None:
         self.filesize = filesize
         self.maxsize = maxsize
 
@@ -47,7 +47,7 @@ def download(
     overwrite: bool = False,
 ) -> tuple[str, HTTPMessage]:
     """
-    Download a file
+    Download a file.
 
     Args:
         url (str): File URL

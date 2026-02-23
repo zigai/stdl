@@ -175,6 +175,8 @@ ignore = [
     "PGH004",
     "N806",
     "FBT001",
+    "PTH",
+    "S310",
 ]
 exclude = ["build"]
 
@@ -206,6 +208,7 @@ exclude = ["build"]
     "EM102",
     "FBT001",
     "SIM300",
+    "DTZ001",
 ]
 "examples/*.py" = ["INP001"]
 

@@ -455,7 +455,7 @@ class TestASSA:
         assert assa.clean_value == "804080ff"
 
     def test_assa_new_constructor_bbggrr(self):
-        """Test new single-value constructor with BBGGRR format"""
+        """Test new single-value constructor with BBGGRR format."""
         assa = ASSA("4080FF")
         assert assa.clean_value == "4080ff"
         assert assa.value == "&H4080ff&"
@@ -463,11 +463,11 @@ class TestASSA:
         assert assa.green == 128
         assert assa.red == 255
         assert assa.alpha is None
-        assert assa.is_BBGGRR_format()
-        assert not assa.is_AABBGGRR_format()
+        assert assa.is_bbggrr_format()
+        assert not assa.is_aabbggrr_format()
 
     def test_assa_new_constructor_aabbggrr(self):
-        """Test new single-value constructor with AABBGGRR format"""
+        """Test new single-value constructor with AABBGGRR format."""
         assa = ASSA("804080FF")
         assert assa.clean_value == "804080ff"
         assert assa.value == "&H804080ff&"
@@ -475,11 +475,11 @@ class TestASSA:
         assert assa.green == 128
         assert assa.red == 255
         assert assa.alpha == 128
-        assert not assa.is_BBGGRR_format()
-        assert assa.is_AABBGGRR_format()
+        assert not assa.is_bbggrr_format()
+        assert assa.is_aabbggrr_format()
 
     def test_assa_integer_properties(self):
-        """Test that blue, green, red, alpha properties return correct integers"""
+        """Test that blue, green, red, alpha properties return correct integers."""
         # Test BBGGRR format
         assa1 = ASSA("102030")
         assert assa1.blue == 16
@@ -495,7 +495,7 @@ class TestASSA:
         assert assa2.alpha == 255
 
     def test_assa_validation_invalid_strings(self):
-        """Test validation of invalid hex strings in new constructor"""
+        """Test validation of invalid hex strings in new constructor."""
         # Test invalid characters
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("GGHHII")
@@ -509,7 +509,7 @@ class TestASSA:
             ASSA.from_clean_value("1234567")  # Wrong length
 
     def test_assa_clean_value_property(self):
-        """Test clean_value property functionality"""
+        """Test clean_value property functionality."""
         # Test with uppercase
         assa1 = ASSA("4080FF")
         assert assa1.clean_value == "4080ff"

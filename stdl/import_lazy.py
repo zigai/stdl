@@ -1,7 +1,12 @@
 import importlib
+import inspect
 import sys
 import time
-from typing import Any
+from typing import Protocol, cast
+
+
+class _CallableObject(Protocol):
+    def __call__(self, *args: object, **kwargs: object) -> object: ...
 
 
 class LazyImport:
@@ -12,15 +17,15 @@ class LazyImport:
         module_name: str,
         attr_name: str | None = None,
         verbose: bool = False,
-    ):
+    ) -> None:
         self.module_name = module_name
         self.attr_name = attr_name
         self.verbose = verbose
 
-        self._cached_value: Any = None
+        self._cached_value: object | None = None
         self._loaded = False
 
-    def _load(self) -> Any:
+    def _load(self) -> object:
         if not self._loaded:
             if self.verbose:
                 start_time = time.time()
@@ -28,20 +33,20 @@ class LazyImport:
             module_already_loaded = self.module_name in sys.modules
             try:
                 module = importlib.import_module(self.module_name)
-            except ImportError as e:
+            except ImportError as err:
                 if self.attr_name:
                     raise ImportError(
-                        f"Cannot import '{self.attr_name}' from '{self.module_name}': {e}"
-                    )
-                raise ImportError(f"Cannot import module '{self.module_name}': {e}")
+                        f"Cannot import '{self.attr_name}' from '{self.module_name}': {err}"
+                    ) from err
+                raise ImportError(f"Cannot import module '{self.module_name}': {err}") from err
 
             if self.attr_name:
                 try:
                     self._cached_value = getattr(module, self.attr_name)
-                except AttributeError:
+                except AttributeError as err:
                     raise ImportError(
                         f"Module '{self.module_name}' has no attribute '{self.attr_name}'"
-                    )
+                    ) from err
             else:
                 self._cached_value = module
 
@@ -61,13 +66,14 @@ class LazyImport:
 
         return self._cached_value
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return self._load()(*args, **kwargs)
+    def __call__(self, *args: object, **kwargs: object) -> object:
+        loaded = cast(_CallableObject, self._load())
+        return loaded(*args, **kwargs)
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         return getattr(self._load(), name)
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    def __setattr__(self, name: str, value: object) -> None:
         if name in ("module_name", "attr_name", "verbose", "_cached_value", "_loaded"):
             super().__setattr__(name, value)
         else:
@@ -102,8 +108,10 @@ def import_lazy(
         >>> import_lazy("package.submodule", ["name_1"])   # from package.submodule import name_1
         ```
     """
-    frame = sys._getframe(1)
-    caller_globals = frame.f_globals
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None:
+        raise RuntimeError("Cannot determine caller frame for lazy import")
+    caller_globals = frame.f_back.f_globals
 
     if names is None:
         lazy_import = LazyImport(module, verbose=verbose)

@@ -3,6 +3,7 @@ import json
 import sys
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
@@ -78,14 +79,10 @@ def retry(attempts: int, delay: float = 0) -> Callable[[Callable[P, T]], Callabl
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            for attempt in range(attempts):
-                try:
+            for _ in range(attempts - 1):
+                with suppress(Exception):
                     return func(*args, **kwargs)
-                except Exception:
-                    if attempt < attempts - 1:
-                        time.sleep(delay)
-                    else:
-                        raise
+                time.sleep(delay)
             return func(*args, **kwargs)
 
         return wrapper

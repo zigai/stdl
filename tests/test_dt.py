@@ -6,7 +6,7 @@ from stdl.dt import date_fmt, datetime_fmt, datetime_range, hms_to_seconds, seco
 
 
 @pytest.mark.parametrize(
-    "time_input, ms, expected_output",
+    ("time_input", "ms", "expected_output"),
     [
         (123.456, False, "00:02:03"),
         (123.456, True, "00:02:03.456"),
@@ -28,7 +28,7 @@ def test_seconds_to_hms(time_input: float, ms: bool, expected_output: type[Excep
 
 
 @pytest.mark.parametrize(
-    "time_input, ms, expected_output, expected_exception",
+    ("time_input", "ms", "expected_output", "expected_exception"),
     [
         ("00:02:03", False, 123.0, None),
         ("1:02:03", False, 3723.0, None),
@@ -59,8 +59,7 @@ def test_hms_to_seconds(
 ):
     if expected_exception:
         with pytest.raises(expected_exception):
-            x = hms_to_seconds(time_input, ms)
-            print(time_input, ms, x)
+            hms_to_seconds(time_input, ms)
     else:
         result = hms_to_seconds(time_input, ms)
         assert result == pytest.approx(expected_output, abs=1e-9)
