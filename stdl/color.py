@@ -37,32 +37,26 @@ class Color(ABC):
     @abstractmethod
     def to_rgb(self) -> RGB:
         """Convert to RGB color space"""
-        pass
 
     @abstractmethod
     def to_hex(self) -> HEX:
         """Convert to HEX color space"""
-        pass
 
     @abstractmethod
     def to_hsv(self) -> HSV:
         """Convert to HSV color space"""
-        pass
 
     @abstractmethod
     def to_hsl(self) -> HSL:
         """Convert to HSL color space"""
-        pass
 
     @abstractmethod
     def to_cmyk(self) -> CMYK:
         """Convert to CMYK color space"""
-        pass
 
     @abstractmethod
     def to_assa(self) -> ASSA:
         """Convert to ASS color format"""
-        pass
 
     def copy(self) -> Color:
         return self
@@ -80,7 +74,7 @@ class Color(ABC):
 
 
 class RGB(Color):
-    __slots__ = ("red", "green", "blue")
+    __slots__ = ("blue", "green", "red")
     red: int
     green: int
     blue: int
@@ -181,7 +175,7 @@ class RGB(Color):
 
 
 class RGBA(Color):
-    __slots__ = ("red", "green", "blue", "alpha")
+    __slots__ = ("alpha", "blue", "green", "red")
     red: int
     green: int
     blue: int
@@ -260,8 +254,7 @@ class HEX(Color):
 
     def __init__(self, value: str):
         super().__init__()
-        if value.startswith("#"):
-            value = value[1:]
+        value = value.removeprefix("#")
         self.value = f"#{value.lower()}"
         self.validate()
         self._freeze()
@@ -387,7 +380,7 @@ class HSV(Color):
 
 
 class HSL(Color):
-    __slots__ = ("hue", "saturation", "lightness")
+    __slots__ = ("hue", "lightness", "saturation")
     hue: float
     saturation: float
     lightness: float
@@ -477,7 +470,7 @@ class HSL(Color):
 
 
 class CMYK(Color):
-    __slots__ = ("cyan", "magenta", "yellow", "key")
+    __slots__ = ("cyan", "key", "magenta", "yellow")
     cyan: float
     magenta: float
     yellow: float
@@ -609,32 +602,28 @@ class ASSA(Color):
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[0:2], 16)
-        else:
-            return int(clean[2:4], 16)
+        return int(clean[2:4], 16)
 
     @property
     def green(self) -> int:
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[2:4], 16)
-        else:
-            return int(clean[4:6], 16)
+        return int(clean[4:6], 16)
 
     @property
     def red(self) -> int:
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[4:6], 16)
-        else:
-            return int(clean[6:8], 16)
+        return int(clean[6:8], 16)
 
     @property
     def alpha(self) -> int | None:
         clean = self.clean_value
         if len(clean) == 6:
             return None
-        else:
-            return int(clean[0:2], 16)
+        return int(clean[0:2], 16)
 
     def to_hsv(self) -> HSV:
         return self.to_rgb().to_hsv()
@@ -672,8 +661,7 @@ class ASSA(Color):
             raise ColorValueError("Alpha value must be 0-255")
         if alpha is None:
             return cls(f"{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
-        else:
-            return cls(f"{alpha:02X}{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
+        return cls(f"{alpha:02X}{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
 
     @classmethod
     def from_rgba(cls, rgba: RGBA) -> ASSA:
@@ -1003,7 +991,7 @@ CSS_COLOR_TO_HEX = {
 
 
 class webcolor(Color):
-    __slots__ = ("name", "hex_value")
+    __slots__ = ("hex_value", "name")
     name: str
     hex_value: HEX
     COLORS = CSS_COLOR_TO_HEX
@@ -1088,16 +1076,15 @@ def normalize_color(
     if isinstance(color, SequenceType) and all(isinstance(x, (int, float)) for x in color):
         if len(color) == 3:
             return RGB(*color)
-        elif len(color) == 4:
+        if len(color) == 4:
             return RGBA(*color)
         raise ColorValueError(f"Invalid sequence length: {len(color)}")
-    elif isinstance(color, str):
+    if isinstance(color, str):
         if color.startswith("#"):
             return HEX(color)
-        elif color.startswith("&h") or color.startswith("&H"):
+        if color.startswith("&h") or color.startswith("&H"):
             return ASSA.from_value(color)
-        else:
-            return webcolor(color)
+        return webcolor(color)
     raise ColorValueError(f"Unsupported color format: {color}")
 
 
@@ -1489,17 +1476,17 @@ else:
         object_required=["name"],
     )
 __all__ = [
-    "Color",
+    "ASSA",
+    "CMYK",
+    "CSS_COLOR_TO_HEX",
+    "HEX",
+    "HSL",
+    "HSV",
     "RGB",
     "RGBA",
-    "HEX",
-    "HSV",
-    "HSL",
-    "CMYK",
-    "ASSA",
-    "webcolor",
-    "CSS_COLOR_TO_HEX",
-    "CssColorName",
+    "Color",
     "ColorValueError",
+    "CssColorName",
     "normalize_color",
+    "webcolor",
 ]

@@ -33,8 +33,7 @@ class LazyImport:
                     raise ImportError(
                         f"Cannot import '{self.attr_name}' from '{self.module_name}': {e}"
                     )
-                else:
-                    raise ImportError(f"Cannot import module '{self.module_name}': {e}")
+                raise ImportError(f"Cannot import module '{self.module_name}': {e}")
 
             if self.attr_name:
                 try:
@@ -111,7 +110,7 @@ def import_lazy(
         if alias:
             caller_globals[alias] = lazy_import
         else:
-            caller_globals[module.split(".")[-1]] = lazy_import
+            caller_globals[module.rsplit(".", maxsplit=1)[-1]] = lazy_import
     else:
         if alias:
             raise ValueError("Cannot use alias with named imports")
@@ -120,4 +119,4 @@ def import_lazy(
             caller_globals[name] = lazy_import
 
 
-__all__ = ["import_lazy", "LazyImport"]
+__all__ = ["LazyImport", "import_lazy"]

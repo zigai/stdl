@@ -46,8 +46,7 @@ def split(l: list[T], parts: int) -> list[list[T]]:
         si = length // parts
         if length - si > 0:
             return [l[:si], *inner(l[si:], parts - 1)]
-        else:
-            return [l]
+        return [l]
 
     return inner(l, parts)
 
@@ -155,12 +154,12 @@ def contains_sublist(l: list[Any], sublist: list[Any]) -> bool:
 
 
 __all__ = [
-    "unique",
-    "non_unique",
-    "every_nth",
-    "occurrences",
     "chunks",
-    "split",
-    "replace_sublists",
     "contains_sublist",
+    "every_nth",
+    "non_unique",
+    "occurrences",
+    "replace_sublists",
+    "split",
+    "unique",
 ]

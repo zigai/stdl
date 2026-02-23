@@ -20,18 +20,17 @@ class ColorANSI:
         for attr in dir():
             if isinstance(attr, str) and attr[0] != "_":
                 locals()[attr] = ""
-    else:
-        # Enable VT mode on Windows
-        if system() == "Windows":
-            import ctypes
+    # Enable VT mode on Windows
+    elif system() == "Windows":
+        import ctypes
 
-            kernel32 = ctypes.windll.kernel32
-            handle = kernel32.GetStdHandle(-11)
-            if handle:
-                kernel32.SetConsoleMode(handle, 7)
-            del kernel32
-            del handle
-            del ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-11)
+        if handle:
+            kernel32.SetConsoleMode(handle, 7)
+        del kernel32
+        del handle
+        del ctypes
 
     @classmethod
     def __class_getitem__(cls, key: str) -> str:
@@ -257,9 +256,8 @@ def remove(s: str, chars: str | set, replace_with: str = "") -> str:
     for c in s:
         if c not in chars:
             string.append(c)
-        else:
-            if replace_with:
-                string.append(replace_with)
+        elif replace_with:
+            string.append(replace_with)
     return "".join(string)
 
 
@@ -278,9 +276,8 @@ def keep(s: str, chars: str | set, replace_with: str = "") -> str:
     for c in s:
         if c in chars:
             string.append(c)
-        else:
-            if replace_with:
-                string.append(replace_with)
+        elif replace_with:
+            string.append(replace_with)
     return "".join(string)
 
 
@@ -400,23 +397,23 @@ if __name__ == "__main__":
 
 
 __all__ = [
-    "FG",
-    "BG",
-    "ST",
-    "colored",
-    "terminal_link",
-    "remove",
-    "keep",
     "ASCII",
-    "sf",
-    "snake_case",
-    "camel_case",
-    "kebab_case",
-    "wrapped",
+    "BG",
+    "FG",
+    "ST",
+    "BackgroundColor",
+    "ForegroundColor",
+    "Style",
     "ansi_len",
     "ansi_ljust",
     "ansi_rjust",
-    "Style",
-    "ForegroundColor",
-    "BackgroundColor",
+    "camel_case",
+    "colored",
+    "kebab_case",
+    "keep",
+    "remove",
+    "sf",
+    "snake_case",
+    "terminal_link",
+    "wrapped",
 ]

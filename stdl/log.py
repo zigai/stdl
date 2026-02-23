@@ -148,4 +148,4 @@ def br(
     handler(line)
 
 
-__all__ = ["loguru_formater", "br", "get_logging_config", "LoguruFormatter"]
+__all__ = ["LoguruFormatter", "br", "get_logging_config", "loguru_formater"]

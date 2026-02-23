@@ -394,11 +394,8 @@ def yield_files_in(
             path = entry.path
             if abs:
                 path = os.path.abspath(entry.path)
-            if ext is None:
+            if ext is None or path.lower().endswith(ext):
                 yield path
-            else:
-                if path.lower().endswith(ext):
-                    yield path
         return
 
     queue = Queue()
@@ -1159,8 +1156,7 @@ class File(PathBase):
 
     def _write_iter(self, data: Iterable[Any], mode: str, sep: str = "\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
-            for entry in data:
-                f.write(f"{entry}{sep}")
+            f.writelines(f"{entry}{sep}" for entry in data)
 
     def write(
         self,
@@ -1663,52 +1659,52 @@ class EXT:
 
 __all__ = [
     "EXT",
-    "File",
-    "Directory",
-    "PathLike",
-    "mkdir",
-    "pickle_load",
-    "pickle_dump",
-    "json_load",
-    "json_append",
-    "yaml_load",
-    "json_dump",
-    "yaml_dump",
-    "get_dir_size",
-    "move_files",
-    "rand_filename",
-    "bytes_readable",
-    "readable_size_to_bytes",
-    "windows_has_drive",
-    "is_wsl",
-    "mkdirs",
-    "yield_files_in",
-    "get_files_in",
-    "yield_dirs_in",
-    "get_dirs_in",
-    "ensure_paths_exist",
-    "exec_cmd",
-    "SEP",
     "HOME",
+    "SEP",
+    "Directory",
+    "File",
+    "PathLike",
     "abspath",
     "basename",
+    "bytes_readable",
+    "chdir",
+    "chmod",
+    "chown",
+    "copy",
     "dirname",
-    "joinpath",
-    "splitpath",
-    "start_file",
-    "read_piped",
+    "ensure_paths_exist",
+    "exec_cmd",
+    "exists",
+    "get_dir_size",
+    "get_dirs_in",
+    "get_files_in",
+    "getcwd",
+    "is_wsl",
     "isdir",
     "isfile",
     "islink",
-    "exists",
-    "stat",
+    "joinpath",
+    "json_append",
+    "json_dump",
+    "json_load",
     "link",
-    "getcwd",
-    "chdir",
-    "chmod",
+    "mkdir",
+    "mkdirs",
+    "move",
+    "move_files",
+    "pickle_dump",
+    "pickle_load",
+    "rand_filename",
+    "read_piped",
+    "readable_size_to_bytes",
     "remove",
     "rename",
-    "copy",
-    "move",
-    "chown",
+    "splitpath",
+    "start_file",
+    "stat",
+    "windows_has_drive",
+    "yaml_dump",
+    "yaml_load",
+    "yield_dirs_in",
+    "yield_files_in",
 ]

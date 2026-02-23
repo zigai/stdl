@@ -93,4 +93,4 @@ def retry(attempts: int, delay: float = 0) -> Callable[[Callable[P, T]], Callabl
     return decorator
 
 
-__all__ = ["timer", "retry"]
+__all__ = ["retry", "timer"]
