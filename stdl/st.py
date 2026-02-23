@@ -192,7 +192,7 @@ def colored(
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
-@dataclass
+@dataclass(frozen=True)
 class TextStyle:
     color: ForegroundColor | str | None = None
     background: BackgroundColor | str | None = None
