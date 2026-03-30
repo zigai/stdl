@@ -92,6 +92,35 @@ def _remove_existing_path(path: str) -> None:
         os.remove(path)
 
 
+def _comparison_path(path: str | PathLike) -> str:
+    return os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
+
+
+def _prepare_destination_path(
+    path: str,
+    *,
+    mkdir: bool,
+    overwrite: bool,
+    source_path: str | None = None,
+) -> bool:
+    if source_path is not None and _comparison_path(source_path) == _comparison_path(path):
+        return True
+
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        if mkdir:
+            os.makedirs(parent, exist_ok=True)
+        else:
+            raise FileNotFoundError(f"No such directory: '{parent}'")
+
+    if os.path.exists(path):
+        if not overwrite:
+            raise FileExistsError(path)
+        _remove_existing_path(path)
+
+    return False
+
+
 def pickle_load(filepath: str | PathLike) -> object:
     """Loads a pickled file."""
     with open(filepath, "rb") as f:
@@ -718,6 +747,15 @@ def start_file(path: str | PathLike) -> None:
 
 
 class PathBase(PathLike):
+    """
+    Base class for typed filesystem paths.
+
+    Return-value policy:
+    - methods that keep the same lexical path return `self`
+    - methods that point at a different path return a new path object
+    - methods that create a second path return the created path object
+    """
+
     def __init__(
         self,
         path: str | PathLike,
@@ -731,9 +769,28 @@ class PathBase(PathLike):
             path (str | PathLike): The path.
             abs (bool): Whether to use the absolute path.
         """
-        self.path = os.fspath(path).replace("\\", SEP).replace("/", SEP)
+        self._path = os.fspath(path).replace("\\", SEP).replace("/", SEP)
         if abs:
-            self.path = os.path.abspath(self.path)
+            self._path = os.path.abspath(self._path)
+
+    @property
+    def path(self) -> str:
+        """The stored path string."""
+        return self._path
+
+    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> Self:
+        return self.__class__(path, abs=abs)
+
+    def _comparison_path(self) -> str:
+        return os.path.normcase(os.path.normpath(self.path))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PathBase):
+            return NotImplemented
+        return type(self) is type(other) and self._comparison_path() == other._comparison_path()
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._comparison_path()))
 
     def __fspath__(self) -> str:
         return self.path
@@ -741,7 +798,7 @@ class PathBase(PathLike):
     def __str__(self) -> str:
         return self.path
 
-    def resolve(self, strict: bool = False) -> PathBase:
+    def resolve(self, strict: bool = False) -> Self:
         """
         Make the path absolute, resolving any symlinks.
 
@@ -749,12 +806,12 @@ class PathBase(PathLike):
             strict: If True and path doesn't exist, raises FileNotFoundError. Defaults to False.
 
         Returns:
-            PathBase: The object with resolved path.
+            The resolved path object.
         """
-        self.path = os.path.realpath(self.path)
-        if strict and not self.exists:
-            raise FileNotFoundError(f"No such file: '{self.path}'")
-        return self
+        resolved_path = os.path.realpath(self.path)
+        if strict and not os.path.exists(resolved_path):
+            raise FileNotFoundError(f"No such file: '{resolved_path}'")
+        return self._clone_with_path(resolved_path)
 
     @property
     def nodes(self) -> list[str]:
@@ -822,8 +879,7 @@ class PathBase(PathLike):
         """
         new_path = os.path.join(self.parent.path, name)
         os.rename(self.path, new_path)
-        self.path = new_path
-        return self
+        return self._clone_with_path(new_path)
 
     def chmod(self, mode: int) -> Self:
         """
@@ -888,6 +944,32 @@ class PathBase(PathLike):
         """
         return os.stat(self.path, follow_symlinks=follow_symlinks)
 
+    def samefile(self, other: str | PathLike | PathBase) -> bool:
+        """Return True if both paths reference the same filesystem entry."""
+        if isinstance(other, PathBase):
+            other = other.path
+        return os.path.samefile(self.path, os.fspath(other))
+
+    def readlink(self) -> str:
+        """Return the path that this symbolic link points to."""
+        return os.readlink(self.path)
+
+    def owner(self) -> str:
+        """Return the filesystem owner name."""
+        if sys.platform == "win32":
+            raise NotImplementedError("owner() is not supported on Windows")
+        import pwd
+
+        return pwd.getpwuid(self.stat().st_uid).pw_name
+
+    def group(self) -> str:
+        """Return the filesystem group name."""
+        if sys.platform == "win32":
+            raise NotImplementedError("group() is not supported on Windows")
+        import grp
+
+        return grp.getgrgid(self.stat().st_gid).gr_name
+
     def relative_to(self, other: str | PathBase) -> str:
         """
         Make this path relative to another path.
@@ -909,15 +991,14 @@ class PathBase(PathLike):
             raise ValueError(f"'{self.path}' is not relative to '{other}'")
         return os.path.relpath(self_abs, other)
 
-    def expanduser(self) -> PathBase:
+    def expanduser(self) -> Self:
         """
         Expand ~ and ~user constructs in the path.
 
         Returns:
-            PathBase: The object with the expanded path.
+            The path object with the expanded path.
         """
-        self.path = os.path.expanduser(self.path)
-        return self
+        return self._clone_with_path(os.path.expanduser(self.path))
 
     def as_posix(self) -> str:
         """Return the path with forward slashes."""
@@ -949,12 +1030,12 @@ class PathBase(PathLike):
         """
         return fnmatch.fnmatch(self.basename, pattern)
 
-    def with_name(self, name: str) -> PathBase:
+    def with_name(self, name: str) -> Self:
         """Return a new path with the name changed."""
         parent = os.path.dirname(self.path)
         if parent:
-            return self.__class__(f"{parent}{SEP}{name}")
-        return self.__class__(name)
+            return self._clone_with_path(os.path.join(parent, name))
+        return self._clone_with_path(name)
 
     @property
     def exists(self) -> bool:
@@ -986,36 +1067,37 @@ class PathBase(PathLike):
     def clear(self) -> Self:
         raise NotImplementedError
 
-    def move_to(self, directory: str | Directory | PathLike, *, overwrite: bool = True) -> PathBase:
+    def move_to(self, target: PathBase, *, mkdir: bool = False, overwrite: bool = True) -> Self:
         """
-        Move the path to a new directory.
+        Move the path to a new target.
 
         Args:
-            directory: The destination directory
+            target: The destination path object.
+            mkdir: Whether to create missing parent directories. Defaults to False.
             overwrite: Whether to overwrite files if they already exist. Defaults to True.
 
         Returns:
-            The updated PathBase object
+            A new path object pointing at the moved path.
         """
         raise NotImplementedError
 
     def copy_to(
         self,
-        directory: str | Directory | PathLike,
+        target: PathBase,
         *,
-        overwrite: bool = True,
         mkdir: bool = False,
-    ) -> PathBase:
+        overwrite: bool = True,
+    ) -> Self:
         """
-        Copy the path to a new directory.
+        Copy the path to a new target.
 
         Args:
-            directory: The destination directory
+            target: The destination path object.
+            mkdir: Whether to create missing parent directories. Defaults to False.
             overwrite: Whether to overwrite files if they already exist. Defaults to True.
-            mkdir: Whether to create the destination directory if it doesn't exist. Defaults to False.
 
         Returns:
-            The updated PathBase object
+            A new path object pointing at the copied path.
         """
         raise NotImplementedError
 
@@ -1034,7 +1116,7 @@ class PathBase(PathLike):
             """
             return os.getxattr(self.path, f"{group}.{name}").decode()
 
-        def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> PathBase:
+        def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> Self:
             """
             Set an extended attribute.
 
@@ -1048,7 +1130,7 @@ class PathBase(PathLike):
             os.setxattr(self.path, f"{group}.{name}", value)
             return self
 
-        def remove_xattr(self, name: str, group: str = "user") -> PathBase:
+        def remove_xattr(self, name: str, group: str = "user") -> Self:
             """
             Remove an extended attribute.
 
@@ -1078,6 +1160,9 @@ class File(PathBase):
         """
         super().__init__(path, abs=abs)
         self.encoding = encoding
+
+    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> File:
+        return File(path, encoding=self.encoding, abs=abs)
 
     @property
     def exists(self) -> bool:
@@ -1137,6 +1222,19 @@ class File(PathBase):
         if self.exists:
             return self
         open(self.path, "a", encoding=self.encoding).close()
+        return self
+
+    def touch(self, *, mkdir: bool = False) -> File:
+        """Create the file if needed and update its timestamps."""
+        parent = os.path.dirname(self.path)
+        if parent and not os.path.isdir(parent):
+            if mkdir:
+                os.makedirs(parent, exist_ok=True)
+            else:
+                raise FileNotFoundError(f"No such directory: '{parent}'")
+        with open(self.path, "a", encoding=self.encoding):
+            pass
+        os.utime(self.path, None)
         return self
 
     def remove(self) -> File:
@@ -1243,25 +1341,33 @@ class File(PathBase):
             encoding = self.encoding
         return open(self.path, mode, encoding=encoding, **kwargs)
 
-    def write_iter(self, data: Iterable[Any], sep: str = "\n") -> None:
+    def write_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
         Write data from an iterable to a file, overwriting any existing data.
 
         Args:
             data (Iterable): The data to write.
             sep (str, optional): The separator to use between items.
+
+        Returns:
+            File: The File object for method chaining.
         """
         self._write_iter(data, "w", sep=sep)
+        return self
 
-    def append_iter(self, data: Iterable[Any], sep: str = "\n") -> None:
+    def append_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
         Append data from an iterable to a file.
 
         Args:
             data (Iterable): The data to append.
             sep (str, optional): The separator to use between items.
+
+        Returns:
+            File: The File object for method chaining.
         """
         self._write_iter(data, "a", sep=sep)
+        return self
 
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()."""
@@ -1277,68 +1383,80 @@ class File(PathBase):
 
     def move_to(
         self,
-        directory: str | Directory | PathLike,
+        target: File | Directory,
         *,
         mkdir: bool = False,
         overwrite: bool = True,
     ) -> File:
         """
-        Move the file to a new directory.
+        Move the file to a new target.
 
         Args:
-            directory (str): The destination directory.
-            mkdir (bool, optional): Whether to create the directory if it doesn't exist. Defaults to False.
-            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
-        """
-        directory = os.fspath(directory)
-        if not os.path.isdir(directory):
-            if mkdir:
-                os.mkdir(directory)
-            else:
-                raise FileNotFoundError(f"No such directory: '{directory}'")
+            target: The destination `File` or `Directory`.
+            mkdir: Whether to create missing parent directories. Defaults to False.
+            overwrite: Whether to overwrite the destination if it already exists. Defaults to True.
 
-        move_path = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(move_path) and not overwrite:
-            raise FileExistsError(move_path)
-        os.rename(self.path, move_path)
-        self.path = move_path
-        return self
+        Returns:
+            File: A new File object pointing at the moved path.
+        """
+        if isinstance(target, Directory):
+            dest_path = os.path.join(target.path, self.basename)
+        elif isinstance(target, File):
+            dest_path = target.path
+        else:
+            raise TypeError("File.move_to() target must be a File or Directory")
+
+        if _prepare_destination_path(
+            dest_path,
+            mkdir=mkdir,
+            overwrite=overwrite,
+            source_path=self.path,
+        ):
+            return self._clone_with_path(dest_path)
+        os.rename(self.path, dest_path)
+        return self._clone_with_path(dest_path)
 
     def copy_to(
         self,
-        directory: str | Directory | PathLike,
+        target: File | Directory,
         *,
         mkdir: bool = False,
         overwrite: bool = True,
     ) -> File:
         """
-        Copy the file to a new directory.
+        Copy the file to a new target.
 
         Args:
-            directory (str): The destination directory.
-            mkdir (bool, optional): Whether to create the directory if it doesn't exist. Defaults to False.
-            overwrite (bool, optional): Whether to overwrite the file if it already exists in the destination directory. Defaults to True.
-        """
-        directory = os.fspath(directory)
-        if not os.path.isdir(directory):
-            if mkdir:
-                os.mkdir(directory)
-            else:
-                raise FileNotFoundError(f"No such directory: '{directory}'")
+            target: The destination `File` or `Directory`.
+            mkdir: Whether to create missing parent directories. Defaults to False.
+            overwrite: Whether to overwrite the destination if it already exists. Defaults to True.
 
-        copy_path = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(copy_path) and not overwrite:
-            raise FileExistsError(copy_path)
-        self.path = shutil.copy2(self.path, directory)
-        return self
+        Returns:
+            File: A new File object pointing at the copied path.
+        """
+        if isinstance(target, Directory):
+            dest_path = os.path.join(target.path, self.basename)
+        elif isinstance(target, File):
+            dest_path = target.path
+        else:
+            raise TypeError("File.copy_to() target must be a File or Directory")
+
+        if _prepare_destination_path(
+            dest_path,
+            mkdir=mkdir,
+            overwrite=overwrite,
+            source_path=self.path,
+        ):
+            return self._clone_with_path(dest_path)
+        shutil.copy2(self.path, dest_path)
+        return self._clone_with_path(dest_path)
 
     def with_dir(self, directory: str) -> File:
         """
         Change the directory of the file object. This will not move the actual file to that directory.
         Use File.move_to for that.
         """
-        self.path = f"{directory}{SEP}{self.basename}"
-        return self
+        return self._clone_with_path(os.path.join(directory, self.basename))
 
     def with_ext(self, ext: str) -> File:
         """
@@ -1352,8 +1470,7 @@ class File(PathBase):
         """
         if not ext.startswith("."):
             ext = f".{ext}"
-        self.path = f"{self.dirname}{SEP}{self.stem}{ext}"
-        return self
+        return self._clone_with_path(os.path.join(self.dirname, f"{self.stem}{ext}"))
 
     def with_suffix(self, suffix: str) -> File:
         """Add a suffix to the file's name and return the new File object."""
@@ -1361,8 +1478,7 @@ class File(PathBase):
         if ext:
             ext = f".{ext}"
         filename = f"{self.stem}{suffix}{ext}"
-        self.path = f"{self.dirname}{SEP}{filename}"
-        return self
+        return self._clone_with_path(os.path.join(self.dirname, filename))
 
     def with_prefix(self, prefix: str) -> File:
         """Add a prefix to the file's name and return the new File object."""
@@ -1370,30 +1486,28 @@ class File(PathBase):
         if ext:
             ext = f".{ext}"
         filename = f"{prefix}{self.stem}{ext}"
-        self.path = f"{self.dirname}{SEP}{filename}"
-        return self
+        return self._clone_with_path(os.path.join(self.dirname, filename))
 
     def with_stem(self, stem: str) -> File:
         """Return a new File with the stem changed, keeping the suffix."""
         suffix = self.suffix
-        return File(f"{self.dirname}{SEP}{stem}{suffix}", encoding=self.encoding)
+        return self._clone_with_path(os.path.join(self.dirname, f"{stem}{suffix}"))
 
     def rename(self, name: str) -> File:
         """Rename the file and return the new File object."""
-        new_path = f"{self.dirname}{SEP}{name}"
+        new_path = os.path.join(self.dirname, name)
         os.rename(self.path, new_path)
-        self.path = new_path
-        return self
+        return self._clone_with_path(new_path)
 
     def link(self, target: str, follow_symlinks: bool = True) -> File:
-        """Create a hard link to the file."""
+        """Create a hard link and return a File for the created link path."""
         os.link(self.path, target, follow_symlinks=follow_symlinks)
-        return self
+        return self._clone_with_path(target)
 
     def symlink(self, target: str) -> File:
-        """Create a symbolic link to the file."""
+        """Create a symbolic link and return a File for the created link path."""
         os.symlink(self.path, target)
-        return self
+        return self._clone_with_path(target)
 
     @classmethod
     def rand(cls, prefix: str = "file", ext: str = "") -> File:
@@ -1438,6 +1552,11 @@ class Directory(PathBase):
         return get_dir_size(self.path, readable=False)
 
     @property
+    def size_readable(self) -> str:
+        """Total size of the directory and all its contents in human-readable form."""
+        return bytes_readable(self.size)
+
+    @property
     def exists(self) -> bool:
         """Check if the directory exists."""
         return os.path.isdir(self.path)
@@ -1445,6 +1564,15 @@ class Directory(PathBase):
     def create(self, mode: int = 0o777, exist_ok: bool = True) -> Directory:
         """Create directory (including parents)."""
         os.makedirs(self.path, mode=mode, exist_ok=exist_ok)
+        return self
+
+    def clear(self) -> Directory:
+        """Remove all children while keeping the directory itself."""
+        if not self.exists:
+            return self
+        with os.scandir(self.path) as entries:
+            for entry in entries:
+                _remove_existing_path(entry.path)
         return self
 
     @property
@@ -1458,66 +1586,57 @@ class Directory(PathBase):
 
     def move_to(
         self,
-        directory: str | PathLike | Directory,
+        target: Directory,
         *,
+        mkdir: bool = False,
         overwrite: bool = True,
     ) -> Directory:
         """
-        Move this directory to become a child of the target location.
+        Move this directory into another directory, preserving its basename.
 
         Args:
-            directory: The destination directory where this directory will be moved
+            target: The destination parent directory.
+            mkdir: Whether to create missing parent directories. Defaults to False.
             overwrite: Whether to overwrite if target path already exists. Defaults to True.
 
         Returns:
-            The updated Directory object
+            Directory: A new Directory object pointing at the moved path.
         """
-        directory = os.fspath(directory)
-        if not os.path.exists(directory):
-            raise FileNotFoundError(f"Destination directory does not exist: {directory}")
+        if not isinstance(target, Directory):
+            raise TypeError("Directory.move_to() target must be a Directory")
 
-        dest = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(dest):
-            if not overwrite:
-                raise FileExistsError(dest)
-            _remove_existing_path(dest)
+        dest = os.path.join(target.path, self.basename)
+        if _prepare_destination_path(dest, mkdir=mkdir, overwrite=overwrite, source_path=self.path):
+            return self._clone_with_path(dest)
         shutil.move(self.path, dest)
-        self.path = dest
-        return self
+        return self._clone_with_path(dest)
 
     def copy_to(
         self,
-        directory: str | PathLike | Directory,
+        target: Directory,
         *,
-        overwrite: bool = True,
         mkdir: bool = False,
+        overwrite: bool = True,
     ) -> Directory:
         """
-        Copy this directory to become a child of the target location.
+        Copy this directory into another directory, preserving its basename.
 
         Args:
-            directory: The destination directory where this directory will be copied
+            target: The destination parent directory.
+            mkdir: Whether to create missing parent directories. Defaults to False.
             overwrite: Whether to overwrite if target path already exists. Defaults to True.
-            mkdir: Whether to create the destination directory if it doesn't exist. Defaults to False.
 
         Returns:
-            The updated Directory object
+            Directory: A new Directory object pointing at the copied path.
         """
-        directory = os.fspath(directory)
-        if not os.path.exists(directory):
-            if mkdir:
-                os.makedirs(directory)
-            else:
-                raise FileNotFoundError(f"Destination directory does not exist: {directory}")
+        if not isinstance(target, Directory):
+            raise TypeError("Directory.copy_to() target must be a Directory")
 
-        dest = f"{directory}{SEP}{self.basename}"
-        if os.path.exists(dest):
-            if not overwrite:
-                raise FileExistsError(dest)
-            _remove_existing_path(dest)
+        dest = os.path.join(target.path, self.basename)
+        if _prepare_destination_path(dest, mkdir=mkdir, overwrite=overwrite, source_path=self.path):
+            return self._clone_with_path(dest)
         shutil.copytree(self.path, dest)
-        self.path = dest
-        return self
+        return self._clone_with_path(dest)
 
     def remove(self) -> Directory:
         """Remove the directory and all its contents."""
@@ -1629,6 +1748,44 @@ class Directory(PathBase):
             list[Directory]: The subdirectories in the directory.
         """
         return list(self.yield_subdirs(glob=glob, regex=regex, recursive=recursive))
+
+    def yield_entries(self) -> Generator[File | Directory, None, None]:
+        """Yield immediate child files and directories in a single pass."""
+        with os.scandir(self.path) as entries:
+            for entry in entries:
+                if entry.is_dir():
+                    yield Directory(entry.path)
+                elif entry.is_file():
+                    yield File(entry.path)
+
+    def get_entries(self) -> list[File | Directory]:
+        """Return immediate child files and directories."""
+        return list(self.yield_entries())
+
+    def walk(
+        self, *, follow_symlinks: bool = False
+    ) -> Generator[tuple[Directory, list[Directory], list[File]], None, None]:
+        """
+        Recursively walk the directory tree in top-down order.
+
+        Yields:
+            tuple[Directory, list[Directory], list[File]]: The current root, its child directories,
+            and its child files.
+        """
+        subdirs: list[Directory] = []
+        files: list[File] = []
+        for entry in self.yield_entries():
+            if isinstance(entry, Directory):
+                subdirs.append(entry)
+            else:
+                files.append(entry)
+
+        yield self, subdirs, files
+
+        for subdir in subdirs:
+            if subdir.is_symlink and not follow_symlinks:
+                continue
+            yield from subdir.walk(follow_symlinks=follow_symlinks)
 
     def file(self, name: str) -> File:
         return File(joinpath(self.path, safe_filename(name)))
