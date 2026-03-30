@@ -2,6 +2,7 @@ import os
 import stat
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -159,6 +160,37 @@ class TestFileInit:
     def test_file_str(self, temp_file: File):
         """Verify __str__ returns path."""
         assert str(temp_file) == temp_file.path
+
+    def test_file_path_is_read_only(self, temp_file: File):
+        """Path is read-only."""
+        with pytest.raises(AttributeError):
+            temp_file.path = "other.txt"
+
+
+class TestPathValueSemantics:
+    def test_file_equality_normalizes_lexical_path(self):
+        """File equality uses normalized lexical paths."""
+        assert fs.File("a") == fs.File(f".{os.sep}a")
+
+    def test_directory_equality_normalizes_trailing_separator(self):
+        """Directory equality ignores trailing separators."""
+        assert fs.Directory("dir") == fs.Directory(f"dir{os.sep}")
+
+    def test_file_and_directory_are_not_equal(self):
+        """Concrete type is part of path equality."""
+        assert fs.File("a") != fs.Directory("a")
+
+    def test_equal_paths_have_equal_hashes(self):
+        """Equal path objects hash the same."""
+        paths = {fs.File("a"), fs.File(f".{os.sep}a")}
+        assert len(paths) == 1
+
+    def test_file_equality_ignores_encoding(self):
+        """File equality and hashing ignore encoding."""
+        utf8 = fs.File("a", encoding="utf-8")
+        latin1 = fs.File("a", encoding="latin-1")
+        assert utf8 == latin1
+        assert hash(utf8) == hash(latin1)
 
 
 class TestFilePathComponents:
@@ -342,6 +374,27 @@ class TestFileCreationDeletion:
         result = f.create()
         assert result is f
 
+    def test_file_touch_creates_missing_file(self, tmp_path: Path):
+        """touch() creates a missing file."""
+        f = fs.File(str(tmp_path / "new.txt"))
+        result = f.touch()
+        assert result is f
+        assert f.exists
+
+    def test_file_touch_updates_mtime(self, temp_file: File):
+        """touch() updates timestamps for an existing file."""
+        before = temp_file.stat().st_mtime_ns
+        time.sleep(0.01)
+        temp_file.touch()
+        after = temp_file.stat().st_mtime_ns
+        assert after > before
+
+    def test_file_touch_mkdir(self, tmp_path: Path):
+        """touch(mkdir=True) creates missing parent directories."""
+        f = fs.File(str(tmp_path / "nested" / "new.txt"))
+        f.touch(mkdir=True)
+        assert f.exists
+
     def test_file_remove(self, temp_file: File):
         """remove() deletes file."""
         assert temp_file.exists
@@ -476,8 +529,9 @@ class TestFileIterableWrite:
     def test_file_write_iter(self, tmp_path: Path):
         """write_iter() writes list to file."""
         f = fs.File(str(tmp_path / "iter.txt"))
-        f.write_iter(["a", "b", "c"])
+        result = f.write_iter(["a", "b", "c"])
         content = f.read()
+        assert result is f
         assert "a\n" in content
         assert "b\n" in content
         assert "c\n" in content
@@ -485,8 +539,9 @@ class TestFileIterableWrite:
     def test_file_write_iter_custom_sep(self, tmp_path: Path):
         """write_iter(sep=',') uses custom separator."""
         f = fs.File(str(tmp_path / "iter.txt"))
-        f.write_iter(["a", "b", "c"], sep=",")
+        result = f.write_iter(["a", "b", "c"], sep=",")
         content = f.read()
+        assert result is f
         assert content == "a,b,c,"
 
     def test_file_append_iter(self, tmp_path: Path):
@@ -494,8 +549,9 @@ class TestFileIterableWrite:
         f = tmp_path / "iter.txt"
         f.write_text("first\n")
         file = fs.File(str(f))
-        file.append_iter(["a", "b"])
+        result = file.append_iter(["a", "b"])
         content = file.read()
+        assert result is file
         assert content.startswith("first\n")
         assert "a\n" in content
         assert "b\n" in content
@@ -552,22 +608,26 @@ class TestFileOpen:
 
 class TestFileMoveCopy:
     def test_file_move_to(self, temp_file: File, tmp_path: Path):
-        """move_to() moves file to directory."""
+        """move_to() returns a new File for the destination."""
         dest_dir = tmp_path / "dest"
         dest_dir.mkdir()
         original_path = temp_file.path
-        temp_file.move_to(str(dest_dir))
+        moved_file = temp_file.move_to(fs.Directory(str(dest_dir)))
         assert not os.path.exists(original_path)
-        assert temp_file.exists
-        assert temp_file.dirname == str(dest_dir)
+        assert not temp_file.exists
+        assert temp_file.path == original_path
+        assert moved_file.exists
+        assert moved_file.dirname == str(dest_dir)
+        assert moved_file is not temp_file
 
     def test_file_move_to_mkdir(self, temp_file: File, tmp_path: Path):
-        """move_to(mkdir=True) creates directory."""
+        """move_to(mkdir=True) creates directory and returns new File."""
         dest_dir = tmp_path / "newdir"
         assert not dest_dir.exists()
-        temp_file.move_to(str(dest_dir), mkdir=True)
+        moved_file = temp_file.move_to(fs.Directory(str(dest_dir)), mkdir=True)
         assert dest_dir.exists()
-        assert temp_file.exists
+        assert moved_file.exists
+        assert not temp_file.exists
 
     def test_file_move_to_no_overwrite(self, temp_file: File, tmp_path: Path):
         """move_to(overwrite=False) raises FileExistsError."""
@@ -577,38 +637,52 @@ class TestFileMoveCopy:
         existing.write_text("existing")
 
         with pytest.raises(FileExistsError):
-            temp_file.move_to(str(dest_dir), overwrite=False)
+            temp_file.move_to(fs.Directory(str(dest_dir)), overwrite=False)
 
     def test_file_move_to_nonexistent_dir(self, temp_file: File, tmp_path: Path):
         """move_to() raises FileNotFoundError."""
         nonexistent = tmp_path / "nonexistent"
         with pytest.raises(FileNotFoundError):
-            temp_file.move_to(str(nonexistent))
+            temp_file.move_to(fs.Directory(str(nonexistent)))
 
-    def test_file_move_to_updates_path(self, temp_file: File, tmp_path: Path):
-        """move_to() updates self.path."""
-        dest_dir = tmp_path / "dest"
-        dest_dir.mkdir()
-        temp_file.move_to(str(dest_dir))
-        assert str(dest_dir) in temp_file.path
-
-    def test_file_copy_to(self, temp_file: File, tmp_path: Path):
-        """copy_to() copies file to directory."""
+    def test_file_move_to_leaves_source_path_unchanged(self, temp_file: File, tmp_path: Path):
+        """move_to() leaves the source object unchanged and returns a new File."""
         dest_dir = tmp_path / "dest"
         dest_dir.mkdir()
         original_path = temp_file.path
-        temp_file.copy_to(str(dest_dir))
+        moved_file = temp_file.move_to(fs.Directory(str(dest_dir)))
+        assert temp_file.path == original_path
+        assert moved_file.path == str(dest_dir / "test.txt")
+
+    def test_file_move_to_exact_file_target(self, temp_file: File, tmp_path: Path):
+        """move_to(File(...)) uses the exact destination path."""
+        target = fs.File(str(tmp_path / "dest" / "renamed.txt"))
+        moved_file = temp_file.move_to(target, mkdir=True)
+        assert moved_file.path == target.path
+        assert moved_file.exists
+        assert moved_file.basename == "renamed.txt"
+        assert not temp_file.exists
+
+    def test_file_copy_to(self, temp_file: File, tmp_path: Path):
+        """copy_to() returns a new File for the copy."""
+        dest_dir = tmp_path / "dest"
+        dest_dir.mkdir()
+        original_path = temp_file.path
+        copied_file = temp_file.copy_to(fs.Directory(str(dest_dir)))
         assert os.path.exists(original_path)
         assert temp_file.exists
-        assert temp_file.dirname == str(dest_dir)
+        assert copied_file.exists
+        assert copied_file.dirname == str(dest_dir)
+        assert copied_file is not temp_file
 
     def test_file_copy_to_mkdir(self, temp_file: File, tmp_path: Path):
-        """copy_to(mkdir=True) creates directory."""
+        """copy_to(mkdir=True) creates directory and returns new File."""
         dest_dir = tmp_path / "newdir"
         assert not dest_dir.exists()
-        temp_file.copy_to(str(dest_dir), mkdir=True)
+        copied_file = temp_file.copy_to(fs.Directory(str(dest_dir)), mkdir=True)
         assert dest_dir.exists()
         assert temp_file.exists
+        assert copied_file.exists
 
     def test_file_copy_to_no_overwrite(self, temp_file: File, tmp_path: Path):
         """copy_to(overwrite=False) raises FileExistsError."""
@@ -618,44 +692,89 @@ class TestFileMoveCopy:
         existing.write_text("existing")
 
         with pytest.raises(FileExistsError):
-            temp_file.copy_to(str(dest_dir), overwrite=False)
+            temp_file.copy_to(fs.Directory(str(dest_dir)), overwrite=False)
 
-    def test_file_copy_to_updates_path(self, temp_file: File, tmp_path: Path):
-        """copy_to() updates self.path to copy."""
+    def test_file_copy_to_leaves_source_path_unchanged(self, temp_file: File, tmp_path: Path):
+        """copy_to() keeps the source path and returns a new File."""
         dest_dir = tmp_path / "dest"
         dest_dir.mkdir()
-        temp_file.copy_to(str(dest_dir))
-        assert str(dest_dir) in temp_file.path
+        original_path = temp_file.path
+        copied_file = temp_file.copy_to(fs.Directory(str(dest_dir)))
+        assert temp_file.path == original_path
+        assert copied_file.path == str(dest_dir / "test.txt")
+
+    def test_file_copy_to_exact_file_target(self, temp_file: File, tmp_path: Path):
+        """copy_to(File(...)) uses the exact destination path."""
+        target = fs.File(str(tmp_path / "dest" / "copied.txt"))
+        copied_file = temp_file.copy_to(target, mkdir=True)
+        assert copied_file.path == target.path
+        assert copied_file.exists
+        assert copied_file.basename == "copied.txt"
+        assert temp_file.exists
+
+    def test_file_move_to_same_directory_is_noop(self, temp_file: File, tmp_path: Path):
+        """move_to(existing parent) is a no-op when the destination is the same path."""
+        moved_file = temp_file.move_to(fs.Directory(str(tmp_path)))
+        assert moved_file is not temp_file
+        assert moved_file.path == temp_file.path
+        assert moved_file.exists
+        assert temp_file.exists
+        assert Path(temp_file.path).read_text() == "hello world"
+
+    def test_file_copy_to_same_directory_is_noop(self, temp_file: File, tmp_path: Path):
+        """copy_to(existing parent) is a no-op when the destination is the same path."""
+        copied_file = temp_file.copy_to(fs.Directory(str(tmp_path)))
+        assert copied_file is not temp_file
+        assert copied_file.path == temp_file.path
+        assert copied_file.exists
+        assert temp_file.exists
+        assert Path(temp_file.path).read_text() == "hello world"
+
+    def test_file_move_to_requires_typed_target(self, temp_file: File, tmp_path: Path):
+        """move_to() rejects raw string targets."""
+        dest_dir = tmp_path / "dest"
+        dest_dir.mkdir()
+        with pytest.raises(TypeError):
+            temp_file.move_to(str(dest_dir))
 
 
 class TestFilePathManipulation:
     def test_file_with_dir(self, temp_file: File):
-        """with_dir() changes directory portion."""
+        """with_dir() returns a new File with a changed directory."""
         new_dir = "/new/directory"
-        temp_file.with_dir(new_dir)
-        assert temp_file.dirname == new_dir
-        assert temp_file.basename == "test.txt"
+        original_path = temp_file.path
+        new_file = temp_file.with_dir(new_dir)
+        assert temp_file.path == original_path
+        assert new_file.dirname == new_dir
+        assert new_file.basename == "test.txt"
+        assert new_file is not temp_file
 
     def test_file_with_ext(self, temp_file: File):
-        """with_ext() changes extension."""
-        temp_file.with_ext("md")
-        assert temp_file.ext == "md"
-        assert temp_file.basename.endswith(".md")
+        """with_ext() returns a new File with a changed extension."""
+        original_path = temp_file.path
+        new_file = temp_file.with_ext("md")
+        assert temp_file.path == original_path
+        assert new_file.ext == "md"
+        assert new_file.basename.endswith(".md")
 
     def test_file_with_ext_no_dot(self, temp_file: File):
         """with_ext('txt') adds dot automatically."""
-        temp_file.with_ext("json")
-        assert temp_file.suffix == ".json"
+        new_file = temp_file.with_ext("json")
+        assert new_file.suffix == ".json"
 
     def test_file_with_suffix(self, temp_file: File):
-        """with_suffix() adds suffix before extension."""
-        temp_file.with_suffix("_backup")
-        assert "test_backup.txt" in temp_file.path
+        """with_suffix() returns a new File with a suffixed name."""
+        original_path = temp_file.path
+        new_file = temp_file.with_suffix("_backup")
+        assert temp_file.path == original_path
+        assert "test_backup.txt" in new_file.path
 
     def test_file_with_prefix(self, temp_file: File):
-        """with_prefix() adds prefix to filename."""
-        temp_file.with_prefix("new_")
-        assert "new_test.txt" in temp_file.path
+        """with_prefix() returns a new File with a prefixed name."""
+        original_path = temp_file.path
+        new_file = temp_file.with_prefix("new_")
+        assert temp_file.path == original_path
+        assert "new_test.txt" in new_file.path
 
     def test_file_with_name(self, temp_file: File):
         """with_name() returns new File with different name."""
@@ -687,38 +806,55 @@ class TestFilePathManipulation:
         assert new_file.basename == "changed"
         assert new_file.suffix == ""
 
+    def test_file_clone_methods_preserve_encoding(self, tmp_path: Path):
+        """Clone-returning methods preserve custom File encoding."""
+        path = tmp_path / "encoded.txt"
+        path.write_bytes("café".encode("latin-1"))
+        file = fs.File(str(path), encoding="latin-1")
+        renamed = file.with_name("other.txt")
+        resolved = file.resolve()
+        assert renamed.encoding == "latin-1"
+        assert resolved.encoding == "latin-1"
+
 
 class TestFileRename:
     def test_file_rename(self, temp_file: File):
-        """rename() renames file on disk."""
+        """rename() returns a new File for the renamed path."""
         original_path = temp_file.path
-        temp_file.rename("renamed.txt")
+        renamed_file = temp_file.rename("renamed.txt")
         assert not os.path.exists(original_path)
-        assert temp_file.exists
-        assert temp_file.basename == "renamed.txt"
+        assert not temp_file.exists
+        assert temp_file.path == original_path
+        assert renamed_file.exists
+        assert renamed_file.basename == "renamed.txt"
 
-    def test_file_rename_updates_path(self, temp_file: File):
-        """rename() updates self.path."""
-        temp_file.rename("renamed.txt")
-        assert "renamed.txt" in temp_file.path
+    def test_file_rename_returns_new_object(self, temp_file: File):
+        """rename() returns a distinct File object."""
+        renamed_file = temp_file.rename("renamed.txt")
+        assert renamed_file is not temp_file
+        assert renamed_file.basename == "renamed.txt"
 
-    def test_file_rename_returns_self(self, temp_file: File):
-        """rename() returns self for chaining."""
+    def test_file_rename_leaves_source_path_unchanged(self, temp_file: File):
+        """rename() leaves the source object path unchanged."""
+        original_path = temp_file.path
         result = temp_file.rename("renamed.txt")
-        assert result is temp_file
+        assert temp_file.path == original_path
+        assert result.path.endswith("renamed.txt")
 
 
 class TestFilePathTransformations:
     def test_file_resolve(self, tmp_path: Path):
-        """resolve() makes path absolute."""
+        """resolve() returns a new absolute File."""
         original_cwd = os.getcwd()
         os.chdir(tmp_path)
         try:
             f = tmp_path / "test.txt"
             f.touch()
             file = fs.File("test.txt")
-            file.resolve()
-            assert os.path.isabs(file.path)
+            resolved_file = file.resolve()
+            assert file.path == "test.txt"
+            assert os.path.isabs(resolved_file.path)
+            assert resolved_file is not file
         finally:
             os.chdir(original_cwd)
 
@@ -740,11 +876,12 @@ class TestFilePathTransformations:
             temp_file.relative_to("/completely/different/path")
 
     def test_file_expanduser(self, tmp_path: Path):
-        """expanduser() expands ~."""
+        """expanduser() returns a new File with ~ expanded."""
         file = fs.File("~/test.txt")
-        file.expanduser()
-        assert "~" not in file.path
-        assert os.path.expanduser("~") in file.path
+        expanded_file = file.expanduser()
+        assert file.path == "~/test.txt"
+        assert "~" not in expanded_file.path
+        assert os.path.expanduser("~") in expanded_file.path
 
     def test_file_as_posix(self, temp_file: File):
         """as_posix() returns forward-slash path."""
@@ -820,7 +957,9 @@ class TestFileLinks:
         result = temp_file.link(target)
         assert os.path.exists(target)
         assert os.stat(target).st_ino == os.stat(temp_file.path).st_ino
-        assert result is temp_file
+        assert result is not temp_file
+        assert result.path == target
+        assert result.encoding == temp_file.encoding
 
     @pytest.mark.skipif(
         sys.platform == "win32", reason="Windows symlinks return extended path format"
@@ -831,7 +970,21 @@ class TestFileLinks:
         result = temp_file.symlink(target)
         assert os.path.islink(target)
         assert os.readlink(target) == temp_file.path
-        assert result is temp_file
+        assert result is not temp_file
+        assert result.path == target
+        assert result.encoding == temp_file.encoding
+
+    def test_file_samefile(self, temp_file: File, tmp_path: Path):
+        """samefile() detects matching filesystem entries."""
+        target = str(tmp_path / "hardlink.txt")
+        temp_file.link(target)
+        assert temp_file.samefile(target) is True
+
+    def test_file_readlink(self, temp_file: File, tmp_path: Path):
+        """readlink() returns the symlink target path."""
+        target = str(tmp_path / "symlink.txt")
+        temp_file.symlink(target)
+        assert fs.File(target).readlink() == temp_file.path
 
 
 class TestFilePermissions:
@@ -857,6 +1010,15 @@ class TestFilePermissions:
         user = pwd.getpwuid(os.getuid()).pw_name
         group = grp.getgrgid(os.getgid()).gr_name
         temp_file.chown(user, group)
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="owner/group not supported on Windows")
+    def test_file_owner_group(self, temp_file: File):
+        """owner() and group() return filesystem identity names."""
+        import grp
+        import pwd
+
+        assert temp_file.owner() == pwd.getpwuid(os.getuid()).pw_name
+        assert temp_file.group() == grp.getgrgid(os.getgid()).gr_name
 
 
 class TestFileParents:
@@ -885,7 +1047,9 @@ class TestFileXattr:
     def test_file_set_xattr(self, temp_file: File):
         """set_xattr() sets extended attribute."""
         try:
-            temp_file.set_xattr("test_value", "test_attr")
+            result = temp_file.set_xattr("test_value", "test_attr")
+            assert result is temp_file
+            assert isinstance(result, fs.File)
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
@@ -990,6 +1154,11 @@ class TestDirectoryInit:
         """Verify __str__ returns path."""
         assert str(temp_directory) == temp_directory.path
 
+    def test_directory_path_is_read_only(self, temp_directory: fs.Directory):
+        """Path is read-only."""
+        with pytest.raises(AttributeError):
+            temp_directory.path = "otherdir"
+
 
 class TestDirectoryPathComponents:
     def test_directory_basename(self, temp_directory: fs.Directory):
@@ -1053,6 +1222,12 @@ class TestDirectoryMetadata:
         empty_dir.mkdir()
         directory = fs.Directory(str(empty_dir))
         assert directory.size == 0
+
+    def test_directory_size_readable(self, temp_directory: fs.Directory):
+        """size_readable returns human-readable directory size."""
+        readable = temp_directory.size_readable
+        assert isinstance(readable, str)
+        assert "B" in readable
 
     def test_directory_ctime(self, temp_directory: fs.Directory):
         """ctime/created returns creation timestamp."""
@@ -1135,6 +1310,18 @@ class TestDirectoryCreationDeletion:
         result = temp_directory.remove()
         assert result is temp_directory
 
+    def test_directory_clear(self, temp_directory: fs.Directory):
+        """clear() removes contents but keeps the directory."""
+        temp_directory.clear()
+        assert temp_directory.exists
+        assert temp_directory.get_files(recursive=True) == []
+
+    def test_directory_clear_nonexistent(self, tmp_path: Path):
+        """clear() on a missing directory is a no-op."""
+        directory = fs.Directory(str(tmp_path / "missing"))
+        result = directory.clear()
+        assert result is directory
+
 
 class TestDirectoryOperators:
     def test_directory_truediv(self, temp_directory: fs.Directory):
@@ -1166,6 +1353,53 @@ class TestDirectoryFileAccess:
         assert isinstance(sub_dir, fs.Directory)
         assert sub_dir.basename == "subdir"
         assert temp_directory.path in sub_dir.path
+
+
+class TestDirectoryEntries:
+    def test_directory_yield_entries(self, nested_directory: fs.Directory):
+        """yield_entries() returns immediate mixed child entries."""
+        entries = list(nested_directory.yield_entries())
+        assert len(entries) == 3
+        assert {entry.basename for entry in entries} == {"file1.txt", "sub1", "sub2"}
+        assert any(isinstance(entry, fs.File) for entry in entries)
+        assert any(isinstance(entry, fs.Directory) for entry in entries)
+
+    def test_directory_get_entries(self, nested_directory: fs.Directory):
+        """get_entries() materializes the immediate mixed child list."""
+        entries = nested_directory.get_entries()
+        assert isinstance(entries, list)
+        assert len(entries) == 3
+
+
+class TestDirectoryWalk:
+    def test_directory_walk(self, nested_directory: fs.Directory):
+        """walk() yields grouped top-down traversal tuples."""
+        walked = list(nested_directory.walk())
+        root_names = [root.basename for root, _, _ in walked]
+        assert root_names[0] == "root"
+        assert set(root_names[1:]) == {"sub1", "deep", "sub2"}
+
+        walked_by_root = {root.basename: (subdirs, files) for root, subdirs, files in walked}
+        root_subdirs, root_files = walked_by_root["root"]
+        assert {entry.basename for entry in root_subdirs} == {"sub1", "sub2"}
+        assert [entry.basename for entry in root_files] == ["file1.txt"]
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows symlinks return extended path format"
+    )
+    def test_directory_walk_does_not_follow_symlink_dirs(self, tmp_path: Path):
+        """walk(follow_symlinks=False) includes symlink dirs but does not recurse into them."""
+        root = tmp_path / "root"
+        root.mkdir()
+        real = root / "real"
+        real.mkdir()
+        (real / "inside.txt").write_text("content")
+        link = root / "linked"
+        link.symlink_to(real, target_is_directory=True)
+
+        walked = list(fs.Directory(str(root)).walk())
+        assert {entry.basename for entry in walked[0][1]} == {"real", "linked"}
+        assert [current.basename for current, _, _ in walked] == ["root", "real"]
 
 
 class TestDirectoryYieldFiles:
@@ -1269,78 +1503,143 @@ class TestDirectoryGetSubdirs:
 
 class TestDirectoryMoveCopy:
     def test_directory_move_to(self, temp_directory: fs.Directory, tmp_path: Path):
-        """move_to() moves directory."""
-        dest = tmp_path / "dest"
-        dest.mkdir()
+        """move_to() places the directory inside the target directory."""
+        dest_path = tmp_path / "dest"
+        dest_path.mkdir()
+        dest = fs.Directory(str(dest_path))
         original_path = temp_directory.path
-        temp_directory.move_to(str(dest))
+        moved_dir = temp_directory.move_to(dest)
         assert not os.path.exists(original_path)
-        assert temp_directory.exists
-        assert str(dest) in temp_directory.path
+        assert not temp_directory.exists
+        assert temp_directory.path == original_path
+        assert moved_dir.exists
+        assert moved_dir.path == str(dest_path / temp_directory.basename)
 
-    def test_directory_move_to_updates_path(self, temp_directory: fs.Directory, tmp_path: Path):
-        """move_to() updates self.path."""
-        dest = tmp_path / "dest"
-        dest.mkdir()
-        temp_directory.move_to(str(dest))
-        assert dest.name in temp_directory.path
+    def test_directory_move_to_returns_new_object(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """move_to() returns a distinct Directory object."""
+        dest_path = tmp_path / "dest"
+        dest_path.mkdir()
+        dest = fs.Directory(str(dest_path))
+        moved_dir = temp_directory.move_to(dest)
+        assert moved_dir is not temp_directory
+        assert moved_dir.path == str(dest_path / temp_directory.basename)
 
     def test_directory_move_to_nonexistent(self, temp_directory: fs.Directory, tmp_path: Path):
-        """move_to() raises FileNotFoundError for nonexistent dest."""
-        nonexistent = tmp_path / "nonexistent"
+        """move_to() raises FileNotFoundError when the target directory is missing."""
+        nonexistent = fs.Directory(str(tmp_path / "missing-parent" / "dest"))
         with pytest.raises(FileNotFoundError):
-            temp_directory.move_to(str(nonexistent))
+            temp_directory.move_to(nonexistent)
 
-    def test_directory_move_to_returns_self(self, temp_directory: fs.Directory, tmp_path: Path):
-        """move_to() returns self for chaining."""
-        dest = tmp_path / "dest"
-        dest.mkdir()
-        result = temp_directory.move_to(str(dest))
-        assert result is temp_directory
+    def test_directory_move_to_leaves_source_path_unchanged(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """move_to() leaves the source object path unchanged."""
+        dest_path = tmp_path / "dest"
+        dest_path.mkdir()
+        dest = fs.Directory(str(dest_path))
+        original_path = temp_directory.path
+        result = temp_directory.move_to(dest)
+        assert temp_directory.path == original_path
+        assert result.path == str(dest_path / temp_directory.basename)
 
     def test_directory_copy_to(self, temp_directory: fs.Directory, tmp_path: Path):
-        """copy_to() copies directory."""
-        dest = tmp_path / "dest"
-        dest.mkdir()
+        """copy_to() places the directory inside the target directory."""
+        dest_path = tmp_path / "dest"
+        dest_path.mkdir()
+        dest = fs.Directory(str(dest_path))
         original_path = temp_directory.path
-        temp_directory.copy_to(str(dest))
+        copied_dir = temp_directory.copy_to(dest)
         assert os.path.exists(original_path)
         assert temp_directory.exists
-        assert str(dest) in temp_directory.path
+        assert copied_dir.exists
+        assert copied_dir.path == str(dest_path / temp_directory.basename)
 
     def test_directory_copy_to_mkdir(self, temp_directory: fs.Directory, tmp_path: Path):
-        """copy_to(mkdir=True) creates dest directory."""
-        dest = tmp_path / "newdest"
-        assert not dest.exists()
-        temp_directory.copy_to(str(dest), mkdir=True)
-        assert dest.exists()
+        """copy_to(mkdir=True) creates the target directory before copying into it."""
+        dest = fs.Directory(str(tmp_path / "newparent" / "dest"))
+        assert not Path(dest.path).exists()
+        copied_dir = temp_directory.copy_to(dest, mkdir=True)
+        assert Path(dest.path).exists()
         assert temp_directory.exists
+        assert copied_dir.exists
+        assert copied_dir.path == str(Path(dest.path) / temp_directory.basename)
 
     def test_directory_copy_to_nonexistent(self, temp_directory: fs.Directory, tmp_path: Path):
-        """copy_to() raises FileNotFoundError for nonexistent dest."""
-        nonexistent = tmp_path / "nonexistent"
+        """copy_to() raises FileNotFoundError when the target directory is missing."""
+        nonexistent = fs.Directory(str(tmp_path / "missing-parent" / "dest"))
         with pytest.raises(FileNotFoundError):
-            temp_directory.copy_to(str(nonexistent))
+            temp_directory.copy_to(nonexistent)
 
-    def test_directory_copy_to_returns_self(self, temp_directory: fs.Directory, tmp_path: Path):
-        """copy_to() returns self for chaining."""
+    def test_directory_copy_to_leaves_source_path_unchanged(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """copy_to() keeps the source path and returns a new Directory."""
+        dest_path = tmp_path / "dest"
+        dest_path.mkdir()
+        dest = fs.Directory(str(dest_path))
+        original_path = temp_directory.path
+        result = temp_directory.copy_to(dest)
+        assert temp_directory.path == original_path
+        assert result.path == str(dest_path / temp_directory.basename)
+
+    def test_directory_move_to_same_parent_is_noop(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """move_to(existing parent) is a no-op when the destination is the same path."""
+        moved_dir = temp_directory.move_to(fs.Directory(str(tmp_path)))
+        assert moved_dir is not temp_directory
+        assert moved_dir.path == temp_directory.path
+        assert moved_dir.exists
+        assert temp_directory.exists
+
+    def test_directory_copy_to_same_parent_is_noop(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """copy_to(existing parent) is a no-op when the destination is the same path."""
+        copied_dir = temp_directory.copy_to(fs.Directory(str(tmp_path)))
+        assert copied_dir is not temp_directory
+        assert copied_dir.path == temp_directory.path
+        assert copied_dir.exists
+        assert temp_directory.exists
+
+    def test_directory_copy_to_preserves_subdirectory_basename(
+        self, nested_directory: fs.Directory, tmp_path: Path
+    ):
+        """Mixed entry copies preserve directory basenames under the destination root."""
+        dest_root = tmp_path / "dest"
+        dest_root.mkdir()
+
+        for entry in nested_directory.yield_entries():
+            entry.copy_to(fs.Directory(str(dest_root)))
+
+        assert (dest_root / "file1.txt").read_text() == "root file"
+        assert (dest_root / "sub1" / "sub1_file.txt").read_text() == "sub1 content"
+        assert (dest_root / "sub1" / "deep" / "deep_file.txt").read_text() == "deep content"
+        assert (dest_root / "sub2" / "sub2_file.py").read_text() == "print('sub2')"
+
+    def test_directory_move_to_requires_typed_target(
+        self, temp_directory: fs.Directory, tmp_path: Path
+    ):
+        """move_to() rejects raw string targets."""
         dest = tmp_path / "dest"
-        dest.mkdir()
-        result = temp_directory.copy_to(str(dest))
-        assert result is temp_directory
+        with pytest.raises(TypeError):
+            temp_directory.move_to(str(dest))
 
 
 class TestDirectoryPathTransformations:
     def test_directory_resolve(self, tmp_path: Path):
-        """resolve() makes path absolute."""
+        """resolve() returns a new absolute Directory."""
         original_cwd = os.getcwd()
         os.chdir(tmp_path)
         try:
             test_dir = tmp_path / "testdir"
             test_dir.mkdir()
             directory = fs.Directory("testdir")
-            directory.resolve()
-            assert os.path.isabs(directory.path)
+            resolved_dir = directory.resolve()
+            assert directory.path == "testdir"
+            assert os.path.isabs(resolved_dir.path)
         finally:
             os.chdir(original_cwd)
 
@@ -1357,11 +1656,12 @@ class TestDirectoryPathTransformations:
         assert relative == "testdir"
 
     def test_directory_expanduser(self, tmp_path: Path):
-        """expanduser() expands ~."""
+        """expanduser() returns a new Directory with ~ expanded."""
         directory = fs.Directory("~/testdir")
-        directory.expanduser()
-        assert "~" not in directory.path
-        assert os.path.expanduser("~") in directory.path
+        expanded_dir = directory.expanduser()
+        assert directory.path == "~/testdir"
+        assert "~" not in expanded_dir.path
+        assert os.path.expanduser("~") in expanded_dir.path
 
     def test_directory_as_posix(self, temp_directory: fs.Directory):
         """as_posix() returns forward-slash path."""
@@ -1436,22 +1736,27 @@ class TestDirectoryAssertions:
 
 class TestDirectoryRename:
     def test_directory_rename(self, temp_directory: fs.Directory):
-        """rename() renames directory on disk."""
+        """rename() returns a new Directory for the renamed path."""
         original_path = temp_directory.path
-        temp_directory.rename("renamed")
+        renamed_dir = temp_directory.rename("renamed")
         assert not os.path.exists(original_path)
-        assert temp_directory.exists
-        assert temp_directory.basename == "renamed"
+        assert not temp_directory.exists
+        assert temp_directory.path == original_path
+        assert renamed_dir.exists
+        assert renamed_dir.basename == "renamed"
 
-    def test_directory_rename_updates_path(self, temp_directory: fs.Directory):
-        """rename() updates self.path."""
-        temp_directory.rename("renamed")
-        assert "renamed" in temp_directory.path
+    def test_directory_rename_returns_new_object(self, temp_directory: fs.Directory):
+        """rename() returns a distinct Directory object."""
+        renamed_dir = temp_directory.rename("renamed")
+        assert renamed_dir is not temp_directory
+        assert renamed_dir.basename == "renamed"
 
-    def test_directory_rename_returns_self(self, temp_directory: fs.Directory):
-        """rename() returns self for chaining."""
+    def test_directory_rename_leaves_source_path_unchanged(self, temp_directory: fs.Directory):
+        """rename() leaves the source object path unchanged."""
+        original_path = temp_directory.path
         result = temp_directory.rename("renamed")
-        assert result is temp_directory
+        assert temp_directory.path == original_path
+        assert result.path.endswith("renamed")
 
 
 class TestDirectoryPermissions:
@@ -1519,7 +1824,9 @@ class TestDirectoryXattr:
     def test_directory_set_xattr(self, temp_directory: fs.Directory):
         """set_xattr() sets extended attribute."""
         try:
-            temp_directory.set_xattr("test_value", "test_attr")
+            result = temp_directory.set_xattr("test_value", "test_attr")
+            assert result is temp_directory
+            assert isinstance(result, fs.Directory)
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
