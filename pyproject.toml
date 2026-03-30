@@ -48,16 +48,18 @@ keywords = [
 [project.optional-dependencies]
 full = ["tqdm>=4.67.1"]
 dev = [
-    "pytest",
-    "coverage",
-    "ruff",
-    "pre-commit",
-    "mypy",
-    "codespell",
+    "pytest>=9.0.2",
+    "coverage>=7.13.5",
+    "ruff==0.15.8",
+    "pre-commit>=4.5.1",
+    "mypy>=1.19.1",
+    "codespell>=2.4.2",
     "pydantic>=2",
+    "rattle-lint>=1.0.5",
+    "rattle-blank-lines>=0.2.4",
 ]
 
-test = ["pytest", "coverage", "pydantic>=2"]
+test = ["pytest>=9.0.2", "coverage>=7.13.5", "pydantic>=2"]
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
 Issues = "https://github.com/zigai/stdl/issues"
@@ -112,6 +114,11 @@ warn_return_any = true
 warn_unused_configs = true
 strict_equality = true
 ignore_missing_imports = true
+
+[tool.rattle]
+root = true
+enable = ["rattle_blank_lines.rules"]
+disable = ["rattle.rules"]
 
 [tool.ruff]
 line-length = 100
