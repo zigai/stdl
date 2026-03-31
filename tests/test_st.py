@@ -115,6 +115,7 @@ def test_ansi_rjust():
 def test_text_style_is_immutable():
     style = st.TextStyle(color="red", style="bold")
     assert st.with_style("hello", style) == colored("hello", color="red", style="bold")
+
     with pytest.raises(FrozenInstanceError):
         style.color = "blue"
 
