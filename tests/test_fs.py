@@ -745,7 +745,7 @@ class TestFilePathManipulation:
         original_path = temp_file.path
         new_file = temp_file.with_dir(new_dir)
         assert temp_file.path == original_path
-        assert new_file.dirname == new_dir
+        assert new_file.dirname == new_dir.replace("/", os.sep)
         assert new_file.basename == "test.txt"
         assert new_file is not temp_file
 
@@ -879,7 +879,7 @@ class TestFilePathTransformations:
         """expanduser() returns a new File with ~ expanded."""
         file = fs.File("~/test.txt")
         expanded_file = file.expanduser()
-        assert file.path == "~/test.txt"
+        assert file.path == os.path.join("~", "test.txt")
         assert "~" not in expanded_file.path
         assert os.path.expanduser("~") in expanded_file.path
 
@@ -984,7 +984,7 @@ class TestFileLinks:
         """readlink() returns the symlink target path."""
         target = str(tmp_path / "symlink.txt")
         temp_file.symlink(target)
-        assert fs.File(target).readlink() == temp_file.path
+        assert os.path.samefile(fs.File(target).readlink(), temp_file.path)
 
 
 class TestFilePermissions:
@@ -1659,7 +1659,7 @@ class TestDirectoryPathTransformations:
         """expanduser() returns a new Directory with ~ expanded."""
         directory = fs.Directory("~/testdir")
         expanded_dir = directory.expanduser()
-        assert directory.path == "~/testdir"
+        assert directory.path == os.path.join("~", "testdir")
         assert "~" not in expanded_dir.path
         assert os.path.expanduser("~") in expanded_dir.path
 
