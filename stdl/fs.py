@@ -1501,7 +1501,12 @@ class File(PathBase):
 
     def link(self, target: str, follow_symlinks: bool = True) -> File:
         """Create a hard link and return a File for the created link path."""
-        os.link(self.path, target, follow_symlinks=follow_symlinks)
+        try:
+            os.link(self.path, target, follow_symlinks=follow_symlinks)
+        except NotImplementedError:
+            if not follow_symlinks:
+                raise
+            os.link(self.path, target)
         return self._clone_with_path(target)
 
     def symlink(self, target: str) -> File:
