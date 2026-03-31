@@ -778,7 +778,7 @@ class PathBase(PathLike):
         """The stored path string."""
         return self._path
 
-    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> Self:
+    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> Self:  # noqa: A002
         return self.__class__(path, abs=abs)
 
     def _comparison_path(self) -> str:
@@ -1161,7 +1161,7 @@ class File(PathBase):
         super().__init__(path, abs=abs)
         self.encoding = encoding
 
-    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> File:
+    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> File:  # noqa: A002
         return File(path, encoding=self.encoding, abs=abs)
 
     @property
