@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import fnmatch
+import importlib
+import inspect
 import json
 import math
 import os
@@ -13,12 +15,21 @@ import shutil
 import subprocess
 import sys
 import time
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Generator,
+    Iterable,
+    Iterator,
+)
 from datetime import datetime, timezone
+from functools import partial
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Literal, overload
+from typing import IO, Any, Generic, Literal, ParamSpec, Protocol, TypeVar, cast, overload
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -58,23 +69,223 @@ copy = shutil.copy2
 move = shutil.move
 chown = shutil.chown
 
+P = ParamSpec("P")
+HandleDataT = TypeVar("HandleDataT", str, bytes)
+T = TypeVar("T")
+ResultT = TypeVar("ResultT")
+
+
+class _AsyncLock(Protocol):
+    async def __aenter__(self) -> object: ...
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> object: ...
+
+
+class _CancelScope(Protocol):
+    def __enter__(self) -> object: ...
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> object: ...
+
+
+class _AnyIOToThread(Protocol):
+    async def run_sync(self, func: Callable[[], T], /) -> T: ...
+
+
+class _AsyncFileLike(Protocol[HandleDataT]):
+    def read(self, size: int = -1) -> HandleDataT | Awaitable[HandleDataT]: ...
+
+    def readline(self, size: int = -1) -> HandleDataT | Awaitable[HandleDataT]: ...
+
+    def readlines(self, hint: int = -1) -> list[HandleDataT] | Awaitable[list[HandleDataT]]: ...
+
+    def write(self, data: HandleDataT) -> int | Awaitable[int]: ...
+
+    def writelines(self, lines: Iterable[HandleDataT]) -> None | Awaitable[None]: ...
+
+    def flush(self) -> None | Awaitable[None]: ...
+
+    def seek(self, offset: int, whence: int = 0) -> int | Awaitable[int]: ...
+
+    def tell(self) -> int | Awaitable[int]: ...
+
+    @overload
+    def truncate(self) -> int | Awaitable[int]: ...
+
+    @overload
+    def truncate(self, size: int) -> int | Awaitable[int]: ...
+
+    def close(self) -> None | Awaitable[None]: ...
+
+
+class _AnyIOModule(Protocol):
+    to_thread: _AnyIOToThread
+    CancelScope: Callable[..., _CancelScope]
+    Lock: Callable[[], _AsyncLock]
+
+    async def open_file(
+        self,
+        file: str | PathLike[str],
+        mode: str = "r",
+        encoding: str | None = None,
+        **kwargs: object,
+    ) -> object: ...
+
+
+_ANYIO: _AnyIOModule | None = None
+_ITERATION_SENTINEL = object()
+
+
+def _load_anyio() -> _AnyIOModule:
+    global _ANYIO
+
+    if _ANYIO is not None:
+        return _ANYIO
+
+    try:
+        _ANYIO = cast(_AnyIOModule, importlib.import_module("anyio"))
+    except ImportError as exc:
+        raise ImportError(
+            "Async stdl.fs APIs require AnyIO. Install stdl with the async extra: "
+            "`pip install 'stdl[async]'`."
+        ) from exc
+
+    return _ANYIO
+
+
+async def run_fs_sync(func: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> T:
+    anyio = _load_anyio()
+    return await anyio.to_thread.run_sync(partial(func, *args, **kwargs))
+
+
+async def _run_fs_sync_shielded(func: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> T:
+    anyio = _load_anyio()
+    with anyio.CancelScope(shield=True):
+        return await run_fs_sync(func, *args, **kwargs)
+
+
+def _next_or_sentinel(iterator: Iterator[T]) -> T | object:
+    return next(iterator, _ITERATION_SENTINEL)
+
+
+async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenerator[T, None]:
+    _load_anyio()
+    iterator = iter(iterable_factory())
+
+    try:
+        while True:
+            item = await run_fs_sync(_next_or_sentinel, iterator)
+            if item is _ITERATION_SENTINEL:
+                return
+            yield cast(T, item)
+    finally:
+        close = getattr(iterator, "close", None)
+        if close is not None:
+            await _run_fs_sync_shielded(close)
+
+
+class AsyncFileHandle(Generic[HandleDataT]):
+    def __init__(self, handle: _AsyncFileLike[HandleDataT]) -> None:
+        self._handle = handle
+        self._lock: _AsyncLock | None = None
+
+    def _get_lock(self) -> _AsyncLock:
+        if self._lock is None:
+            self._lock = _load_anyio().Lock()
+        return self._lock
+
+    async def __aenter__(self) -> AsyncFileHandle[HandleDataT]:
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        await self.close()
+
+    def __aiter__(self) -> AsyncIterator[HandleDataT]:
+        return self.iter_lines()
+
+    async def _resolve_result(self, result: ResultT | Awaitable[ResultT]) -> ResultT:
+        if inspect.isawaitable(result):
+            return await cast(Awaitable[ResultT], result)
+        return result
+
+    async def read(self, size: int = -1) -> HandleDataT:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.read(size))
+
+    async def readline(self, size: int = -1) -> HandleDataT:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.readline(size))
+
+    async def readlines(self, hint: int = -1) -> list[HandleDataT]:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.readlines(hint))
+
+    async def write(self, data: HandleDataT) -> int:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.write(data))
+
+    async def writelines(self, lines: Iterable[HandleDataT]) -> None:
+        async with self._get_lock():
+            await self._resolve_result(self._handle.writelines(lines))
+
+    async def flush(self) -> None:
+        async with self._get_lock():
+            await self._resolve_result(self._handle.flush())
+
+    async def seek(self, offset: int, whence: int = 0) -> int:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.seek(offset, whence))
+
+    async def tell(self) -> int:
+        async with self._get_lock():
+            return await self._resolve_result(self._handle.tell())
+
+    async def truncate(self, size: int | None = None) -> int:
+        truncate = self._handle.truncate
+        if size is None:
+            async with self._get_lock():
+                return await self._resolve_result(truncate())
+        async with self._get_lock():
+            return await self._resolve_result(truncate(size))
+
+    async def close(self) -> None:
+        anyio = _load_anyio()
+        async with self._get_lock():
+            with anyio.CancelScope(shield=True):
+                await self._resolve_result(self._handle.close())
+
+    async def iter_lines(self) -> AsyncGenerator[HandleDataT, None]:
+        while True:
+            line = await self.readline()
+            if line in ("", b""):
+                break
+            yield line
+
+    async def iter_chunks(self, size: int = 1024 * 1024) -> AsyncGenerator[HandleDataT, None]:
+        while True:
+            chunk = await self.read(size)
+            if chunk in ("", b""):
+                break
+            yield chunk
+
 
 def _iter_file_paths(directory: str | PathLike, *, recursive: bool) -> Generator[str, None, None]:
     if not recursive:
-        for entry in os.scandir(directory):
-            if entry.is_file():
-                yield entry.path
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_file():
+                    yield entry.path
         return
 
     queue = Queue()
     queue.put(directory)
     while not queue.empty():
         next_dir = queue.get()
-        for entry in os.scandir(next_dir):
-            if entry.is_dir():
-                queue.put(entry.path)
-            elif entry.is_file():
-                yield entry.path
+        with os.scandir(next_dir) as entries:
+            for entry in entries:
+                if entry.is_dir():
+                    queue.put(entry.path)
+                elif entry.is_file():
+                    yield entry.path
 
 
 def _normalized_ext(ext: str | tuple[str, ...] | None) -> str | tuple[str, ...] | None:
@@ -96,12 +307,35 @@ def _comparison_path(path: str | PathLike) -> str:
     return os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
 
 
+def _ensure_directory_target_is_not_inside_source(source_path: str, destination_path: str) -> None:
+    source = _comparison_path(source_path)
+    destination = _comparison_path(destination_path)
+    if destination != source and destination.startswith(source + SEP):
+        raise ValueError("Cannot copy or move a directory into itself")
+
+
+def _ensure_expected_destination_type(
+    path: str, expected_type: Literal["file", "directory"]
+) -> None:
+    if expected_type == "file" and os.path.isdir(path) and not os.path.islink(path):
+        raise IsADirectoryError(path)
+    if expected_type == "directory" and not os.path.isdir(path):
+        raise NotADirectoryError(path)
+
+
+def _dir_identity(path: str) -> tuple[int, int]:
+    stat_result = os.stat(path, follow_symlinks=True)
+    return stat_result.st_dev, stat_result.st_ino
+
+
 def _prepare_destination_path(
     path: str,
     *,
     mkdir: bool,
     overwrite: bool,
     source_path: str | None = None,
+    expected_type: Literal["file", "directory"] | None = None,
+    remove_existing: bool = True,
 ) -> bool:
     if source_path is not None and _comparison_path(source_path) == _comparison_path(path):
         return True
@@ -114,11 +348,49 @@ def _prepare_destination_path(
             raise FileNotFoundError(f"No such directory: '{parent}'")
 
     if os.path.exists(path):
+        if expected_type is not None:
+            _ensure_expected_destination_type(path, expected_type)
         if not overwrite:
             raise FileExistsError(path)
-        _remove_existing_path(path)
+        if remove_existing:
+            _remove_existing_path(path)
 
     return False
+
+
+def _copy_file_to_destination(source_path: str, destination_path: str) -> None:
+    temp_path = os.path.join(
+        os.path.dirname(destination_path),
+        f".{os.path.basename(destination_path)}.tmp-{secrets.token_hex(8)}",
+    )
+    try:
+        shutil.copy2(source_path, temp_path)
+        os.replace(temp_path, destination_path)
+    except Exception:
+        if os.path.exists(temp_path):
+            _remove_existing_path(temp_path)
+        raise
+
+
+def _copy_directory_to_destination(
+    source_path: str, destination_path: str, *, overwrite: bool
+) -> None:
+    temp_path = f"{destination_path}.tmp-{secrets.token_hex(8)}"
+    try:
+        shutil.copytree(source_path, temp_path)
+        _replace_temp_path(temp_path, destination_path, overwrite=overwrite)
+    except Exception:
+        if os.path.exists(temp_path):
+            _remove_existing_path(temp_path)
+        raise
+
+
+def _replace_temp_path(temp_path: str, destination_path: str, *, overwrite: bool) -> None:
+    if os.path.exists(destination_path):
+        if not overwrite:
+            raise FileExistsError(destination_path)
+        _remove_existing_path(destination_path)
+    os.replace(temp_path, destination_path)
 
 
 def pickle_load(filepath: str | PathLike) -> object:
@@ -127,10 +399,20 @@ def pickle_load(filepath: str | PathLike) -> object:
         return pickle.load(f)  # noqa: S301
 
 
+async def pickle_load_async(filepath: str | PathLike) -> object:
+    """Async version of pickle_load()."""
+    return await run_fs_sync(pickle_load, filepath)
+
+
 def pickle_dump(data: object, filepath: str | PathLike) -> None:
     """Dumps an object to the specified filepath."""
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
+
+
+async def pickle_dump_async(data: object, filepath: str | PathLike) -> None:
+    """Async version of pickle_dump()."""
+    await _run_fs_sync_shielded(pickle_dump, data, filepath)
 
 
 def json_load(
@@ -148,6 +430,13 @@ def json_load(
     """
     with open(os.fspath(path), encoding=encoding) as f:
         return json.load(f)
+
+
+async def json_load_async(
+    path: str | PathLike, encoding: str = "utf-8"
+) -> dict[Any, Any] | list[dict[Any, Any]]:
+    """Async version of json_load()."""
+    return await run_fs_sync(json_load, path, encoding)
 
 
 def json_append(
@@ -197,6 +486,19 @@ def json_append(
             raise ValueError(f"Cannot parse '{path}' as JSON.")
 
 
+async def json_append_async(
+    data: dict[Any, Any] | list[dict[Any, Any]],
+    filepath: str | PathLike,
+    encoding: str = "utf-8",
+    default: Callable[[object], str] = str,
+    indent: int = 4,
+) -> None:
+    """Async version of json_append()."""
+    await _run_fs_sync_shielded(
+        json_append, data, filepath, encoding=encoding, default=default, indent=indent
+    )
+
+
 def json_dump(
     data: object,
     path: str | PathLike,
@@ -218,6 +520,19 @@ def json_dump(
         json.dump(data, f, indent=indent, default=default)
 
 
+async def json_dump_async(
+    data: object,
+    path: str | PathLike,
+    encoding: str = "utf-8",
+    default: Callable[[object], str] = str,
+    indent: int = 4,
+) -> None:
+    """Async version of json_dump()."""
+    await _run_fs_sync_shielded(
+        json_dump, data, path, encoding=encoding, default=default, indent=indent
+    )
+
+
 def yaml_load(
     path: str | PathLike, encoding: str = "utf-8"
 ) -> dict[Any, Any] | list[dict[Any, Any]]:
@@ -235,6 +550,13 @@ def yaml_load(
         return yaml.safe_load(f)
 
 
+async def yaml_load_async(
+    path: str | PathLike, encoding: str = "utf-8"
+) -> dict[Any, Any] | list[dict[Any, Any]]:
+    """Async version of yaml_load()."""
+    return await run_fs_sync(yaml_load, path, encoding)
+
+
 def yaml_dump(data: object, path: str | PathLike, encoding: str = "utf-8") -> None:
     """
     Dumps data to a YAML file.
@@ -248,14 +570,31 @@ def yaml_dump(data: object, path: str | PathLike, encoding: str = "utf-8") -> No
         yaml.safe_dump(data, f)
 
 
+async def yaml_dump_async(data: object, path: str | PathLike, encoding: str = "utf-8") -> None:
+    """Async version of yaml_dump()."""
+    await _run_fs_sync_shielded(yaml_dump, data, path, encoding)
+
+
 def toml_load(path: str | PathLike, encoding: str = "utf-8") -> dict[str, Any]:
     with open(path, encoding=encoding) as f:
         return toml.load(f)
 
 
+async def toml_load_async(path: str | PathLike, encoding: str = "utf-8") -> dict[str, Any]:
+    """Async version of toml_load()."""
+    return await run_fs_sync(toml_load, path, encoding)
+
+
 def toml_dump(data: dict[str, Any], path: str | PathLike, encoding: str = "utf-8") -> None:
     with open(path, "w", encoding=encoding) as f:
         toml.dump(data, f)
+
+
+async def toml_dump_async(
+    data: dict[str, Any], path: str | PathLike, encoding: str = "utf-8"
+) -> None:
+    """Async version of toml_dump()."""
+    await _run_fs_sync_shielded(toml_dump, data, path, encoding)
 
 
 @overload
@@ -517,11 +856,12 @@ def yield_dirs_in(
     queue.put(directory)
     while not queue.empty():
         next_dir = queue.get()
-        for entry in os.scandir(next_dir):
-            if entry.is_dir():
-                if recursive:
-                    queue.put(entry.path)
-                yield os.path.abspath(entry.path) if abs else entry.path
+        with os.scandir(next_dir) as entries:
+            for entry in entries:
+                if entry.is_dir():
+                    if recursive:
+                        queue.put(entry.path)
+                    yield os.path.abspath(entry.path) if abs else entry.path
 
 
 def get_dirs_in(
@@ -813,6 +1153,10 @@ class PathBase(PathLike):
             raise FileNotFoundError(f"No such file: '{resolved_path}'")
         return self._clone_with_path(resolved_path)
 
+    async def resolve_async(self, strict: bool = False) -> Self:
+        """Async version of resolve()."""
+        return await run_fs_sync(self.resolve, strict=strict)
+
     @property
     def nodes(self) -> list[str]:
         """The path as a list of nodes."""
@@ -870,6 +1214,34 @@ class PathBase(PathLike):
         """Whether the path is a symbolic link."""
         return os.path.islink(self.path)
 
+    async def created_async(self) -> float:
+        """Async version of created."""
+        return await run_fs_sync(lambda: self.created)
+
+    async def modified_async(self) -> float:
+        """Async version of modified."""
+        return await run_fs_sync(lambda: self.modified)
+
+    async def accessed_async(self) -> float:
+        """Async version of accessed."""
+        return await run_fs_sync(lambda: self.accessed)
+
+    async def ctime_async(self) -> float:
+        """Async version of ctime."""
+        return await self.created_async()
+
+    async def mtime_async(self) -> float:
+        """Async version of mtime."""
+        return await self.modified_async()
+
+    async def atime_async(self) -> float:
+        """Async version of atime."""
+        return await self.accessed_async()
+
+    async def is_symlink_async(self) -> bool:
+        """Async version of is_symlink."""
+        return await run_fs_sync(lambda: self.is_symlink)
+
     def rename(self, name: str) -> Self:
         """
         Rename the path.
@@ -881,6 +1253,10 @@ class PathBase(PathLike):
         os.rename(self.path, new_path)
         return self._clone_with_path(new_path)
 
+    async def rename_async(self, name: str) -> Self:
+        """Async version of rename()."""
+        return await _run_fs_sync_shielded(self.rename, name)
+
     def chmod(self, mode: int) -> Self:
         """
         Change the path's permissions.
@@ -890,6 +1266,10 @@ class PathBase(PathLike):
         """
         os.chmod(self.path, mode)
         return self
+
+    async def chmod_async(self, mode: int) -> Self:
+        """Async version of chmod()."""
+        return await _run_fs_sync_shielded(self.chmod, mode)
 
     def chown(self, user: str, group: str) -> Self:
         """
@@ -902,17 +1282,29 @@ class PathBase(PathLike):
         shutil.chown(self.path, user, group)
         return self
 
+    async def chown_async(self, user: str, group: str) -> Self:
+        """Async version of chown()."""
+        return await _run_fs_sync_shielded(self.chown, user, group)
+
     def should_exist(self) -> Self:
         """Raise FileNotFoundError if the path does not exist."""
         if not self.exists:
             raise FileNotFoundError(f"No such path: '{self.path}'")
         return self
 
+    async def should_exist_async(self) -> Self:
+        """Async version of should_exist()."""
+        return await run_fs_sync(self.should_exist)
+
     def should_not_exist(self) -> Self:
         """Raise FileExistsError if the path exists."""
         if self.exists:
             raise FileExistsError(f"Path already exists: '{self.path}'")
         return self
+
+    async def should_not_exist_async(self) -> Self:
+        """Async version of should_not_exist()."""
+        return await run_fs_sync(self.should_not_exist)
 
     def to_path(self) -> Path:
         """
@@ -944,15 +1336,27 @@ class PathBase(PathLike):
         """
         return os.stat(self.path, follow_symlinks=follow_symlinks)
 
+    async def stat_async(self, *, follow_symlinks: bool = True) -> os.stat_result:
+        """Async version of stat()."""
+        return await run_fs_sync(self.stat, follow_symlinks=follow_symlinks)
+
     def samefile(self, other: str | PathLike | PathBase) -> bool:
         """Return True if both paths reference the same filesystem entry."""
         if isinstance(other, PathBase):
             other = other.path
         return os.path.samefile(self.path, os.fspath(other))
 
+    async def samefile_async(self, other: str | PathLike | PathBase) -> bool:
+        """Async version of samefile()."""
+        return await run_fs_sync(self.samefile, other)
+
     def readlink(self) -> str:
         """Return the path that this symbolic link points to."""
         return os.readlink(self.path)
+
+    async def readlink_async(self) -> str:
+        """Async version of readlink()."""
+        return await run_fs_sync(self.readlink)
 
     def owner(self) -> str:
         """Return the filesystem owner name."""
@@ -962,6 +1366,10 @@ class PathBase(PathLike):
 
         return pwd.getpwuid(self.stat().st_uid).pw_name
 
+    async def owner_async(self) -> str:
+        """Async version of owner()."""
+        return await run_fs_sync(self.owner)
+
     def group(self) -> str:
         """Return the filesystem group name."""
         if sys.platform == "win32":
@@ -969,6 +1377,10 @@ class PathBase(PathLike):
         import grp
 
         return grp.getgrgid(self.stat().st_gid).gr_name
+
+    async def group_async(self) -> str:
+        """Async version of group()."""
+        return await run_fs_sync(self.group)
 
     def relative_to(self, other: str | PathBase) -> str:
         """
@@ -1042,6 +1454,10 @@ class PathBase(PathLike):
         """Check if the path exists."""
         raise NotImplementedError
 
+    async def exists_async(self) -> bool:
+        """Async version of exists."""
+        return await run_fs_sync(lambda: self.exists)
+
     @property
     def parent(self) -> Directory:
         """The parent directory."""
@@ -1051,15 +1467,31 @@ class PathBase(PathLike):
     def size(self) -> int:
         raise NotImplementedError
 
+    async def size_async(self) -> int:
+        """Async version of size."""
+        return await run_fs_sync(lambda: self.size)
+
     @property
     def size_readable(self) -> str:
         raise NotImplementedError
 
+    async def size_readable_async(self) -> str:
+        """Async version of size_readable."""
+        return await run_fs_sync(lambda: self.size_readable)
+
     def remove(self) -> Self:
         raise NotImplementedError
 
+    async def remove_async(self) -> Self:
+        """Async version of remove()."""
+        return await _run_fs_sync_shielded(self.remove)
+
     def delete(self) -> Self:
         return self.remove()
+
+    async def delete_async(self) -> Self:
+        """Async version of delete()."""
+        return await self.remove_async()
 
     def create(self) -> Self:
         raise NotImplementedError
@@ -1116,6 +1548,10 @@ class PathBase(PathLike):
             """
             return os.getxattr(self.path, f"{group}.{name}").decode()
 
+        async def get_xattr_async(self, name: str, group: str = "user") -> str:
+            """Async version of get_xattr()."""
+            return await run_fs_sync(self.get_xattr, name, group)
+
         def set_xattr(self, value: str | bytes, name: str, group: str = "user") -> Self:
             """
             Set an extended attribute.
@@ -1130,6 +1566,10 @@ class PathBase(PathLike):
             os.setxattr(self.path, f"{group}.{name}", value)
             return self
 
+        async def set_xattr_async(self, value: str | bytes, name: str, group: str = "user") -> Self:
+            """Async version of set_xattr()."""
+            return await _run_fs_sync_shielded(self.set_xattr, value, name, group)
+
         def remove_xattr(self, name: str, group: str = "user") -> Self:
             """
             Remove an extended attribute.
@@ -1140,6 +1580,10 @@ class PathBase(PathLike):
             """
             os.removexattr(self.path, f"{group}.{name}")
             return self
+
+        async def remove_xattr_async(self, name: str, group: str = "user") -> Self:
+            """Async version of remove_xattr()."""
+            return await _run_fs_sync_shielded(self.remove_xattr, name, group)
 
 
 class File(PathBase):
@@ -1224,6 +1668,10 @@ class File(PathBase):
         open(self.path, "a", encoding=self.encoding).close()
         return self
 
+    async def create_async(self) -> File:
+        """Async version of create()."""
+        return await _run_fs_sync_shielded(self.create)
+
     def touch(self, *, mkdir: bool = False) -> File:
         """Create the file if needed and update its timestamps."""
         parent = os.path.dirname(self.path)
@@ -1236,6 +1684,10 @@ class File(PathBase):
             pass
         os.utime(self.path, None)
         return self
+
+    async def touch_async(self, *, mkdir: bool = False) -> File:
+        """Async version of touch()."""
+        return await _run_fs_sync_shielded(self.touch, mkdir=mkdir)
 
     def remove(self) -> File:
         """Remove the file."""
@@ -1250,6 +1702,16 @@ class File(PathBase):
             return self
         open(self.path, "w", encoding=self.encoding).close()
         return self
+
+    async def clear_async(self) -> File:
+        """Async version of clear()."""
+        return await _run_fs_sync_shielded(self.clear)
+
+    @overload
+    def read(self, mode: Literal["r"] = "r") -> str: ...
+
+    @overload
+    def read(self, mode: Literal["rb"]) -> bytes: ...
 
     def read(self, mode: Literal["r", "rb"] = "r") -> str | bytes:
         """
@@ -1267,6 +1729,16 @@ class File(PathBase):
         with open(self.path, mode, encoding=self.encoding) as f:
             return f.read()
 
+    @overload
+    async def read_async(self, mode: Literal["r"] = "r") -> str: ...
+
+    @overload
+    async def read_async(self, mode: Literal["rb"]) -> bytes: ...
+
+    async def read_async(self, mode: Literal["r", "rb"] = "r") -> str | bytes:
+        """Async version of read()."""
+        return await run_fs_sync(self.read, mode)
+
     def _write(self, data: str | bytes, mode: str, *, newline: bool = True) -> None:
         if "b" in mode:
             with open(self.path, mode) as f:
@@ -1280,6 +1752,24 @@ class File(PathBase):
     def _write_iter(self, data: Iterable[Any], mode: str, sep: str = "\n") -> None:
         with open(self.path, mode, encoding=self.encoding) as f:
             f.writelines(f"{entry}{sep}" for entry in data)
+
+    @overload
+    def write(
+        self,
+        data: str,
+        *,
+        mode: Literal["w"] = "w",
+        newline: bool = True,
+    ) -> File: ...
+
+    @overload
+    def write(
+        self,
+        data: bytes,
+        *,
+        mode: Literal["wb"],
+        newline: bool = True,
+    ) -> File: ...
 
     def write(
         self,
@@ -1302,6 +1792,52 @@ class File(PathBase):
         self._write(data, mode, newline=newline)
         return self
 
+    @overload
+    async def write_async(
+        self,
+        data: str,
+        *,
+        mode: Literal["w"] = "w",
+        newline: bool = True,
+    ) -> File: ...
+
+    @overload
+    async def write_async(
+        self,
+        data: bytes,
+        *,
+        mode: Literal["wb"],
+        newline: bool = True,
+    ) -> File: ...
+
+    async def write_async(
+        self,
+        data: str | bytes,
+        *,
+        mode: Literal["w", "wb"] = "w",
+        newline: bool = True,
+    ) -> File:
+        """Async version of write()."""
+        return await _run_fs_sync_shielded(self.write, data, mode=mode, newline=newline)
+
+    @overload
+    def append(
+        self,
+        data: str,
+        *,
+        mode: Literal["a"] = "a",
+        newline: bool = True,
+    ) -> File: ...
+
+    @overload
+    def append(
+        self,
+        data: bytes,
+        *,
+        mode: Literal["ab"],
+        newline: bool = True,
+    ) -> File: ...
+
     def append(
         self,
         data: str | bytes,
@@ -1323,7 +1859,46 @@ class File(PathBase):
         self._write(data, mode, newline=newline)
         return self
 
-    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: object) -> IO:
+    @overload
+    async def append_async(
+        self,
+        data: str,
+        *,
+        mode: Literal["a"] = "a",
+        newline: bool = True,
+    ) -> File: ...
+
+    @overload
+    async def append_async(
+        self,
+        data: bytes,
+        *,
+        mode: Literal["ab"],
+        newline: bool = True,
+    ) -> File: ...
+
+    async def append_async(
+        self,
+        data: str | bytes,
+        *,
+        mode: Literal["a", "ab"] = "a",
+        newline: bool = True,
+    ) -> File:
+        """Async version of append()."""
+        return await _run_fs_sync_shielded(self.append, data, mode=mode, newline=newline)
+
+    @overload
+    def open(
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: object
+    ) -> IO[str]: ...
+
+    @overload
+    def open(self, mode: Literal["rb"], encoding: None = None, **kwargs: object) -> IO[bytes]: ...
+
+    @overload
+    def open(self, mode: str, encoding: str | None = None, **kwargs: object) -> IO[Any]: ...
+
+    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: object) -> IO[Any]:
         """
         Open the file and return a file handle.
 
@@ -1341,6 +1916,32 @@ class File(PathBase):
             encoding = self.encoding
         return open(self.path, mode, encoding=encoding, **kwargs)
 
+    @overload
+    async def open_async(
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: object
+    ) -> AsyncFileHandle[str]: ...
+
+    @overload
+    async def open_async(
+        self, mode: Literal["rb"], encoding: None = None, **kwargs: object
+    ) -> AsyncFileHandle[bytes]: ...
+
+    @overload
+    async def open_async(
+        self, mode: str, encoding: str | None = None, **kwargs: object
+    ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]: ...
+
+    async def open_async(
+        self, mode: str = "r", encoding: str | None = None, **kwargs: object
+    ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]:
+        """Async version of open()."""
+        anyio = _load_anyio()
+        with anyio.CancelScope(shield=True):
+            handle = await anyio.open_file(self.path, mode, encoding=encoding, **kwargs)
+        if "b" in mode:
+            return AsyncFileHandle(cast(_AsyncFileLike[bytes], handle))
+        return AsyncFileHandle(cast(_AsyncFileLike[str], handle))
+
     def write_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
         Write data from an iterable to a file, overwriting any existing data.
@@ -1354,6 +1955,10 @@ class File(PathBase):
         """
         self._write_iter(data, "w", sep=sep)
         return self
+
+    async def write_iter_async(self, data: Iterable[Any], sep: str = "\n") -> File:
+        """Async version of write_iter()."""
+        return await _run_fs_sync_shielded(self.write_iter, data, sep=sep)
 
     def append_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
@@ -1369,10 +1974,18 @@ class File(PathBase):
         self._write_iter(data, "a", sep=sep)
         return self
 
+    async def append_iter_async(self, data: Iterable[Any], sep: str = "\n") -> File:
+        """Async version of append_iter()."""
+        return await _run_fs_sync_shielded(self.append_iter, data, sep=sep)
+
     def readlines(self) -> list[str]:
         """Equivalent to TextIOWrapper.readlines()."""
         with open(self.path, encoding=self.encoding) as f:
             return f.readlines()
+
+    async def readlines_async(self) -> list[str]:
+        """Async version of readlines()."""
+        return await run_fs_sync(self.readlines)
 
     def splitlines(self) -> list[str]:
         """Equivalent to File.read().splitlines()."""
@@ -1380,6 +1993,10 @@ class File(PathBase):
         if isinstance(data, bytes):
             data = data.decode(self.encoding)
         return data.splitlines()
+
+    async def splitlines_async(self) -> list[str]:
+        """Async version of splitlines()."""
+        return await run_fs_sync(self.splitlines)
 
     def move_to(
         self,
@@ -1411,10 +2028,21 @@ class File(PathBase):
             mkdir=mkdir,
             overwrite=overwrite,
             source_path=self.path,
+            expected_type="file",
         ):
             return self._clone_with_path(dest_path)
-        os.rename(self.path, dest_path)
+        shutil.move(self.path, dest_path)
         return self._clone_with_path(dest_path)
+
+    async def move_to_async(
+        self,
+        target: File | Directory,
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ) -> File:
+        """Async version of move_to()."""
+        return await _run_fs_sync_shielded(self.move_to, target, mkdir=mkdir, overwrite=overwrite)
 
     def copy_to(
         self,
@@ -1446,10 +2074,22 @@ class File(PathBase):
             mkdir=mkdir,
             overwrite=overwrite,
             source_path=self.path,
+            expected_type="file",
+            remove_existing=False,
         ):
             return self._clone_with_path(dest_path)
-        shutil.copy2(self.path, dest_path)
+        _copy_file_to_destination(self.path, dest_path)
         return self._clone_with_path(dest_path)
+
+    async def copy_to_async(
+        self,
+        target: File | Directory,
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ) -> File:
+        """Async version of copy_to()."""
+        return await _run_fs_sync_shielded(self.copy_to, target, mkdir=mkdir, overwrite=overwrite)
 
     def with_dir(self, directory: str) -> File:
         """
@@ -1509,10 +2149,18 @@ class File(PathBase):
             os.link(self.path, target)
         return self._clone_with_path(target)
 
+    async def link_async(self, target: str, follow_symlinks: bool = True) -> File:
+        """Async version of link()."""
+        return await _run_fs_sync_shielded(self.link, target, follow_symlinks=follow_symlinks)
+
     def symlink(self, target: str) -> File:
         """Create a symbolic link and return a File for the created link path."""
         os.symlink(self.path, target)
         return self._clone_with_path(target)
+
+    async def symlink_async(self, target: str) -> File:
+        """Async version of symlink()."""
+        return await _run_fs_sync_shielded(self.symlink, target)
 
     @classmethod
     def rand(cls, prefix: str = "file", ext: str = "") -> File:
@@ -1571,6 +2219,10 @@ class Directory(PathBase):
         os.makedirs(self.path, mode=mode, exist_ok=exist_ok)
         return self
 
+    async def create_async(self, mode: int = 0o777, exist_ok: bool = True) -> Directory:
+        """Async version of create()."""
+        return await _run_fs_sync_shielded(self.create, mode, exist_ok)
+
     def clear(self) -> Directory:
         """Remove all children while keeping the directory itself."""
         if not self.exists:
@@ -1579,6 +2231,10 @@ class Directory(PathBase):
             for entry in entries:
                 _remove_existing_path(entry.path)
         return self
+
+    async def clear_async(self) -> Directory:
+        """Async version of clear()."""
+        return await _run_fs_sync_shielded(self.clear)
 
     @property
     def parent(self) -> Directory:
@@ -1611,10 +2267,27 @@ class Directory(PathBase):
             raise TypeError("Directory.move_to() target must be a Directory")
 
         dest = os.path.join(target.path, self.basename)
-        if _prepare_destination_path(dest, mkdir=mkdir, overwrite=overwrite, source_path=self.path):
+        _ensure_directory_target_is_not_inside_source(self.path, dest)
+        if _prepare_destination_path(
+            dest,
+            mkdir=mkdir,
+            overwrite=overwrite,
+            source_path=self.path,
+            expected_type="directory",
+        ):
             return self._clone_with_path(dest)
         shutil.move(self.path, dest)
         return self._clone_with_path(dest)
+
+    async def move_to_async(
+        self,
+        target: Directory,
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ) -> Directory:
+        """Async version of move_to()."""
+        return await _run_fs_sync_shielded(self.move_to, target, mkdir=mkdir, overwrite=overwrite)
 
     def copy_to(
         self,
@@ -1638,10 +2311,28 @@ class Directory(PathBase):
             raise TypeError("Directory.copy_to() target must be a Directory")
 
         dest = os.path.join(target.path, self.basename)
-        if _prepare_destination_path(dest, mkdir=mkdir, overwrite=overwrite, source_path=self.path):
+        _ensure_directory_target_is_not_inside_source(self.path, dest)
+        if _prepare_destination_path(
+            dest,
+            mkdir=mkdir,
+            overwrite=overwrite,
+            source_path=self.path,
+            expected_type="directory",
+            remove_existing=False,
+        ):
             return self._clone_with_path(dest)
-        shutil.copytree(self.path, dest)
+        _copy_directory_to_destination(self.path, dest, overwrite=overwrite)
         return self._clone_with_path(dest)
+
+    async def copy_to_async(
+        self,
+        target: Directory,
+        *,
+        mkdir: bool = False,
+        overwrite: bool = True,
+    ) -> Directory:
+        """Async version of copy_to()."""
+        return await _run_fs_sync_shielded(self.copy_to, target, mkdir=mkdir, overwrite=overwrite)
 
     def remove(self) -> Directory:
         """Remove the directory and all its contents."""
@@ -1649,6 +2340,10 @@ class Directory(PathBase):
             return self
         shutil.rmtree(self.path)
         return self
+
+    async def remove_async(self) -> Directory:
+        """Async version of remove()."""
+        return await _run_fs_sync_shielded(self.remove)
 
     def yield_files(
         self,
@@ -1681,6 +2376,19 @@ class Directory(PathBase):
                 continue
             yield File(file_path)
 
+    async def yield_files_async(
+        self,
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> AsyncGenerator[File, None]:
+        """Async version of yield_files()."""
+        async for file in iterate_fs(
+            lambda: self.yield_files(ext=ext, glob=glob, regex=regex, recursive=recursive)
+        ):
+            yield file
+
     def get_files(
         self,
         ext: str | tuple[str, ...] | None = None,
@@ -1703,6 +2411,18 @@ class Directory(PathBase):
             list[File]: The files in the directory.
         """
         return list(self.yield_files(ext=ext, glob=glob, regex=regex, recursive=recursive))
+
+    async def get_files_async(
+        self,
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> list[File]:
+        """Async version of get_files()."""
+        return await run_fs_sync(
+            self.get_files, ext=ext, glob=glob, regex=regex, recursive=recursive
+        )
 
     def yield_subdirs(
         self,
@@ -1733,6 +2453,18 @@ class Directory(PathBase):
                 continue
             yield Directory(dir_path)
 
+    async def yield_subdirs_async(
+        self,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> AsyncGenerator[Directory, None]:
+        """Async version of yield_subdirs()."""
+        async for directory in iterate_fs(
+            lambda: self.yield_subdirs(glob=glob, regex=regex, recursive=recursive)
+        ):
+            yield directory
+
     def get_subdirs(
         self,
         glob: str | re.Pattern[str] | None = None,
@@ -1754,21 +2486,51 @@ class Directory(PathBase):
         """
         return list(self.yield_subdirs(glob=glob, regex=regex, recursive=recursive))
 
-    def yield_entries(self) -> Generator[File | Directory, None, None]:
+    async def get_subdirs_async(
+        self,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+    ) -> list[Directory]:
+        """Async version of get_subdirs()."""
+        return await run_fs_sync(self.get_subdirs, glob=glob, regex=regex, recursive=recursive)
+
+    def yield_entries(self, *, abs: bool = False) -> Generator[File | Directory, None, None]:  # noqa: A002
         """Yield immediate child files and directories in a single pass."""
         with os.scandir(self.path) as entries:
             for entry in entries:
+                entry_path = os.path.abspath(entry.path) if abs else entry.path
                 if entry.is_dir():
-                    yield Directory(entry.path)
+                    yield Directory(entry_path)
                 elif entry.is_file():
-                    yield File(entry.path)
+                    yield File(entry_path)
 
-    def get_entries(self) -> list[File | Directory]:
+    async def yield_entries_async(
+        self,
+        *,
+        abs: bool = False,  # noqa: A002
+    ) -> AsyncGenerator[File | Directory, None]:
+        """Async version of yield_entries()."""
+        async for entry in iterate_fs(lambda: self.yield_entries(abs=abs)):
+            yield entry
+
+    def get_entries(self, *, abs: bool = False) -> list[File | Directory]:  # noqa: A002
         """Return immediate child files and directories."""
-        return list(self.yield_entries())
+        return list(self.yield_entries(abs=abs))
+
+    async def get_entries_async(
+        self,
+        *,
+        abs: bool = False,  # noqa: A002
+    ) -> list[File | Directory]:
+        """Async version of get_entries()."""
+        return await run_fs_sync(self.get_entries, abs=abs)
 
     def walk(
-        self, *, follow_symlinks: bool = False
+        self,
+        *,
+        follow_symlinks: bool = False,
+        abs: bool = False,  # noqa: A002
     ) -> Generator[tuple[Directory, list[Directory], list[File]], None, None]:
         """
         Recursively walk the directory tree in top-down order.
@@ -1777,20 +2539,17 @@ class Directory(PathBase):
             tuple[Directory, list[Directory], list[File]]: The current root, its child directories,
             and its child files.
         """
-        subdirs: list[Directory] = []
-        files: list[File] = []
-        for entry in self.yield_entries():
-            if isinstance(entry, Directory):
-                subdirs.append(entry)
-            else:
-                files.append(entry)
+        yield from _walk_directory(self, follow_symlinks=follow_symlinks, abs=abs, visited=None)
 
-        yield self, subdirs, files
-
-        for subdir in subdirs:
-            if subdir.is_symlink and not follow_symlinks:
-                continue
-            yield from subdir.walk(follow_symlinks=follow_symlinks)
+    async def walk_async(
+        self,
+        *,
+        follow_symlinks: bool = False,
+        abs: bool = False,  # noqa: A002
+    ) -> AsyncGenerator[tuple[Directory, list[Directory], list[File]], None]:
+        """Async version of walk()."""
+        async for entry in iterate_fs(lambda: self.walk(follow_symlinks=follow_symlinks, abs=abs)):
+            yield entry
 
     def file(self, name: str) -> File:
         return File(joinpath(self.path, safe_filename(name)))
@@ -1805,6 +2564,44 @@ class Directory(PathBase):
     @classmethod
     def cwd(cls) -> Directory:
         return Directory(os.getcwd())
+
+
+def _walk_directory(
+    directory: Directory,
+    *,
+    follow_symlinks: bool,
+    abs: bool,  # noqa: A002
+    visited: set[tuple[int, int]] | None,
+) -> Generator[tuple[Directory, list[Directory], list[File]], None, None]:
+    if follow_symlinks:
+        if visited is None:
+            visited = {_dir_identity(directory.path)}
+        else:
+            current_identity = _dir_identity(directory.path)
+            if current_identity in visited:
+                return
+            visited.add(current_identity)
+
+    subdirs: list[Directory] = []
+    files: list[File] = []
+    for entry in directory.yield_entries(abs=abs):
+        if isinstance(entry, Directory):
+            subdirs.append(entry)
+        else:
+            files.append(entry)
+
+    root = Directory(os.path.abspath(directory.path)) if abs else directory
+    yield root, subdirs, files
+
+    for subdir in subdirs:
+        if subdir.is_symlink and not follow_symlinks:
+            continue
+        yield from _walk_directory(
+            subdir,
+            follow_symlinks=follow_symlinks,
+            abs=abs,
+            visited=visited,
+        )
 
 
 class EXT:
@@ -1859,6 +2656,7 @@ __all__ = [
     "EXT",
     "HOME",
     "SEP",
+    "AsyncFileHandle",
     "Directory",
     "File",
     "PathLike",
@@ -1883,26 +2681,38 @@ __all__ = [
     "islink",
     "joinpath",
     "json_append",
+    "json_append_async",
     "json_dump",
+    "json_dump_async",
     "json_load",
+    "json_load_async",
     "link",
     "mkdir",
     "mkdirs",
     "move",
     "move_files",
     "pickle_dump",
+    "pickle_dump_async",
     "pickle_load",
+    "pickle_load_async",
     "rand_filename",
     "read_piped",
     "readable_size_to_bytes",
     "remove",
     "rename",
+    "run_fs_sync",
     "splitpath",
     "start_file",
     "stat",
+    "toml_dump",
+    "toml_dump_async",
+    "toml_load",
+    "toml_load_async",
     "windows_has_drive",
     "yaml_dump",
+    "yaml_dump_async",
     "yaml_load",
+    "yaml_load_async",
     "yield_dirs_in",
     "yield_files_in",
 ]
