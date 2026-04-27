@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from stdl import dt
 from stdl.dt import date_fmt, datetime_fmt, datetime_range, hms_to_seconds, seconds_to_hms, time_fmt
 
 
@@ -75,10 +76,32 @@ def test_documentation_examples():
     assert hms_to_seconds("-1:02:03", ms=False) == pytest.approx(-3723.0)
 
 
+def test_star_import_includes_time_conversion_helpers():
+    namespace: dict[str, object] = {}
+
+    exec("from stdl.dt import *", namespace)
+
+    assert namespace["seconds_to_hms"] is seconds_to_hms
+    assert namespace["hms_to_seconds"] is hms_to_seconds
+
+
 def test_millisecond_padding():
     assert hms_to_seconds("00:00:00.1", ms=True) == pytest.approx(0.1)
     assert hms_to_seconds("00:00:00.01", ms=True) == pytest.approx(0.01)
     assert hms_to_seconds("00:00:00.001", ms=True) == pytest.approx(0.001)
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [
+        (1.9999, "00:00:02.000"),
+        (59.9999, "00:01:00.000"),
+        (3599.9999, "01:00:00.000"),
+        (-1.9999, "-00:00:02.000"),
+    ],
+)
+def test_seconds_to_hms_millisecond_rounding_carries(seconds: float, expected: str):
+    assert seconds_to_hms(seconds, ms=True) == expected
 
 
 def test_negative_time_roundtrip():
@@ -94,17 +117,49 @@ def test_time_fmt():
     assert time_fmt(1, ms=True) == "00:00:01.000"
 
 
+def test_sleep_accepts_increasing_bounds(monkeypatch: pytest.MonkeyPatch):
+    slept: list[float] = []
+    monkeypatch.setattr(dt.random, "uniform", lambda lo, hi: (lo + hi) / 2)
+    monkeypatch.setattr(dt.time, "sleep", slept.append)
+
+    duration = dt.sleep(0.01, 0.02)
+
+    assert duration == pytest.approx(0.015)
+    assert slept == [pytest.approx(0.015)]
+
+
+def test_sleep_rejects_reversed_bounds(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(dt.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(ValueError, match="Minimum sleep time"):
+        dt.sleep(0.02, 0.01)
+
+
 def test_datetime_fmt():
     assert datetime_fmt(0.0, utc=True) == "1970-01-01 00:00:00"
     assert datetime_fmt(0) == "1970-01-01 00:00:00"
     assert datetime_fmt(0, fmt="dmY") == "01-01-1970 00:00:00"
+    assert datetime_fmt(0, fmt="mdY") == "01-01-1970 00:00:00"
     assert datetime_fmt(0, fmt="dmY", dsep="/") == "01/01/1970 00:00:00"
     assert datetime_fmt(0, fmt="dmY", dsep="/", tsep=".") == "01/01/1970 00.00.00"
+
+
+@pytest.mark.parametrize("fmt", ["Y", "Ymdx", "abc", "%Y", "YYm"])
+def test_datetime_fmt_rejects_invalid_fmt(fmt: str):
+    with pytest.raises(ValueError, match="fmt must contain"):
+        datetime_fmt(0, fmt=fmt)
 
 
 def test_date_fmt():
     assert date_fmt(date(1970, 1, 1)) == "1970-01-01"
     assert date_fmt(0) == "1970-01-01"
+    assert date_fmt(0, fmt="dmY") == "01-01-1970"
+
+
+@pytest.mark.parametrize("fmt", ["Y", "Ymdx", "abc", "%Y", "YYm"])
+def test_date_fmt_rejects_invalid_fmt(fmt: str):
+    with pytest.raises(ValueError, match="fmt must contain"):
+        date_fmt(0, fmt=fmt)
 
 
 class TestDatetimeRange:

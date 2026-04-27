@@ -1,12 +1,27 @@
 import random
 import time
+import warnings
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone, tzinfo
 
-from dateutil.parser import parse as parse_datetime_str
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message=r"datetime\.datetime\.utcfromtimestamp\(\) is deprecated.*",
+        category=DeprecationWarning,
+        module=r"dateutil\.tz\.tz",
+    )
+    from dateutil.parser import parse as parse_datetime_str
 
 local_timezone: tzinfo | None = datetime.now().astimezone().tzinfo
+DATE_FMT_CHARS = frozenset("Ymd")
+
+
+def _validated_date_fmt(fmt: str) -> str:
+    if len(fmt) != 3 or set(fmt) != DATE_FMT_CHARS:
+        raise ValueError("fmt must contain exactly one each of 'Y', 'm', and 'd'")
+    return fmt
 
 
 @dataclass
@@ -132,6 +147,7 @@ def datetime_fmt(
         pass
     else:
         raise TypeError(type(d))
+    fmt = _validated_date_fmt(fmt)
     date_fmt = f"%{fmt[0]}{dsep}%{fmt[1]}{dsep}%{fmt[2]}"
     time_fmt = f"%H{tsep}%M{tsep}%S"
     if ms:
@@ -214,6 +230,7 @@ def date_fmt(
         pass
     else:
         raise TypeError(type(d))
+    fmt = _validated_date_fmt(fmt)
     return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
 
@@ -284,7 +301,7 @@ def sleep(lo: float, hi: float | None = None) -> float:
     if hi is None:
         time.sleep(lo)
         return lo
-    if lo < hi:
+    if lo > hi:
         raise ValueError(f"Minimum sleep time is higher that maximum. {(lo, hi)}")
     t = random.uniform(lo, hi)  # noqa: S311 - Non-cryptographic jitter for sleep timing is intentional.
     time.sleep(t)
@@ -306,15 +323,18 @@ def seconds_to_hms(time: int | float, ms: bool = False) -> str:
     sign = "-" if time < 0 else ""
     time = abs(time)
 
+    if ms:
+        total_millis = round(time * 1000)
+        total_seconds, millis = divmod(total_millis, 1000)
+        s = total_seconds % 60
+        m = (total_seconds // 60) % 60
+        h = total_seconds // 3600
+        return f"{sign}{h:02d}:{m:02d}:{s:02d}.{millis:03d}"
+
     s = int(time % 60)
     m = int((time // 60) % 60)
     h = int(time // 3600)
-    time_str = f"{sign}{h:02d}:{m:02d}:{s:02d}"
-
-    if ms:
-        millis = round((time - int(time)) * 1000)
-        time_str += f".{millis:03d}"
-    return time_str
+    return f"{sign}{h:02d}:{m:02d}:{s:02d}"
 
 
 def _parse_milliseconds(second_part: str, original_time: str, ms: bool) -> tuple[str, float]:
@@ -386,8 +406,10 @@ __all__ = [
     "datetime",
     "datetime_fmt",
     "datetime_range",
+    "hms_to_seconds",
     "local_timezone",
     "parse_datetime_str",
+    "seconds_to_hms",
     "sleep",
     "time",
     "time_fmt",
