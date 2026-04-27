@@ -46,8 +46,10 @@ keywords = [
 ]
 
 [project.optional-dependencies]
+async = ["anyio>=4.0.0"]
 full = ["tqdm>=4.67.1"]
 dev = [
+    "anyio>=4.0.0",
     "pytest>=9.0.2",
     "coverage>=7.13.5",
     "ruff==0.15.8",
@@ -55,11 +57,11 @@ dev = [
     "mypy>=1.19.1",
     "codespell>=2.4.2",
     "pydantic>=2",
-    "rattle-lint>=1.0.5",
-    "rattle-blank-lines>=0.2.4",
+    "rattle-lint>=1.0.6",
+    "rattle-blank-lines>=0.2.6",
 ]
 
-test = ["pytest>=9.0.2", "coverage>=7.13.5", "pydantic>=2"]
+test = ["anyio>=4.0.0", "pytest>=9.0.2", "coverage>=7.13.5", "pydantic>=2"]
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
 Issues = "https://github.com/zigai/stdl/issues"
