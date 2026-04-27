@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -55,7 +56,10 @@ def test_open_async_supports_context_manager_iteration_and_binary(tmp_path: Path
         async with await text_file.open_async() as handle:
             assert await handle.tell() == 0
             assert await handle.readline() == "first\n"
-            assert await handle.tell() == len("first\n")
+            line_end = await handle.tell()
+            assert line_end > 0
+            assert await handle.seek(line_end) == line_end
+            assert await handle.readline() == "second\n"
             assert await handle.seek(0) == 0
             assert [line async for line in handle] == ["first\n", "second\n"]
             assert await handle.seek(0) == 0
@@ -471,7 +475,10 @@ def test_walk_follow_symlinks_avoids_cycles(tmp_path: Path) -> None:
     assert [item[0].basename for item in walked] == ["root", "child"]
 
 
-@pytest.mark.skipif(os.name == "nt", reason="owner/group/xattr behavior is platform-specific")
+@pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="Linux only - os.setxattr not available on macOS/Windows",
+)
 def test_async_metadata_and_xattrs(tmp_path: Path) -> None:
     async def scenario() -> None:
         file = fs.File(str(tmp_path / "meta.txt"))
