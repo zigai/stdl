@@ -91,13 +91,13 @@ def every_nth(items: list[T], n: int) -> list[T]:
     return items[n - 1 :: n]
 
 
-def occurrences(items: Sequence[T], val: object) -> int:
+def occurrences(items: Sequence[T], val: T) -> int:
     """
     Count the number of occurrences of a value in a list.
 
     Args:
         items (Sequence[T]): The list to count values in.
-        val (object): The value to count.
+        val: The value to count.
 
     Returns:
         int: Number of occurrences.
