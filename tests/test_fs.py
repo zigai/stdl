@@ -46,21 +46,21 @@ def test_yield_files_in_without_ext():
 def test_yield_files_in_with_ext():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
-        filenames = ["file1.txt", "file2.txt", "file3.csv"]
+        filenames = ["file1.txt", "file2.txt", "file3.csv", "barecsv"]
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
         files_found = fs.get_files_in(temp_dir, ext="csv")
-    assert set(files_found) == {str(files[-1])}
+    assert set(files_found) == {str(files[2])}
 
 
 def test_yield_files_in_with_tuple_ext():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
-        filenames = ["file1.txt", "file2.txt", "file3.csv", "file4.py"]
+        filenames = ["file1.txt", "file2.txt", "file3.csv", "file4.py", "barepy"]
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
         files_found = fs.get_files_in(temp_dir, ext=("py", "csv"))
-    assert set(files_found) == {str(files[-1]), str(files[-2])}
+    assert set(files_found) == {str(files[2]), str(files[3])}
 
 
 def test_yield_files_in_with_recursive():
@@ -222,11 +222,11 @@ class TestFilePathComponents:
         assert file.ext == ""
 
     def test_file_ext_dotfile(self, tmp_path: Path):
-        """Ext handles dotfiles correctly (e.g., .gitignore)."""
+        """Dotfiles without another dot have no extension."""
         f = tmp_path / ".gitignore"
         f.touch()
         file = fs.File(str(f))
-        assert file.ext == "gitignore"
+        assert file.ext == ""
 
     def test_file_suffix(self, temp_file: File):
         """Suffix returns extension with dot."""
@@ -264,6 +264,15 @@ class TestFilePathComponents:
         file = fs.File(str(f))
         assert file.stem == "archive.tar"
         assert file.ext == "gz"
+
+    def test_file_stem_dotfile(self, tmp_path: Path):
+        """Dotfiles without another dot use the whole basename as their stem."""
+        f = tmp_path / ".env"
+        f.touch()
+        file = fs.File(str(f))
+        assert file.stem == ".env"
+        assert file.suffix == ""
+        assert file.ext == ""
 
     def test_file_abspath(self, tmp_path: Path):
         """Abspath returns absolute path."""
@@ -712,6 +721,20 @@ class TestFileMoveCopy:
         assert copied_file.basename == "copied.txt"
         assert temp_file.exists
 
+    def test_file_copy_to_file_target_rejects_existing_directory(
+        self, temp_file: File, tmp_path: Path
+    ):
+        """copy_to(File(existing_dir)) does not recursively remove directories."""
+        existing_dir = tmp_path / "existing"
+        existing_dir.mkdir()
+        (existing_dir / "keep.txt").write_text("keep")
+
+        with pytest.raises(IsADirectoryError):
+            temp_file.copy_to(fs.File(str(existing_dir)))
+
+        assert existing_dir.is_dir()
+        assert (existing_dir / "keep.txt").read_text() == "keep"
+
     def test_file_move_to_same_directory_is_noop(self, temp_file: File, tmp_path: Path):
         """move_to(existing parent) is a no-op when the destination is the same path."""
         moved_file = temp_file.move_to(fs.Directory(str(tmp_path)))
@@ -762,12 +785,24 @@ class TestFilePathManipulation:
         new_file = temp_file.with_ext("json")
         assert new_file.suffix == ".json"
 
+    def test_file_with_ext_dotfile(self, tmp_path: Path):
+        """with_ext() appends an extension to extensionless dotfiles."""
+        file = fs.File(str(tmp_path / ".env"))
+        new_file = file.with_ext("txt")
+        assert new_file.basename == ".env.txt"
+
     def test_file_with_suffix(self, temp_file: File):
         """with_suffix() returns a new File with a suffixed name."""
         original_path = temp_file.path
         new_file = temp_file.with_suffix("_backup")
         assert temp_file.path == original_path
         assert "test_backup.txt" in new_file.path
+
+    def test_file_with_suffix_dotfile(self, tmp_path: Path):
+        """with_suffix() appends before the extension, preserving dotfile names."""
+        file = fs.File(str(tmp_path / ".env"))
+        new_file = file.with_suffix("_bak")
+        assert new_file.basename == ".env_bak"
 
     def test_file_with_prefix(self, temp_file: File):
         """with_prefix() returns a new File with a prefixed name."""
@@ -973,6 +1008,26 @@ class TestFileLinks:
         assert result is not temp_file
         assert result.path == target
         assert result.encoding == temp_file.encoding
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows symlinks return extended path format"
+    )
+    def test_file_symlink_relative_source_to_nested_target(self, tmp_path: Path):
+        """symlink() keeps relative source paths valid for targets in another directory."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            Path("src.txt").write_text("content")
+            Path("links").mkdir()
+
+            result = fs.File("src.txt").symlink("links/link.txt")
+
+            assert result.path == os.path.join("links", "link.txt")
+            assert os.path.islink("links/link.txt")
+            assert os.readlink("links/link.txt") == os.path.join("..", "src.txt")
+            assert os.path.samefile("links/link.txt", "src.txt")
+        finally:
+            os.chdir(original_cwd)
 
     def test_file_samefile(self, temp_file: File, tmp_path: Path):
         """samefile() detects matching filesystem entries."""
@@ -1447,6 +1502,19 @@ class TestDirectoryYieldFiles:
         basenames = [file_obj.basename for file_obj in files]
         assert all("file" in name and name.endswith(".txt") for name in basenames)
 
+    @pytest.mark.skipif(os.name == "nt", reason="symlink behavior is platform-specific")
+    def test_directory_yield_files_avoids_symlink_cycles(self, tmp_path: Path):
+        """yield_files() does not recurse forever through symlink directory cycles."""
+        root = tmp_path / "root"
+        child = root / "child"
+        child.mkdir(parents=True)
+        (child / "file.txt").write_text("x")
+        (child / "back").symlink_to(root, target_is_directory=True)
+
+        files = list(fs.Directory(str(root)).yield_files())
+
+        assert [Path(file.path).relative_to(root) for file in files] == [Path("child/file.txt")]
+
 
 class TestDirectoryGetFiles:
     def test_directory_get_files(self, temp_directory: fs.Directory):
@@ -1485,6 +1553,21 @@ class TestDirectoryYieldSubdirs:
         r"""yield_subdirs(regex=r'\d') filters by regex."""
         subdirs = list(nested_directory.yield_subdirs(regex=r"\d"))
         assert len(subdirs) == 2
+
+    @pytest.mark.skipif(os.name == "nt", reason="symlink behavior is platform-specific")
+    def test_directory_yield_subdirs_avoids_symlink_cycles(self, tmp_path: Path):
+        """yield_subdirs() yields symlink dirs without recursing forever through cycles."""
+        root = tmp_path / "root"
+        child = root / "child"
+        child.mkdir(parents=True)
+        (child / "back").symlink_to(root, target_is_directory=True)
+
+        subdirs = list(fs.Directory(str(root)).yield_subdirs())
+
+        assert [Path(directory.path).relative_to(root) for directory in subdirs] == [
+            Path("child"),
+            Path("child/back"),
+        ]
 
 
 class TestDirectoryGetSubdirs:
@@ -1626,6 +1709,60 @@ class TestDirectoryMoveCopy:
         dest = tmp_path / "dest"
         with pytest.raises(TypeError):
             temp_directory.move_to(str(dest))
+
+    def test_directory_copy_to_into_itself_raises(self, temp_directory: fs.Directory):
+        """copy_to() rejects destinations nested under the source directory."""
+        with pytest.raises(ValueError, match="into itself"):
+            temp_directory.copy_to(temp_directory.directory("nested"), mkdir=True)
+
+    def test_directory_move_to_into_itself_raises(self, temp_directory: fs.Directory):
+        """move_to() rejects destinations nested under the source directory."""
+        with pytest.raises(ValueError, match="into itself"):
+            temp_directory.move_to(temp_directory.directory("nested"), mkdir=True)
+
+    @pytest.mark.skipif(os.name == "nt", reason="symlink behavior is platform-specific")
+    def test_directory_copy_to_rejects_symlinked_source_child(self, tmp_path: Path):
+        """copy_to() rejects destinations nested under the resolved source directory."""
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "file.txt").write_text("data")
+        link_to_source = tmp_path / "link-to-source"
+        link_to_source.symlink_to(source, target_is_directory=True)
+
+        with pytest.raises(ValueError, match="into itself"):
+            fs.Directory(str(source)).copy_to(fs.Directory(str(link_to_source)))
+
+        assert sorted(path.relative_to(source) for path in source.rglob("*")) == [Path("file.txt")]
+
+    @pytest.mark.skipif(os.name == "nt", reason="symlink behavior is platform-specific")
+    def test_directory_move_to_rejects_symlinked_source_child(self, tmp_path: Path):
+        """move_to() rejects destinations nested under the resolved source directory."""
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "file.txt").write_text("data")
+        link_to_source = tmp_path / "link-to-source"
+        link_to_source.symlink_to(source, target_is_directory=True)
+
+        with pytest.raises(ValueError, match="into itself"):
+            fs.Directory(str(source)).move_to(fs.Directory(str(link_to_source)))
+
+        assert source.exists()
+        assert link_to_source.exists()
+        assert link_to_source.is_symlink()
+
+    @pytest.mark.skipif(os.name == "nt", reason="symlink behavior is platform-specific")
+    def test_directory_move_to_same_location_through_symlink_is_noop(self, tmp_path: Path):
+        """move_to() treats a symlinked destination parent resolving to the same path as a no-op."""
+        source = tmp_path / "source"
+        source.mkdir()
+        link_to_parent = tmp_path / "link-to-parent"
+        link_to_parent.symlink_to(tmp_path, target_is_directory=True)
+
+        moved = fs.Directory(str(source)).move_to(fs.Directory(str(link_to_parent)))
+
+        assert moved.path == str(link_to_parent / "source")
+        assert source.exists()
+        assert link_to_parent.exists()
 
 
 class TestDirectoryPathTransformations:

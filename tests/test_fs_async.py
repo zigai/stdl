@@ -90,6 +90,18 @@ def test_open_async_supports_chunk_iteration(tmp_path: Path) -> None:
     anyio.run(scenario)
 
 
+def test_open_async_uses_file_encoding_by_default(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        path = tmp_path / "latin.txt"
+        path.write_bytes("café".encode("latin-1"))
+        file = fs.File(str(path), encoding="latin-1")
+
+        async with await file.open_async() as handle:
+            assert await handle.read() == "café"
+
+    anyio.run(scenario)
+
+
 def test_open_async_serializes_concurrent_handle_operations(tmp_path: Path) -> None:
     async def scenario() -> None:
         file = fs.File(str(tmp_path / "concurrent.txt"))
@@ -197,6 +209,206 @@ def test_directory_async_traversal_and_mutation(tmp_path: Path) -> None:
 
         await moved.remove_async()
         assert await moved.exists_async() is False
+
+    anyio.run(scenario)
+
+
+def test_directory_read_files_async_returns_ordered_text_pairs(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha")
+    (root / "beta.txt").write_text("beta")
+    (root / "gamma.py").write_text("print('gamma')")
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(ext="txt", recursive=False)
+
+        pairs = await directory.read_files_async(ext="txt", recursive=False)
+
+        assert [file.path for file, _ in pairs] == [file.path for file in expected_files]
+        assert [data for _, data in pairs] == ["alpha", "beta"]
+
+    anyio.run(scenario)
+
+
+def test_directory_read_files_async_supports_binary_mode(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "first.bin").write_bytes(b"\x00\x01")
+    (root / "second.bin").write_bytes(b"\x02\x03")
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(ext="bin", recursive=False)
+
+        pairs = await directory.read_files_async(mode="rb", ext="bin", recursive=False)
+
+        assert [file.path for file, _ in pairs] == [file.path for file in expected_files]
+        assert [data for _, data in pairs] == [b"\x00\x01", b"\x02\x03"]
+
+    anyio.run(scenario)
+
+
+def test_directory_read_files_async_respects_filters(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("a")
+    (root / "beta.txt").write_text("b")
+    (root / "alpha.py").write_text("print('a')")
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(
+            ext="txt",
+            glob="a*",
+            regex=r"^alpha",
+            recursive=False,
+        )
+
+        pairs = await directory.read_files_async(
+            ext="txt",
+            glob="a*",
+            regex=r"^alpha",
+            recursive=False,
+        )
+
+        assert [file.path for file, _ in pairs] == [file.path for file in expected_files]
+        assert [data for _, data in pairs] == ["a"]
+
+    anyio.run(scenario)
+
+
+def test_directory_read_files_async_enforces_concurrency_limit(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    for index in range(5):
+        (root / f"file-{index}.txt").write_text(str(index))
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        active = 0
+        max_active = 0
+        original_read_async = fs.File.read_async
+
+        async def tracked_read_async(self: fs.File, mode: str = "r") -> str | bytes:
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            try:
+                await anyio.sleep(0.02)
+                return await original_read_async(self, mode)
+            finally:
+                active -= 1
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(fs.File, "read_async", tracked_read_async)
+        try:
+            pairs = await directory.read_files_async(recursive=False, concurrency=2)
+        finally:
+            monkeypatch.undo()
+
+        expected_files = await directory.get_files_async(recursive=False)
+        assert [file.path for file, _ in pairs] == [file.path for file in expected_files]
+        assert max_active == 2
+
+    anyio.run(scenario)
+
+
+def test_directory_bulk_async_operations_validate_concurrency(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha")
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+
+        with pytest.raises(ValueError, match="concurrency must be >= 1"):
+            await directory.read_files_async(recursive=False, concurrency=0)
+
+        with pytest.raises(ValueError, match="concurrency must be >= 1"):
+            await directory.remove_files_async(recursive=False, concurrency=0)
+
+    anyio.run(scenario)
+
+
+def test_directory_read_files_async_fails_fast(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    for name in ("alpha.txt", "beta.txt", "gamma.txt"):
+        (root / name).write_text(name)
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(recursive=False)
+        blocked_path = expected_files[1].path
+        original_read_async = fs.File.read_async
+
+        async def flaky_read_async(self: fs.File, mode: str = "r") -> str | bytes:
+            if self.path == blocked_path:
+                raise RuntimeError("boom")
+            return await original_read_async(self, mode)
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(fs.File, "read_async", flaky_read_async)
+        try:
+            with pytest.raises(RuntimeError, match="boom"):
+                await directory.read_files_async(recursive=False, concurrency=1)
+        finally:
+            monkeypatch.undo()
+
+    anyio.run(scenario)
+
+
+def test_directory_remove_files_async_removes_matching_files(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha")
+    (root / "beta.txt").write_text("beta")
+    (root / "gamma.py").write_text("print('gamma')")
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(ext="txt", recursive=False)
+
+        removed = await directory.remove_files_async(ext="txt", recursive=False)
+
+        assert [file.path for file in removed] == [file.path for file in expected_files]
+        assert (root / "alpha.txt").exists() is False
+        assert (root / "beta.txt").exists() is False
+        assert (root / "gamma.py").exists() is True
+
+    anyio.run(scenario)
+
+
+def test_directory_remove_files_async_documents_partial_completion(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    for name in ("alpha.txt", "beta.txt", "gamma.txt"):
+        (root / name).write_text(name)
+
+    async def scenario() -> None:
+        directory = fs.Directory(str(root))
+        expected_files = await directory.get_files_async(recursive=False)
+        blocked_path = expected_files[1].path
+        original_remove_async = fs.File.remove_async
+
+        async def flaky_remove_async(self: fs.File) -> fs.File:
+            if self.path == blocked_path:
+                raise PermissionError("blocked")
+            return await original_remove_async(self)
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(fs.File, "remove_async", flaky_remove_async)
+        try:
+            with pytest.raises(PermissionError, match="blocked"):
+                await directory.remove_files_async(recursive=False, concurrency=1)
+        finally:
+            monkeypatch.undo()
+
+        assert await anyio.Path(expected_files[0].path).exists() is False
+        assert await anyio.Path(expected_files[1].path).exists() is True
+        assert await anyio.Path(expected_files[2].path).exists() is True
 
     anyio.run(scenario)
 

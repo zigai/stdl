@@ -24,12 +24,25 @@ from collections.abc import (
     Iterable,
     Iterator,
 )
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from typing import IO, Any, Generic, Literal, ParamSpec, Protocol, TypeVar, cast, overload
+from types import TracebackType
+from typing import (
+    IO,
+    Any,
+    Generic,
+    Literal,
+    ParamSpec,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    cast,
+    overload,
+)
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -74,24 +87,84 @@ HandleDataT = TypeVar("HandleDataT", str, bytes)
 T = TypeVar("T")
 ResultT = TypeVar("ResultT")
 
+JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+YamlValue: TypeAlias = (
+    None
+    | bool
+    | int
+    | float
+    | str
+    | list["YamlValue"]
+    | tuple["YamlValue", ...]
+    | dict["YamlValue", "YamlValue"]
+)
+OpenKwarg: TypeAlias = str | int | bool | None | Callable[[str, int], int]
 
-class _AsyncLock(Protocol):
-    async def __aenter__(self) -> object: ...
 
-    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> object: ...
+class AsyncLock(Protocol):
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None: ...
 
 
-class _CancelScope(Protocol):
-    def __enter__(self) -> object: ...
+class AsyncSemaphore(Protocol):
+    async def __aenter__(self) -> Self: ...
 
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> object: ...
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None: ...
 
 
-class _AnyIOToThread(Protocol):
+class CancelScope(Protocol):
+    def __enter__(self) -> Self: ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None: ...
+
+
+class TaskGroupCancelScope(Protocol):
+    def cancel(self) -> None: ...
+
+
+class AnyIOTaskGroup(Protocol):
+    cancel_scope: TaskGroupCancelScope
+
+    def start_soon(
+        self,
+        func: Callable[..., Awaitable[object]],
+        *args: object,
+        **kwargs: object,
+    ) -> None: ...
+
+
+class AnyIOTaskGroupContext(Protocol):
+    async def __aenter__(self) -> AnyIOTaskGroup: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None: ...
+
+
+class AnyIOToThread(Protocol):
     async def run_sync(self, func: Callable[[], T], /) -> T: ...
 
 
-class _AsyncFileLike(Protocol[HandleDataT]):
+class AsyncFileLike(Protocol[HandleDataT]):
     def read(self, size: int = -1) -> HandleDataT | Awaitable[HandleDataT]: ...
 
     def readline(self, size: int = -1) -> HandleDataT | Awaitable[HandleDataT]: ...
@@ -117,32 +190,44 @@ class _AsyncFileLike(Protocol[HandleDataT]):
     def close(self) -> None | Awaitable[None]: ...
 
 
-class _AnyIOModule(Protocol):
-    to_thread: _AnyIOToThread
-    CancelScope: Callable[..., _CancelScope]
-    Lock: Callable[[], _AsyncLock]
+class AnyIOModule(Protocol):
+    to_thread: AnyIOToThread
+    CancelScope: Callable[..., CancelScope]
+    Lock: Callable[[], AsyncLock]
+    Semaphore: Callable[[int], AsyncSemaphore]
+    create_task_group: Callable[[], AnyIOTaskGroupContext]
+    get_cancelled_exc_class: Callable[[], type[BaseException]]
 
     async def open_file(
         self,
         file: str | PathLike[str],
         mode: str = "r",
         encoding: str | None = None,
-        **kwargs: object,
-    ) -> object: ...
+        **kwargs: OpenKwarg,
+    ) -> AsyncFileLike[str] | AsyncFileLike[bytes]: ...
 
 
-_ANYIO: _AnyIOModule | None = None
+@dataclass
+class LimitedMapState(Generic[T, ResultT]):
+    items: list[T]
+    results: list[ResultT | None]
+    lock: AsyncLock
+    next_index: int = 0
+    first_error: Exception | None = None
+
+
+_ANYIO: AnyIOModule | None = None
 _ITERATION_SENTINEL = object()
 
 
-def _load_anyio() -> _AnyIOModule:
+def _load_anyio() -> AnyIOModule:
     global _ANYIO
 
     if _ANYIO is not None:
         return _ANYIO
 
     try:
-        _ANYIO = cast(_AnyIOModule, importlib.import_module("anyio"))
+        _ANYIO = cast(AnyIOModule, importlib.import_module("anyio"))
     except ImportError as exc:
         raise ImportError(
             "Async stdl.fs APIs require AnyIO. Install stdl with the async extra: "
@@ -183,12 +268,90 @@ async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenera
             await _run_fs_sync_shielded(close)
 
 
-class AsyncFileHandle(Generic[HandleDataT]):
-    def __init__(self, handle: _AsyncFileLike[HandleDataT]) -> None:
-        self._handle = handle
-        self._lock: _AsyncLock | None = None
+async def _map_limited_async(
+    items: Iterable[T],
+    func: Callable[[T], Awaitable[ResultT]],
+    *,
+    concurrency: int = 8,
+) -> list[ResultT]:
+    if concurrency < 1:
+        raise ValueError("concurrency must be >= 1")
 
-    def _get_lock(self) -> _AsyncLock:
+    item_list = list(items)
+    if not item_list:
+        return []
+
+    anyio = _load_anyio()
+    state = LimitedMapState(
+        items=item_list,
+        results=[None] * len(item_list),
+        lock=anyio.Lock(),
+    )
+    cancelled_exc_class = anyio.get_cancelled_exc_class()
+
+    async with anyio.create_task_group() as task_group:
+        for _ in range(min(concurrency, len(item_list))):
+            task_group.start_soon(
+                _run_limited_map_worker,
+                state,
+                func,
+                cancelled_exc_class,
+                task_group,
+            )
+
+    if state.first_error is not None:
+        raise state.first_error
+
+    return [cast(ResultT, result) for result in state.results]
+
+
+async def _claim_limited_map_item(state: LimitedMapState[T, ResultT]) -> tuple[int, T] | None:
+    async with state.lock:
+        if state.first_error is not None or state.next_index >= len(state.items):
+            return None
+        index = state.next_index
+        state.next_index += 1
+        return index, state.items[index]
+
+
+async def _record_limited_map_error(
+    state: LimitedMapState[T, ResultT],
+    task_group: AnyIOTaskGroup,
+    exc: Exception,
+) -> None:
+    async with state.lock:
+        if state.first_error is None:
+            state.first_error = exc
+            task_group.cancel_scope.cancel()
+
+
+async def _run_limited_map_worker(
+    state: LimitedMapState[T, ResultT],
+    func: Callable[[T], Awaitable[ResultT]],
+    cancelled_exc_class: type[BaseException],
+    task_group: AnyIOTaskGroup,
+) -> None:
+    while True:
+        next_item = await _claim_limited_map_item(state)
+        if next_item is None:
+            return
+        index, item = next_item
+
+        try:
+            state.results[index] = await func(item)
+        except cancelled_exc_class:
+            raise
+        except Exception as exc:  # noqa: BLE001 - normalize worker failures
+            await _record_limited_map_error(state, task_group, exc)
+            return
+
+
+class AsyncFileHandle(Generic[HandleDataT]):
+    def __init__(self, handle: AsyncFileLike[HandleDataT]) -> None:
+        self._handle: AsyncFileLike[HandleDataT] = handle
+        self._lock: AsyncLock | None = None
+
+    def _get_lock(self) -> AsyncLock:
         if self._lock is None:
             self._lock = _load_anyio().Lock()
         return self._lock
@@ -196,8 +359,14 @@ class AsyncFileHandle(Generic[HandleDataT]):
     async def __aenter__(self) -> AsyncFileHandle[HandleDataT]:
         return self
 
-    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
         await self.close()
+        return None
 
     def __aiter__(self) -> AsyncIterator[HandleDataT]:
         return self.iter_lines()
@@ -213,10 +382,14 @@ class AsyncFileHandle(Generic[HandleDataT]):
 
     async def readline(self, size: int = -1) -> HandleDataT:
         async with self._get_lock():
+            if size == -1:
+                return await self._resolve_result(self._handle.readline())
             return await self._resolve_result(self._handle.readline(size))
 
     async def readlines(self, hint: int = -1) -> list[HandleDataT]:
         async with self._get_lock():
+            if hint == -1:
+                return await self._resolve_result(self._handle.readlines())
             return await self._resolve_result(self._handle.readlines(hint))
 
     async def write(self, data: HandleDataT) -> int:
@@ -268,21 +441,28 @@ class AsyncFileHandle(Generic[HandleDataT]):
             yield chunk
 
 
-def _iter_file_paths(directory: str | PathLike, *, recursive: bool) -> Generator[str, None, None]:
+def _iter_file_paths(
+    directory: str | PathLike[str], *, recursive: bool
+) -> Generator[str, None, None]:
     if not recursive:
         with os.scandir(directory) as entries:
-            for entry in entries:
+            for entry in sorted(entries, key=lambda entry: os.fspath(entry.name)):
                 if entry.is_file():
                     yield entry.path
         return
 
-    queue = Queue()
+    visited = {_dir_identity(os.fspath(directory))}
+    queue: Queue[str | PathLike[str]] = Queue()
     queue.put(directory)
     while not queue.empty():
         next_dir = queue.get()
         with os.scandir(next_dir) as entries:
-            for entry in entries:
+            for entry in sorted(entries, key=lambda entry: os.fspath(entry.name)):
                 if entry.is_dir():
+                    entry_identity = _entry_dir_identity(entry)
+                    if entry_identity in visited:
+                        continue
+                    visited.add(entry_identity)
                     queue.put(entry.path)
                 elif entry.is_file():
                     yield entry.path
@@ -292,8 +472,15 @@ def _normalized_ext(ext: str | tuple[str, ...] | None) -> str | tuple[str, ...] 
     if ext is None:
         return None
     if isinstance(ext, str):
-        return ext.lower()
-    return tuple(extension.lower() for extension in ext)
+        return _normalize_single_ext(ext)
+    return tuple(_normalize_single_ext(extension) for extension in ext)
+
+
+def _normalize_single_ext(ext: str) -> str:
+    normalized = ext.lower()
+    if normalized and not normalized.startswith("."):
+        return f".{normalized}"
+    return normalized
 
 
 def _remove_existing_path(path: str) -> None:
@@ -307,10 +494,24 @@ def _comparison_path(path: str | PathLike) -> str:
     return os.path.normcase(os.path.normpath(os.path.abspath(os.fspath(path))))
 
 
+def _real_comparison_path(path: str | PathLike) -> str:
+    return os.path.normcase(os.path.realpath(os.fspath(path)))
+
+
+def _is_same_filesystem_path(path: str | PathLike, other: str | PathLike) -> bool:
+    return _comparison_path(path) == _comparison_path(other) or (
+        _real_comparison_path(path) == _real_comparison_path(other)
+    )
+
+
 def _ensure_directory_target_is_not_inside_source(source_path: str, destination_path: str) -> None:
     source = _comparison_path(source_path)
     destination = _comparison_path(destination_path)
-    if destination != source and destination.startswith(source + SEP):
+    real_source = _real_comparison_path(source_path)
+    real_destination = _real_comparison_path(destination_path)
+    if (destination != source and destination.startswith(source + SEP)) or (
+        real_destination != real_source and real_destination.startswith(real_source + SEP)
+    ):
         raise ValueError("Cannot copy or move a directory into itself")
 
 
@@ -328,6 +529,19 @@ def _dir_identity(path: str) -> tuple[int, int]:
     return stat_result.st_dev, stat_result.st_ino
 
 
+def _entry_dir_identity(entry: os.DirEntry[str]) -> tuple[int, int]:
+    stat_result = entry.stat(follow_symlinks=True)
+    return stat_result.st_dev, stat_result.st_ino
+
+
+def _symlink_source_path(source_path: str, target_path: str) -> str:
+    if os.path.isabs(source_path):
+        return source_path
+
+    target_dir = os.path.dirname(os.path.abspath(target_path))
+    return os.path.relpath(os.path.abspath(source_path), target_dir)
+
+
 def _prepare_destination_path(
     path: str,
     *,
@@ -337,7 +551,7 @@ def _prepare_destination_path(
     expected_type: Literal["file", "directory"] | None = None,
     remove_existing: bool = True,
 ) -> bool:
-    if source_path is not None and _comparison_path(source_path) == _comparison_path(path):
+    if source_path is not None and _is_same_filesystem_path(source_path, path):
         return True
 
     parent = os.path.dirname(path)
@@ -440,7 +654,7 @@ async def json_load_async(
 
 
 def json_append(
-    data: dict[Any, Any] | list[dict[Any, Any]],
+    data: JsonValue,
     filepath: str | PathLike,
     encoding: str = "utf-8",
     default: Callable[[object], str] = str,
@@ -487,7 +701,7 @@ def json_append(
 
 
 async def json_append_async(
-    data: dict[Any, Any] | list[dict[Any, Any]],
+    data: JsonValue,
     filepath: str | PathLike,
     encoding: str = "utf-8",
     default: Callable[[object], str] = str,
@@ -500,7 +714,7 @@ async def json_append_async(
 
 
 def json_dump(
-    data: object,
+    data: JsonValue,
     path: str | PathLike,
     encoding: str = "utf-8",
     default: Callable[[object], str] = str,
@@ -521,7 +735,7 @@ def json_dump(
 
 
 async def json_dump_async(
-    data: object,
+    data: JsonValue,
     path: str | PathLike,
     encoding: str = "utf-8",
     default: Callable[[object], str] = str,
@@ -557,7 +771,7 @@ async def yaml_load_async(
     return await run_fs_sync(yaml_load, path, encoding)
 
 
-def yaml_dump(data: object, path: str | PathLike, encoding: str = "utf-8") -> None:
+def yaml_dump(data: YamlValue, path: str | PathLike, encoding: str = "utf-8") -> None:
     """
     Dumps data to a YAML file.
 
@@ -570,7 +784,7 @@ def yaml_dump(data: object, path: str | PathLike, encoding: str = "utf-8") -> No
         yaml.safe_dump(data, f)
 
 
-async def yaml_dump_async(data: object, path: str | PathLike, encoding: str = "utf-8") -> None:
+async def yaml_dump_async(data: YamlValue, path: str | PathLike, encoding: str = "utf-8") -> None:
     """Async version of yaml_dump()."""
     await _run_fs_sync_shielded(yaml_dump, data, path, encoding)
 
@@ -852,14 +1066,17 @@ def yield_dirs_in(
     Yields:
         Generator[str, None, None]: The paths of the directories that are found during travelsal.
     """
-    queue = Queue()
+    visited = {_dir_identity(os.fspath(directory))}
+    queue: Queue[str | PathLike[str]] = Queue()
     queue.put(directory)
     while not queue.empty():
         next_dir = queue.get()
         with os.scandir(next_dir) as entries:
-            for entry in entries:
+            for entry in sorted(entries, key=lambda entry: os.fspath(entry.name)):
                 if entry.is_dir():
-                    if recursive:
+                    entry_identity = _entry_dir_identity(entry)
+                    if recursive and entry_identity not in visited:
+                        visited.add(entry_identity)
                         queue.put(entry.path)
                     yield os.path.abspath(entry.path) if abs else entry.path
 
@@ -1629,27 +1846,18 @@ class File(PathBase):
         The file's extension (without the dot).
         Returns empty string if the file has no extension.
         """
-        if "." in self.basename:
-            return self.basename.split(".")[-1]
-        return ""
+        suffix = self.suffix
+        return suffix[1:] if suffix else ""
 
     @property
     def suffix(self) -> str:
         """The file extension WITH the dot (e.g., '.txt'). Empty string if no extension."""
-        base = os.path.basename(self.path)
-        if "." in base and not base.startswith("."):
-            return "." + base.rsplit(".", 1)[-1]
-        if base.startswith(".") and base.count(".") > 1:
-            return "." + base.rsplit(".", 1)[-1]
-        return ""
+        return os.path.splitext(self.basename)[1]
 
     @property
     def stem(self) -> str:
         """The file's stem (base name without extension)."""
-        base = self.basename
-        if "." not in base:
-            return base
-        return ".".join(base.split(".")[:-1])
+        return os.path.splitext(self.basename)[0]
 
     @property
     def size(self) -> int:
@@ -1889,16 +2097,18 @@ class File(PathBase):
 
     @overload
     def open(
-        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: object
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: OpenKwarg
     ) -> IO[str]: ...
 
     @overload
-    def open(self, mode: Literal["rb"], encoding: None = None, **kwargs: object) -> IO[bytes]: ...
+    def open(
+        self, mode: Literal["rb"], encoding: None = None, **kwargs: OpenKwarg
+    ) -> IO[bytes]: ...
 
     @overload
-    def open(self, mode: str, encoding: str | None = None, **kwargs: object) -> IO[Any]: ...
+    def open(self, mode: str, encoding: str | None = None, **kwargs: OpenKwarg) -> IO[Any]: ...
 
-    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: object) -> IO[Any]:
+    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: OpenKwarg) -> IO[Any]:
         """
         Open the file and return a file handle.
 
@@ -1918,29 +2128,31 @@ class File(PathBase):
 
     @overload
     async def open_async(
-        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: object
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: OpenKwarg
     ) -> AsyncFileHandle[str]: ...
 
     @overload
     async def open_async(
-        self, mode: Literal["rb"], encoding: None = None, **kwargs: object
+        self, mode: Literal["rb"], encoding: None = None, **kwargs: OpenKwarg
     ) -> AsyncFileHandle[bytes]: ...
 
     @overload
     async def open_async(
-        self, mode: str, encoding: str | None = None, **kwargs: object
+        self, mode: str, encoding: str | None = None, **kwargs: OpenKwarg
     ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]: ...
 
     async def open_async(
-        self, mode: str = "r", encoding: str | None = None, **kwargs: object
+        self, mode: str = "r", encoding: str | None = None, **kwargs: OpenKwarg
     ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]:
         """Async version of open()."""
+        if "b" not in mode and encoding is None:
+            encoding = self.encoding
         anyio = _load_anyio()
         with anyio.CancelScope(shield=True):
             handle = await anyio.open_file(self.path, mode, encoding=encoding, **kwargs)
         if "b" in mode:
-            return AsyncFileHandle(cast(_AsyncFileLike[bytes], handle))
-        return AsyncFileHandle(cast(_AsyncFileLike[str], handle))
+            return AsyncFileHandle(cast(AsyncFileLike[bytes], handle))
+        return AsyncFileHandle(cast(AsyncFileLike[str], handle))
 
     def write_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
@@ -2114,18 +2326,12 @@ class File(PathBase):
 
     def with_suffix(self, suffix: str) -> File:
         """Add a suffix to the file's name and return the new File object."""
-        ext = self.ext
-        if ext:
-            ext = f".{ext}"
-        filename = f"{self.stem}{suffix}{ext}"
+        filename = f"{self.stem}{suffix}{self.suffix}"
         return self._clone_with_path(os.path.join(self.dirname, filename))
 
     def with_prefix(self, prefix: str) -> File:
         """Add a prefix to the file's name and return the new File object."""
-        ext = self.ext
-        if ext:
-            ext = f".{ext}"
-        filename = f"{prefix}{self.stem}{ext}"
+        filename = f"{prefix}{self.stem}{self.suffix}"
         return self._clone_with_path(os.path.join(self.dirname, filename))
 
     def with_stem(self, stem: str) -> File:
@@ -2155,7 +2361,7 @@ class File(PathBase):
 
     def symlink(self, target: str) -> File:
         """Create a symbolic link and return a File for the created link path."""
-        os.symlink(self.path, target)
+        os.symlink(_symlink_source_path(self.path, target), target)
         return self._clone_with_path(target)
 
     async def symlink_async(self, target: str) -> File:
@@ -2423,6 +2629,98 @@ class Directory(PathBase):
         return await run_fs_sync(
             self.get_files, ext=ext, glob=glob, regex=regex, recursive=recursive
         )
+
+    @overload
+    async def read_files_async(
+        self,
+        *,
+        mode: Literal["r"] = "r",
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+        concurrency: int = 8,
+    ) -> list[tuple[File, str]]: ...
+
+    @overload
+    async def read_files_async(
+        self,
+        *,
+        mode: Literal["rb"],
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+        concurrency: int = 8,
+    ) -> list[tuple[File, bytes]]: ...
+
+    async def read_files_async(
+        self,
+        *,
+        mode: Literal["r", "rb"] = "r",
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+        concurrency: int = 8,
+    ) -> list[tuple[File, str]] | list[tuple[File, bytes]]:
+        """
+        Read matching files concurrently.
+
+        Args:
+            mode: The mode to read files in. Use "r" for text and "rb" for binary.
+            ext: If provided, only read files with provided extensions.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
+            concurrency: Maximum number of concurrent read operations.
+
+        Returns:
+            list[tuple[File, str]] | list[tuple[File, bytes]]: Matching files and their contents.
+        """
+        files = await self.get_files_async(ext=ext, glob=glob, regex=regex, recursive=recursive)
+
+        if mode == "rb":
+
+            async def read_file_binary(file: File) -> tuple[File, bytes]:
+                return file, await file.read_async(mode="rb")
+
+            return await _map_limited_async(files, read_file_binary, concurrency=concurrency)
+
+        async def read_file_text(file: File) -> tuple[File, str]:
+            return file, await file.read_async(mode="r")
+
+        return await _map_limited_async(files, read_file_text, concurrency=concurrency)
+
+    async def remove_files_async(
+        self,
+        *,
+        ext: str | tuple[str, ...] | None = None,
+        glob: str | re.Pattern[str] | None = None,
+        regex: str | re.Pattern[str] | None = None,
+        recursive: bool = True,
+        concurrency: int = 8,
+    ) -> list[File]:
+        """
+        Remove matching files concurrently.
+
+        Args:
+            ext: If provided, only remove files with provided extensions.
+            glob: Glob pattern as string or compiled regex from fnmatch.translate().
+            regex: Regex pattern as string or compiled re.Pattern.
+            recursive: Whether to search recursively.
+            concurrency: Maximum number of concurrent remove operations.
+
+        Returns:
+            list[File]: The removed files in snapshot order.
+        """
+        files = await self.get_files_async(ext=ext, glob=glob, regex=regex, recursive=recursive)
+
+        async def remove_file(file: File) -> File:
+            await file.remove_async()
+            return file
+
+        return await _map_limited_async(files, remove_file, concurrency=concurrency)
 
     def yield_subdirs(
         self,
