@@ -4,10 +4,11 @@ import textwrap
 from dataclasses import dataclass
 from platform import system
 from sys import stdout
-from typing import Literal
+from typing import Literal, TypeAlias
 
 CSI_RESET = "\033["
 NO_COLOR = bool(os.environ.get("NO_COLOR"))
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:\][^\x1B\x07]*(?:\x07|\x1B\\)|\[[0-?]*[ -/]*[@-~]|[@-Z\\-_])")
 
 
 def ansi_code(n: int) -> str:
@@ -15,13 +16,8 @@ def ansi_code(n: int) -> str:
 
 
 class ColorANSI:
-    # Cancel SGR codes if we don't write to a terminal
-    if not stdout.isatty():
-        for attr in dir():
-            if isinstance(attr, str) and attr[0] != "_":
-                locals()[attr] = ""
     # Enable VT mode on Windows
-    elif system() == "Windows":
+    if stdout.isatty() and system() == "Windows":
         import ctypes
 
         kernel32 = ctypes.windll.kernel32
@@ -114,7 +110,7 @@ class ST(ColorANSI):
     BLINK = ansi_code(5)
 
 
-ForegroundColor = Literal[
+ForegroundColor: TypeAlias = Literal[
     "black",
     "blue",
     "bold",
@@ -135,7 +131,7 @@ ForegroundColor = Literal[
 ]
 
 
-BackgroundColor = Literal[
+BackgroundColor: TypeAlias = Literal[
     "black",
     "blue",
     "cyan",
@@ -154,7 +150,7 @@ BackgroundColor = Literal[
     "yellow",
 ]
 
-Style = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
+Style: TypeAlias = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
 
 
 def _get_ansi_value(value: str | None, handler: type[ColorANSI]) -> str:
@@ -297,7 +293,7 @@ class sf:  # noqa: N801
         dirname, filename = os.path.split(filepath)
         filename = cls.filename(filename, replace_with)
         dirname = remove(dirname, '|?*<>:"')
-        return f"{dirname}{os.sep}{filename}"
+        return os.path.join(dirname, filename)
 
     @classmethod
     def ascii(cls, s: str, replace_with: str = "") -> str:
@@ -319,6 +315,8 @@ def snake_case(s: str) -> str:
 def camel_case(s: str) -> str:
     """Converts a given string to camelCase."""
     s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
+    if not s:
+        return ""
     return s[0].lower() + s[1:]
 
 
@@ -346,9 +344,7 @@ def wrapped(text: str, width: int, newline: str = "\n") -> str:
 
 def ansi_len(s: str) -> int:
     """Returns the length of the string without the ANSI codes."""
-    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
-    codes_len = sum(len(code) for code in ascii_codes)
-    return len(s) - codes_len
+    return len(ansi_strip(s))
 
 
 def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:
@@ -360,10 +356,7 @@ def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:
         width (int): The width of the string.
         fillchar (str, optional): The character to fill the string with. Defaults to " ".
     """
-    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
-    codes_len = sum(len(code) for code in ascii_codes)
-    new_width = width + codes_len
-    return s.ljust(new_width, fillchar)
+    return s + fillchar * max(width - ansi_len(s), 0)
 
 
 def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
@@ -375,16 +368,12 @@ def ansi_rjust(s: str, width: int, fillchar: str = " ") -> str:
         width (int): The width of the string.
         fillchar (str, optional): The character to fill the string with. Defaults to " ".
     """
-    ascii_codes = re.findall(r"\x1b\[[0-9;]*[m]", s)
-    codes_len = sum(len(code) for code in ascii_codes)
-    new_width = width + codes_len
-    return s.rjust(new_width, fillchar)
+    return fillchar * max(width - ansi_len(s), 0) + s
 
 
 def ansi_strip(r: str) -> str:
     """Remove ANSI escape codes from a string."""
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    return ansi_escape.sub("", r)
+    return ANSI_ESCAPE_RE.sub("", r)
 
 
 if __name__ == "__main__":

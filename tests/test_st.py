@@ -38,6 +38,9 @@ def test_camel_case():
     assert camel_case("foo______BAR") == "fooBar"
     assert camel_case("foo______   BAR") == "fooBar"
     assert camel_case("foo _ _ BAR") == "fooBar"
+    assert camel_case("") == ""
+    assert camel_case("_") == ""
+    assert camel_case("--") == ""
 
 
 def test_keep():
@@ -73,7 +76,15 @@ def test_len_without_ansi():
     assert st.ansi_len(no_ansi_text) == len(no_ansi_text)
     assert st.ansi_len(colored("TEXT", color="red")) == 4
     assert st.ansi_len(colored("TEXT", color="red", style="bold")) == 4
+    assert st.ansi_len("\x1b[38:2:1:2:3mTEXT\x1b[0m") == 4
+    assert st.ansi_len("\x1b[?25lTEXT\x1b[?25h") == 4
+    assert st.ansi_len("\x1b]8;;https://example.com\x1b\\TEXT\x1b]8;;\x1b\\") == 4
     assert st.ansi_len("") == 0
+
+
+def test_ansi_strip_removes_osc8_links():
+    link = "\x1b]8;;https://example.com\x1b\\TEXT\x1b]8;;\x1b\\"
+    assert st.ansi_strip(link) == "TEXT"
 
 
 def test_ansi_ljust():
@@ -90,6 +101,9 @@ def test_ansi_ljust():
     ljust_bold_red = ansi_ljust(bold_red_text, 15, fillchar="-")
     assert ansi_len(ljust_bold_red) == 15
     assert ljust_bold_red.startswith(bold_red_text)
+
+    osc8_text = "\x1b]8;;https://example.com\x1b\\Link\x1b]8;;\x1b\\"
+    assert ansi_len(ansi_ljust(osc8_text, 10)) == 10
 
     assert ansi_ljust("", 5) == "     "
 
@@ -109,6 +123,9 @@ def test_ansi_rjust():
     assert ansi_len(rjust_bold_red) == 15
     assert rjust_bold_red.endswith(bold_red_text)
 
+    private_csi_text = "\x1b[?25lLink\x1b[?25h"
+    assert ansi_len(ansi_rjust(private_csi_text, 10)) == 10
+
     assert ansi_rjust("", 5) == "     "
 
 
@@ -118,6 +135,14 @@ def test_text_style_is_immutable():
 
     with pytest.raises(FrozenInstanceError):
         style.color = "blue"
+
+
+def test_color_ansi_dict_and_names_exclude_class_body_locals():
+    colors = st.FG.dict()
+
+    assert "RED" in colors
+    assert "attr" not in colors
+    assert "ATTR" not in st.FG.get_names()
 
 
 class TestStringFilter:
@@ -140,6 +165,8 @@ class TestStringFilter:
             "normal", "path", "filename.txt"
         )
 
+        assert st.sf.filepath("file.txt") == "file.txt"
+        assert st.sf.filepath(os.sep) == os.sep
         assert st.sf.filepath("") == ""
 
     def test_ascii(self):
