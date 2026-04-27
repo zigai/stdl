@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from stdl.color import (
@@ -30,7 +32,11 @@ class TestRGB:
         with pytest.raises(ColorValueError):
             RGB(-1, 0, 0)
         with pytest.raises(ColorValueError):
+            RGB(-0.9, 0, 0)
+        with pytest.raises(ColorValueError):
             RGB(256, 0, 0)
+        with pytest.raises(ColorValueError):
+            RGB(255.9, 0, 0)
         with pytest.raises(ColorValueError):
             RGB(0, -1, 0)
         with pytest.raises(ColorValueError):
@@ -39,6 +45,11 @@ class TestRGB:
             RGB(0, 0, -1)
         with pytest.raises(ColorValueError):
             RGB(0, 0, 256)
+        with pytest.raises(ColorValueError):
+            RGB(float("nan"), 0, 0)
+        bool_channel = True
+        with pytest.raises(ColorValueError):
+            RGB(bool_channel, 0, 0)
 
     def test_rgb_repr(self):
         rgb = RGB(255, 128, 64)
@@ -122,7 +133,11 @@ class TestRGBA:
         with pytest.raises(ColorValueError):
             RGBA(-1, 0, 0, 0.5)
         with pytest.raises(ColorValueError):
+            RGBA(-0.9, 0, 0, 0.5)
+        with pytest.raises(ColorValueError):
             RGBA(256, 0, 0, 0.5)
+        with pytest.raises(ColorValueError):
+            RGBA(255.9, 0, 0, 0.5)
         with pytest.raises(ColorValueError):
             RGBA(128, 128, 128, -0.1)
         with pytest.raises(ColorValueError):
@@ -177,6 +192,10 @@ class TestHEX:
         with pytest.raises(ColorValueError):
             HEX("#1234567")
         with pytest.raises(ColorValueError):
+            HEX("##123456")
+        with pytest.raises(ColorValueError):
+            HEX(123456)
+        with pytest.raises(ColorValueError):
             HEX("#gggggg")
         with pytest.raises(ColorValueError):
             HEX("invalid")
@@ -229,6 +248,8 @@ class TestHSV:
             HSV(180, 50, -1)
         with pytest.raises(ColorValueError):
             HSV(180, 50, 101)
+        with pytest.raises(ColorValueError):
+            HSV("bad", 0, 0)
 
     def test_hsv_repr(self):
         hsv = HSV(120, 50, 75)
@@ -501,6 +522,10 @@ class TestASSA:
             ASSA.from_clean_value("GGHHII")
         with pytest.raises(ColorValueError):
             ASSA("GGHHII")
+        with pytest.raises(ColorValueError):
+            ASSA("zz40-80-ff!!")
+        with pytest.raises(ColorValueError):
+            ASSA("#4080ff")
 
         # Test wrong lengths
         with pytest.raises(ColorValueError):
@@ -612,6 +637,12 @@ class TestNormalizeColor:
     def test_normalize_invalid_type(self):
         with pytest.raises(ColorValueError):
             normalize_color(123)
+        with pytest.raises(ColorValueError):
+            normalize_color(b"abc")
+        with pytest.raises(ColorValueError):
+            normalize_color(bytearray([1, 2, 3]))
+        with pytest.raises(ColorValueError):
+            normalize_color([True, False, True])
 
 
 class TestColorConversions:
@@ -697,3 +728,24 @@ class TestColorCopy:
         rgba_copy = rgba.copy()
         assert rgba == rgba_copy
         assert rgba is rgba_copy
+
+
+class TestPydanticColorSchemas:
+    def test_rgb_mapping_matches_schema(self):
+        pydantic = pytest.importorskip("pydantic")
+        adapter = pydantic.TypeAdapter(RGB)
+
+        assert adapter.validate_python({"red": 1, "green": 2, "blue": 3}) == RGB(1, 2, 3)
+        assert adapter.validate_python({"r": 1, "g": 2, "b": 3}) == RGB(1, 2, 3)
+        with pytest.raises(pydantic.ValidationError, match="Invalid RGB mapping"):
+            adapter.validate_python({"red": 1, "green": 2, "blue": 3, "extra": 4})
+
+    def test_webcolor_schema_requires_quoted_repr_name(self):
+        pydantic = pytest.importorskip("pydantic")
+        adapter = pydantic.TypeAdapter(webcolor)
+        pattern = adapter.json_schema()["anyOf"][0]["pattern"]
+
+        assert re.fullmatch(pattern, "webcolor('red')")
+        assert not re.fullmatch(pattern, "webcolor(red)")
+        with pytest.raises(pydantic.ValidationError, match="Invalid webcolor repr"):
+            adapter.validate_python("webcolor(red)")

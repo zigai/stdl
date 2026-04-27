@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import builtins
+import math
 import re
 import typing as T
 from abc import ABC, abstractmethod
@@ -10,6 +10,32 @@ from collections.abc import Sequence as SequenceType
 
 class ColorValueError(Exception):
     pass
+
+
+def _coerce_rgb_channel(value: object) -> int:
+    if isinstance(value, bool):
+        raise ColorValueError("RGB values must be integers between 0 and 255")
+    if isinstance(value, int):
+        channel = value
+    elif isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        channel = int(value)
+    else:
+        raise ColorValueError("RGB values must be integers between 0 and 255")
+    if not 0 <= channel <= 255:
+        raise ColorValueError("RGB values must be integers between 0 and 255")
+    return channel
+
+
+def _coerce_finite_float(value: object, *, name: str) -> float:
+    if isinstance(value, bool):
+        raise ColorValueError(f"{name} must be a finite number")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ColorValueError(f"{name} must be a finite number") from exc
+    if not math.isfinite(number):
+        raise ColorValueError(f"{name} must be a finite number")
+    return number
 
 
 class Color(ABC):
@@ -23,7 +49,7 @@ class Color(ABC):
     def _freeze(self) -> None:
         object.__setattr__(self, "_frozen", True)
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return self.__repr__()
 
     @abstractmethod
@@ -31,7 +57,7 @@ class Color(ABC):
         pass
 
     @abstractmethod
-    def get_value_keys(self) -> list[builtins.str]:
+    def get_value_keys(self) -> list[str]:
         pass
 
     @abstractmethod
@@ -61,15 +87,15 @@ class Color(ABC):
     def copy(self) -> Color:
         return self
 
-    def dict(self) -> dict[builtins.str, int | float | builtins.str]:
+    def dict(self) -> dict[str, int | float | str]:
         return {k: getattr(self, k) for k in self.get_value_keys()}
 
-    def __setattr__(self, name: builtins.str, value: object) -> None:
+    def __setattr__(self, name: str, value: int | float | str | bool | Color) -> None:
         if getattr(self, "_frozen", False):
             raise AttributeError(f"{self.__class__.__name__} is immutable")
         object.__setattr__(self, name, value)
 
-    def __delattr__(self, name: builtins.str) -> None:
+    def __delattr__(self, name: str) -> None:
         raise AttributeError(f"{self.__class__.__name__} is immutable")
 
     def __hash__(self) -> int:
@@ -85,9 +111,9 @@ class RGB(Color):
 
     def __init__(self, red: int, green: int, blue: int) -> None:
         super().__init__()
-        self.red = int(red)
-        self.green = int(green)
-        self.blue = int(blue)
+        self.red = _coerce_rgb_channel(red)
+        self.green = _coerce_rgb_channel(green)
+        self.blue = _coerce_rgb_channel(blue)
         self.validate()
         self._freeze()
 
@@ -189,10 +215,10 @@ class RGBA(Color):
 
     def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0) -> None:
         super().__init__()
-        self.red = int(red)
-        self.green = int(green)
-        self.blue = int(blue)
-        self.alpha = float(alpha)
+        self.red = _coerce_rgb_channel(red)
+        self.green = _coerce_rgb_channel(green)
+        self.blue = _coerce_rgb_channel(blue)
+        self.alpha = _coerce_finite_float(alpha, name="Alpha value")
         self.validate()
         self._freeze()
 
@@ -212,11 +238,9 @@ class RGBA(Color):
     __hash__ = Color.__hash__
 
     def validate(self) -> None:
-        if not all(
-            isinstance(x, (int, float)) and 0 <= x <= 255 for x in (self.red, self.green, self.blue)
-        ):
+        if not all(isinstance(x, int) and 0 <= x <= 255 for x in (self.red, self.green, self.blue)):
             raise ColorValueError("RGB values must be 0-255")
-        if not isinstance(self.alpha, (int, float)) or not 0 <= self.alpha <= 1:
+        if not 0 <= self.alpha <= 1:
             raise ColorValueError("Alpha value must be 0-1")
 
     def get_value_keys(self) -> list[str]:
@@ -262,6 +286,8 @@ class HEX(Color):
 
     def __init__(self, value: str) -> None:
         super().__init__()
+        if not isinstance(value, str):
+            raise ColorValueError("HEX value must be a string")
         value = value.removeprefix("#")
         self.value = f"#{value.lower()}"
         self.validate()
@@ -270,7 +296,7 @@ class HEX(Color):
     def validate(self) -> None:
         if not isinstance(self.value, str):
             raise ColorValueError("HEX value must be a string")
-        hex_value = self.value.lstrip("#")
+        hex_value = self.value.removeprefix("#")
         if len(hex_value) != 6 or not all(c in "0123456789ABCDEFabcdef" for c in hex_value):
             raise ColorValueError(f"Invalid HEX color format ({hex_value})")
 
@@ -287,7 +313,7 @@ class HEX(Color):
 
     __hash__ = Color.__hash__
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return self.value
 
     def to_rgb(self) -> RGB:
@@ -321,9 +347,9 @@ class HSV(Color):
 
     def __init__(self, hue: float, saturation: float, value: float) -> None:
         super().__init__()
-        self.hue = float(hue)
-        self.saturation = float(saturation)
-        self.value = float(value)
+        self.hue = _coerce_finite_float(hue, name="Hue")
+        self.saturation = _coerce_finite_float(saturation, name="Saturation")
+        self.value = _coerce_finite_float(value, name="Value")
         self.validate()
         self._freeze()
 
@@ -337,7 +363,7 @@ class HSV(Color):
     def __repr__(self) -> str:
         return f"hsv({self.hue}, {self.saturation}, {self.value})"
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return f"hsv({self.hue}°, {self.saturation}%, {self.value}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -399,9 +425,9 @@ class HSL(Color):
 
     def __init__(self, hue: float, saturation: float, lightness: float) -> None:
         super().__init__()
-        self.hue = float(hue)
-        self.saturation = float(saturation)
-        self.lightness = float(lightness)
+        self.hue = _coerce_finite_float(hue, name="Hue")
+        self.saturation = _coerce_finite_float(saturation, name="Saturation")
+        self.lightness = _coerce_finite_float(lightness, name="Lightness")
         self.validate()
         self._freeze()
 
@@ -417,7 +443,7 @@ class HSL(Color):
     def __repr__(self) -> str:
         return f"hsl({self.hue}, {self.saturation}, {self.lightness})"
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return f"hsl({self.hue}°, {self.saturation}%, {self.lightness}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -492,10 +518,10 @@ class CMYK(Color):
 
     def __init__(self, cyan: float, magenta: float, yellow: float, key: float) -> None:
         super().__init__()
-        self.cyan = float(cyan)
-        self.magenta = float(magenta)
-        self.yellow = float(yellow)
-        self.key = float(key)
+        self.cyan = _coerce_finite_float(cyan, name="Cyan")
+        self.magenta = _coerce_finite_float(magenta, name="Magenta")
+        self.yellow = _coerce_finite_float(yellow, name="Yellow")
+        self.key = _coerce_finite_float(key, name="Key")
         self.validate()
         self._freeze()
 
@@ -509,7 +535,7 @@ class CMYK(Color):
     def __repr__(self) -> str:
         return f"cmyk({self.cyan}, {self.magenta}, {self.yellow}, {self.key})"
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return f"cmyk({self.cyan}%, {self.magenta}%, {self.yellow}%, {self.key}%)"
 
     def __eq__(self, other: object) -> bool:
@@ -559,7 +585,7 @@ class ASSA(Color):
     def __init__(self, value: str) -> None:
         """Initialize ASSA color with hex digits."""
         super().__init__()
-        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
+        clean_value = self._normalize_value(value)
         self.value = f"&H{clean_value}&"
         self.validate()
         self._freeze()
@@ -577,7 +603,7 @@ class ASSA(Color):
     def __repr__(self) -> str:
         return f"assa({self.clean_value})"
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return self.value
 
     def __eq__(self, other: object) -> bool:
@@ -660,7 +686,10 @@ class ASSA(Color):
 
     @staticmethod
     def is_valid_format(value: str) -> bool:
-        clean_value = ASSA._clean_hex(value)
+        try:
+            clean_value = ASSA._normalize_value(value)
+        except ColorValueError:
+            return False
         return len(clean_value) in (6, 8)
 
     @classmethod
@@ -683,7 +712,7 @@ class ASSA(Color):
 
     @classmethod
     def from_clean_value(cls, value: str) -> ASSA:
-        clean = cls._clean_hex(value)
+        clean = cls._normalize_value(value)
         if len(clean) not in (6, 8):
             raise ColorValueError(
                 "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hex digits"
@@ -693,12 +722,23 @@ class ASSA(Color):
     @classmethod
     def from_value(cls, value: str) -> ASSA:
         """Create an ASSA color from a string (with or without &H markers)."""
-        clean_value = "".join(c for c in value.lower() if c in "0123456789abcdef")
-        return cls(clean_value)
+        return cls(value)
 
     @staticmethod
     def _clean_hex(value: str) -> str:
-        return "".join(c for c in value.upper() if c in "0123456789ABCDEF")
+        return ASSA._normalize_value(value).upper()
+
+    @staticmethod
+    def _normalize_value(value: str) -> str:
+        if not isinstance(value, str):
+            raise ColorValueError("ASSA value must be a string")
+        if value.startswith(("&H", "&h")) and value.endswith("&"):
+            value = value[2:-1]
+        if not re.fullmatch(r"[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8}", value):
+            raise ColorValueError(
+                "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hexadecimal digits"
+            )
+        return value.lower()
 
 
 ASSA.is_BBGGRR_format = ASSA.is_bbggrr_format
@@ -1038,7 +1078,7 @@ class WebColor(Color):
 
     __hash__ = Color.__hash__
 
-    def to_str(self) -> builtins.str:
+    def to_str(self) -> str:
         return self.name
 
     def to_rgb(self) -> RGB:
@@ -1095,7 +1135,11 @@ def normalize_color(
     ),
 ) -> RGB | RGBA | HEX | ASSA | webcolor:
     """Convert various color formats to a Color object."""
-    if isinstance(color, SequenceType) and all(isinstance(x, (int, float)) for x in color):
+    if (
+        isinstance(color, SequenceType)
+        and not isinstance(color, (str, bytes, bytearray))
+        and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in color)
+    ):
         if len(color) == 3:
             return RGB(*color)
         if len(color) == 4:
@@ -1111,10 +1155,10 @@ def normalize_color(
 
 
 try:
-    from pydantic import GetCoreSchemaHandler as _GetCoreSchemaHandler
-    from pydantic import GetJsonSchemaHandler as _GetJsonSchemaHandler
-    from pydantic.json_schema import JsonSchemaValue as _JsonSchemaValue
-    from pydantic_core import core_schema as _core_schema
+    from pydantic import GetCoreSchemaHandler as PydanticGetCoreSchemaHandler
+    from pydantic import GetJsonSchemaHandler as PydanticGetJsonSchemaHandler
+    from pydantic.json_schema import JsonSchemaValue as PydanticJsonSchemaValue
+    from pydantic_core import core_schema as pydantic_core_schema
 except (ImportError, SyntaxError):  # pragma: no cover - optional dependency
     _HAS_PYDANTIC = False
 else:
@@ -1122,18 +1166,32 @@ else:
 
 if _HAS_PYDANTIC:
 
+    def _exact_mapping(
+        value: Mapping[str, T.Any], keys: set[str], *, label: str
+    ) -> dict[str, T.Any]:
+        data = dict(value)
+        if set(data) != keys:
+            raise ValueError(f"Invalid {label} mapping: {value!r}")
+        return data
+
+    def _matching_mapping(
+        value: Mapping[str, T.Any], key_sets: tuple[set[str], ...], *, label: str
+    ) -> dict[str, T.Any]:
+        data = dict(value)
+        if not any(set(data) == keys for keys in key_sets):
+            raise ValueError(f"Invalid {label} mapping: {value!r}")
+        return data
+
     def parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if {"red", "green", "blue"}.issubset(data):
+            data = _matching_mapping(
+                value, ({"red", "green", "blue"}, {"r", "g", "b"}), label="RGB"
+            )
+            if "red" in data:
                 return RGB(data["red"], data["green"], data["blue"])
-            if {"r", "g", "b"}.issubset(data):
-                return RGB(data["r"], data["g"], data["b"])
-            raise ValueError(f"Invalid RGB mapping: {value!r}")
+            return RGB(data["r"], data["g"], data["b"])
 
-        match = re.fullmatch(
-            r"\s*rgb\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*\)\s*", value
-        )
+        match = re.fullmatch(r"\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*", value)
         if not match:
             raise ValueError(f"Invalid RGB repr: {value!r}")
 
@@ -1142,15 +1200,17 @@ if _HAS_PYDANTIC:
 
     def parse_rgba(value: str | Mapping[str, T.Any]) -> RGBA:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if {"red", "green", "blue", "alpha"}.issubset(data):
+            data = _matching_mapping(
+                value,
+                ({"red", "green", "blue", "alpha"}, {"r", "g", "b", "a"}),
+                label="RGBA",
+            )
+            if "red" in data:
                 return RGBA(data["red"], data["green"], data["blue"], data["alpha"])
-            if {"r", "g", "b", "a"}.issubset(data):
-                return RGBA(data["r"], data["g"], data["b"], data["a"])
-            raise ValueError(f"Invalid RGBA mapping: {value!r}")
+            return RGBA(data["r"], data["g"], data["b"], data["a"])
 
         match = re.fullmatch(
-            r"\s*rgba\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
+            r"\s*rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*((?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
             value,
         )
         if not match:
@@ -1162,12 +1222,8 @@ if _HAS_PYDANTIC:
 
     def parse_hex(value: str | Mapping[str, T.Any]) -> HEX:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if "value" in data:
-                return HEX(data["value"])
-            if "hex" in data:
-                return HEX(data["hex"])
-            raise ValueError(f"Invalid HEX mapping: {value!r}")
+            data = _exact_mapping(value, {"value"}, label="HEX")
+            return HEX(data["value"])
 
         match = re.fullmatch(r"\s*hex\(\s*(#?[0-9A-Fa-f]{6})\s*\)\s*", value)
         if not match:
@@ -1180,12 +1236,12 @@ if _HAS_PYDANTIC:
 
     def parse_hsv(value: str | Mapping[str, T.Any]) -> HSV:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if {"hue", "saturation", "value"}.issubset(data):
+            data = _matching_mapping(
+                value, ({"hue", "saturation", "value"}, {"h", "s", "v"}), label="HSV"
+            )
+            if "hue" in data:
                 return HSV(data["hue"], data["saturation"], data["value"])
-            if {"h", "s", "v"}.issubset(data):
-                return HSV(data["h"], data["s"], data["v"])
-            raise ValueError(f"Invalid HSV mapping: {value!r}")
+            return HSV(data["h"], data["s"], data["v"])
 
         match = re.fullmatch(
             r"\s*hsv\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
@@ -1199,12 +1255,12 @@ if _HAS_PYDANTIC:
 
     def parse_hsl(value: str | Mapping[str, T.Any]) -> HSL:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if {"hue", "saturation", "lightness"}.issubset(data):
+            data = _matching_mapping(
+                value, ({"hue", "saturation", "lightness"}, {"h", "s", "l"}), label="HSL"
+            )
+            if "hue" in data:
                 return HSL(data["hue"], data["saturation"], data["lightness"])
-            if {"h", "s", "l"}.issubset(data):
-                return HSL(data["h"], data["s"], data["l"])
-            raise ValueError(f"Invalid HSL mapping: {value!r}")
+            return HSL(data["h"], data["s"], data["l"])
 
         match = re.fullmatch(
             r"\s*hsl\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
@@ -1218,12 +1274,14 @@ if _HAS_PYDANTIC:
 
     def parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if {"cyan", "magenta", "yellow", "key"}.issubset(data):
+            data = _matching_mapping(
+                value,
+                ({"cyan", "magenta", "yellow", "key"}, {"c", "m", "y", "k"}),
+                label="CMYK",
+            )
+            if "cyan" in data:
                 return CMYK(data["cyan"], data["magenta"], data["yellow"], data["key"])
-            if {"c", "m", "y", "k"}.issubset(data):
-                return CMYK(data["c"], data["m"], data["y"], data["k"])
-            raise ValueError(f"Invalid CMYK mapping: {value!r}")
+            return CMYK(data["c"], data["m"], data["y"], data["k"])
 
         match = re.fullmatch(
             r"\s*cmyk\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*,\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*",
@@ -1242,12 +1300,8 @@ if _HAS_PYDANTIC:
 
     def parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if "value" in data:
-                return ASSA(data["value"])
-            if "clean_value" in data:
-                return ASSA(data["clean_value"])
-            raise ValueError(f"Invalid ASSA mapping: {value!r}")
+            data = _matching_mapping(value, ({"value"}, {"clean_value"}), label="ASSA")
+            return ASSA(data.get("value", data.get("clean_value")))
 
         match = re.fullmatch(r"\s*assa\(\s*([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\s*\)\s*", value)
         if not match:
@@ -1257,10 +1311,8 @@ if _HAS_PYDANTIC:
 
     def parse_webcolor(value: str | Mapping[str, T.Any]) -> WebColor:
         if isinstance(value, Mapping):
-            data = dict(value)
-            if "name" in data:
-                return WebColor(data["name"])
-            raise ValueError(f"Invalid webcolor mapping: {value!r}")
+            data = _exact_mapping(value, {"name"}, label="webcolor")
+            return WebColor(data["name"])
 
         match = re.fullmatch(r"\s*webcolor\(\s*(['\"])\s*([A-Za-z]+)\s*\1\s*\)\s*", value)
         if not match:
@@ -1274,7 +1326,7 @@ if _HAS_PYDANTIC:
         description: str | None = None,
         pattern: str | None = None,
         examples: list[str] | None = None,
-    ) -> _JsonSchemaValue:
+    ) -> PydanticJsonSchemaValue:
         schema: dict[str, T.Any] = {"type": "string", "title": title}
         if description:
             schema["description"] = description
@@ -1290,7 +1342,7 @@ if _HAS_PYDANTIC:
         description: str | None,
         properties: dict[str, T.Any],
         required: list[str],
-    ) -> _JsonSchemaValue:
+    ) -> PydanticJsonSchemaValue:
         return {
             "type": "object",
             "title": title,
@@ -1299,6 +1351,22 @@ if _HAS_PYDANTIC:
             "required": required,
             "additionalProperties": False,
         }
+
+    def _object_schema_variants(
+        *,
+        title: str,
+        description: str | None,
+        variants: list[tuple[dict[str, T.Any], list[str]]],
+    ) -> list[PydanticJsonSchemaValue]:
+        return [
+            _object_schema(
+                title=title,
+                description=description,
+                properties=properties,
+                required=required,
+            )
+            for properties, required in variants
+        ]
 
     def _register_color(
         cls: type[Color],
@@ -1309,8 +1377,7 @@ if _HAS_PYDANTIC:
         string_pattern: str,
         string_examples: list[str],
         object_description: str,
-        object_properties: dict[str, T.Any],
-        object_required: list[str],
+        object_variants: list[tuple[dict[str, T.Any], list[str]]],
     ) -> None:
         string_schema = _string_schema(
             title=title,
@@ -1318,14 +1385,13 @@ if _HAS_PYDANTIC:
             pattern=string_pattern,
             examples=string_examples,
         )
-        object_schema = _object_schema(
+        object_schemas = _object_schema_variants(
             title=title,
             description=object_description,
-            properties=object_properties,
-            required=object_required,
+            variants=object_variants,
         )
 
-        def _validator(v: object) -> Color:
+        def _validator(v: Color | str | Mapping[str, T.Any]) -> Color:
             if isinstance(v, cls):
                 return v
             if isinstance(v, str):
@@ -1336,53 +1402,80 @@ if _HAS_PYDANTIC:
                 f"Expected {cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
 
-        def _serializer(v: Color, info: _core_schema.SerializationInfo) -> object:
+        def _serializer(v: Color, info: pydantic_core_schema.SerializationInfo) -> str | Color:
             if info.mode == "json":
                 return repr(v)
             return v
 
-        core_schema = _core_schema.no_info_plain_validator_function(
+        core_schema = pydantic_core_schema.no_info_plain_validator_function(
             _validator,
-            serialization=_core_schema.plain_serializer_function_ser_schema(
+            serialization=pydantic_core_schema.plain_serializer_function_ser_schema(
                 _serializer, info_arg=True
             ),
         )
 
         def _core_schema_factory(
-            _cls: type[Color], _source: object, _handler: _GetCoreSchemaHandler
-        ) -> _core_schema.CoreSchema:
+            _cls: type[Color], _source: type[Color], _handler: PydanticGetCoreSchemaHandler
+        ) -> pydantic_core_schema.CoreSchema:
             return core_schema
 
         def _json_schema_factory(
             _cls: type[Color],
-            _core_schema_obj: _core_schema.CoreSchema,
-            handler: _GetJsonSchemaHandler,
-        ) -> _JsonSchemaValue:
+            _core_schema_obj: pydantic_core_schema.CoreSchema,
+            handler: PydanticGetJsonSchemaHandler,
+        ) -> PydanticJsonSchemaValue:
             return {
                 "title": title,
                 "anyOf": [
                     handler.resolve_ref_schema(string_schema),
-                    handler.resolve_ref_schema(object_schema),
+                    *(handler.resolve_ref_schema(schema) for schema in object_schemas),
                 ],
             }
 
         cls.__get_pydantic_core_schema__ = classmethod(_core_schema_factory)  # type: ignore[attr-defined]
         cls.__get_pydantic_json_schema__ = classmethod(_json_schema_factory)  # type: ignore[attr-defined]
 
+    rgb_long = {
+        "red": {"type": "integer", "minimum": 0, "maximum": 255},
+        "green": {"type": "integer", "minimum": 0, "maximum": 255},
+        "blue": {"type": "integer", "minimum": 0, "maximum": 255},
+    }
+    rgb_short = {
+        "r": {"type": "integer", "minimum": 0, "maximum": 255},
+        "g": {"type": "integer", "minimum": 0, "maximum": 255},
+        "b": {"type": "integer", "minimum": 0, "maximum": 255},
+    }
+    percent_long = {
+        "hue": {"type": "number", "minimum": 0, "maximum": 360},
+        "saturation": {"type": "number", "minimum": 0, "maximum": 100},
+    }
+    cmyk_long = {
+        "cyan": {"type": "number", "minimum": 0, "maximum": 100},
+        "magenta": {"type": "number", "minimum": 0, "maximum": 100},
+        "yellow": {"type": "number", "minimum": 0, "maximum": 100},
+        "key": {"type": "number", "minimum": 0, "maximum": 100},
+    }
+    cmyk_short = {
+        "c": {"type": "number", "minimum": 0, "maximum": 100},
+        "m": {"type": "number", "minimum": 0, "maximum": 100},
+        "y": {"type": "number", "minimum": 0, "maximum": 100},
+        "k": {"type": "number", "minimum": 0, "maximum": 100},
+    }
+    assa_value = {
+        "type": "string",
+        "pattern": r"^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
+        "examples": ["00ff00", "ff00ff00"],
+    }
+
     _register_color(
         RGB,
         parse_rgb,
         title="RGB",
         string_description="String representation rgb(r, g, b) with 0-255 integer channels",
-        string_pattern=r"^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$",
+        string_pattern=r"^\s*rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)\s*$",
         string_examples=["rgb(255, 0, 0)", "rgb(0, 0, 0)"],
         object_description="Object with integer channels 0-255",
-        object_properties={
-            "red": {"type": "integer", "minimum": 0, "maximum": 255},
-            "green": {"type": "integer", "minimum": 0, "maximum": 255},
-            "blue": {"type": "integer", "minimum": 0, "maximum": 255},
-        },
-        object_required=["red", "green", "blue"],
+        object_variants=[(rgb_long, ["red", "green", "blue"]), (rgb_short, ["r", "g", "b"])],
     )
 
     _register_color(
@@ -1390,16 +1483,19 @@ if _HAS_PYDANTIC:
         parse_rgba,
         title="RGBA",
         string_description="String representation rgba(r, g, b, a) with 0-255 integer channels and alpha 0-1",
-        string_pattern=r"^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(?:0|1|0?\.\d+)\s*\)$",
+        string_pattern=r"^\s*rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(?:0|1|0?\.\d+)\s*\)\s*$",
         string_examples=["rgba(255, 0, 0, 1)", "rgba(0, 128, 255, 0.5)"],
         object_description="Object with integer channels 0-255 and alpha 0-1",
-        object_properties={
-            "red": {"type": "integer", "minimum": 0, "maximum": 255},
-            "green": {"type": "integer", "minimum": 0, "maximum": 255},
-            "blue": {"type": "integer", "minimum": 0, "maximum": 255},
-            "alpha": {"type": "number", "minimum": 0, "maximum": 1},
-        },
-        object_required=["red", "green", "blue", "alpha"],
+        object_variants=[
+            (
+                rgb_long | {"alpha": {"type": "number", "minimum": 0, "maximum": 1}},
+                ["red", "green", "blue", "alpha"],
+            ),
+            (
+                rgb_short | {"a": {"type": "number", "minimum": 0, "maximum": 1}},
+                ["r", "g", "b", "a"],
+            ),
+        ],
     )
 
     _register_color(
@@ -1407,17 +1503,21 @@ if _HAS_PYDANTIC:
         parse_hex,
         title="HEX",
         string_description="String representation hex(#RRGGBB)",
-        string_pattern=r"^hex\(\s*#?[0-9A-Fa-f]{6}\s*\)$",
+        string_pattern=r"^\s*hex\(\s*#?[0-9A-Fa-f]{6}\s*\)\s*$",
         string_examples=["hex(#ffffff)", "hex(#0a1b2c)"],
         object_description="Object with hex string value #RRGGBB",
-        object_properties={
-            "value": {
-                "type": "string",
-                "pattern": r"^#?[0-9A-Fa-f]{6}$",
-                "examples": ["#ffffff", "0A1B2C"],
-            }
-        },
-        object_required=["value"],
+        object_variants=[
+            (
+                {
+                    "value": {
+                        "type": "string",
+                        "pattern": r"^#?[0-9A-Fa-f]{6}$",
+                        "examples": ["#ffffff", "0A1B2C"],
+                    }
+                },
+                ["value"],
+            )
+        ],
     )
 
     _register_color(
@@ -1425,15 +1525,23 @@ if _HAS_PYDANTIC:
         parse_hsv,
         title="HSV",
         string_description="String representation hsv(h, s, v)",
-        string_pattern=r"^hsv\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_pattern=r"^\s*hsv\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)\s*$",
         string_examples=["hsv(120.0, 100.0, 100.0)"],
         object_description="Object with hue 0-360, saturation/value 0-100",
-        object_properties={
-            "hue": {"type": "number", "minimum": 0, "maximum": 360},
-            "saturation": {"type": "number", "minimum": 0, "maximum": 100},
-            "value": {"type": "number", "minimum": 0, "maximum": 100},
-        },
-        object_required=["hue", "saturation", "value"],
+        object_variants=[
+            (
+                percent_long | {"value": {"type": "number", "minimum": 0, "maximum": 100}},
+                ["hue", "saturation", "value"],
+            ),
+            (
+                {
+                    "h": {"type": "number", "minimum": 0, "maximum": 360},
+                    "s": {"type": "number", "minimum": 0, "maximum": 100},
+                    "v": {"type": "number", "minimum": 0, "maximum": 100},
+                },
+                ["h", "s", "v"],
+            ),
+        ],
     )
 
     _register_color(
@@ -1441,15 +1549,23 @@ if _HAS_PYDANTIC:
         parse_hsl,
         title="HSL",
         string_description="String representation hsl(h, s, l)",
-        string_pattern=r"^hsl\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_pattern=r"^\s*hsl\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)\s*$",
         string_examples=["hsl(240.0, 100.0, 50.0)"],
         object_description="Object with hue 0-360, saturation/lightness 0-100",
-        object_properties={
-            "hue": {"type": "number", "minimum": 0, "maximum": 360},
-            "saturation": {"type": "number", "minimum": 0, "maximum": 100},
-            "lightness": {"type": "number", "minimum": 0, "maximum": 100},
-        },
-        object_required=["hue", "saturation", "lightness"],
+        object_variants=[
+            (
+                percent_long | {"lightness": {"type": "number", "minimum": 0, "maximum": 100}},
+                ["hue", "saturation", "lightness"],
+            ),
+            (
+                {
+                    "h": {"type": "number", "minimum": 0, "maximum": 360},
+                    "s": {"type": "number", "minimum": 0, "maximum": 100},
+                    "l": {"type": "number", "minimum": 0, "maximum": 100},
+                },
+                ["h", "s", "l"],
+            ),
+        ],
     )
 
     _register_color(
@@ -1457,16 +1573,13 @@ if _HAS_PYDANTIC:
         parse_cmyk,
         title="CMYK",
         string_description="String representation cmyk(c, m, y, k)",
-        string_pattern=r"^cmyk\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$",
+        string_pattern=r"^\s*cmyk\(\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*\)\s*$",
         string_examples=["cmyk(0, 100, 100, 0)", "cmyk(10.5, 0, 25, 5)"],
         object_description="Object with CMYK percentages 0-100",
-        object_properties={
-            "cyan": {"type": "number", "minimum": 0, "maximum": 100},
-            "magenta": {"type": "number", "minimum": 0, "maximum": 100},
-            "yellow": {"type": "number", "minimum": 0, "maximum": 100},
-            "key": {"type": "number", "minimum": 0, "maximum": 100},
-        },
-        object_required=["cyan", "magenta", "yellow", "key"],
+        object_variants=[
+            (cmyk_long, ["cyan", "magenta", "yellow", "key"]),
+            (cmyk_short, ["c", "m", "y", "k"]),
+        ],
     )
 
     _register_color(
@@ -1474,17 +1587,13 @@ if _HAS_PYDANTIC:
         parse_assa,
         title="ASSA",
         string_description="String representation assa(BBGGRR) or assa(AABBGGRR)",
-        string_pattern=r"^assa\(\s*[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\s*\)$",
+        string_pattern=r"^\s*assa\(\s*[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\s*\)\s*$",
         string_examples=["assa(00ff00)", "assa(ff00ff00)"],
         object_description="Object with ASSA hex value (BBGGRR or AABBGGRR)",
-        object_properties={
-            "value": {
-                "type": "string",
-                "pattern": r"^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$",
-                "examples": ["00ff00", "ff00ff00"],
-            }
-        },
-        object_required=["value"],
+        object_variants=[
+            ({"value": assa_value}, ["value"]),
+            ({"clean_value": assa_value}, ["clean_value"]),
+        ],
     )
 
     _register_color(
@@ -1492,13 +1601,12 @@ if _HAS_PYDANTIC:
         parse_webcolor,
         title="Web Color",
         string_description="Named CSS color via webcolor('name')",
-        string_pattern=r"^webcolor\(\s*['\"]?[A-Za-z]+['\"]?\s*\)$",
+        string_pattern=r'^\s*webcolor\(\s*(?:\'[A-Za-z]+\'|"[A-Za-z]+")\s*\)\s*$',
         string_examples=["webcolor('red')", 'webcolor("aliceblue")'],
         object_description="Object with CSS color name",
-        object_properties={
-            "name": {"type": "string", "enum": list(CSS_COLOR_TO_HEX.keys())},
-        },
-        object_required=["name"],
+        object_variants=[
+            ({"name": {"type": "string", "enum": list(CSS_COLOR_TO_HEX.keys())}}, ["name"])
+        ],
     )
 __all__ = [
     "ASSA",
