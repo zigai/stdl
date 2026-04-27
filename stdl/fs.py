@@ -99,6 +99,7 @@ YamlValue: TypeAlias = (
     | dict["YamlValue", "YamlValue"]
 )
 OpenKwarg: TypeAlias = str | int | bool | None | Callable[[str, int], int]
+DirectoryIdentity: TypeAlias = tuple[Literal["inode"], int, int] | tuple[Literal["path"], str]
 
 
 class AsyncLock(Protocol):
@@ -524,14 +525,19 @@ def _ensure_expected_destination_type(
         raise NotADirectoryError(path)
 
 
-def _dir_identity(path: str) -> tuple[int, int]:
+def _directory_identity_from_stat(path: str, stat_result: os.stat_result) -> DirectoryIdentity:
+    if stat_result.st_ino:
+        return "inode", stat_result.st_dev, stat_result.st_ino
+    return "path", _real_comparison_path(path)
+
+
+def _dir_identity(path: str) -> DirectoryIdentity:
     stat_result = os.stat(path, follow_symlinks=True)
-    return stat_result.st_dev, stat_result.st_ino
+    return _directory_identity_from_stat(path, stat_result)
 
 
-def _entry_dir_identity(entry: os.DirEntry[str]) -> tuple[int, int]:
-    stat_result = entry.stat(follow_symlinks=True)
-    return stat_result.st_dev, stat_result.st_ino
+def _entry_dir_identity(entry: os.DirEntry[str]) -> DirectoryIdentity:
+    return _directory_identity_from_stat(entry.path, entry.stat(follow_symlinks=True))
 
 
 def _symlink_source_path(source_path: str, target_path: str) -> str:
