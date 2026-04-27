@@ -1491,6 +1491,17 @@ class TestDirectoryYieldFiles:
         files = list(nested_directory.yield_files(recursive=True))
         assert len(files) == 4
 
+    def test_directory_identity_falls_back_to_real_path_for_zero_inode(self, tmp_path: Path):
+        """Directory cycle protection still distinguishes paths when st_ino is unavailable."""
+
+        class ZeroInodeStat:
+            st_dev = 1
+            st_ino = 0
+
+        identity = fs._directory_identity_from_stat(str(tmp_path), ZeroInodeStat())
+
+        assert identity == ("path", fs._real_comparison_path(str(tmp_path)))
+
     def test_directory_yield_files_non_recursive(self, nested_directory: fs.Directory):
         """yield_files(recursive=False) only top-level."""
         files = list(nested_directory.yield_files(recursive=False))
