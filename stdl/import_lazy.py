@@ -5,7 +5,7 @@ import time
 from typing import Protocol, cast
 
 
-class _CallableObject(Protocol):
+class CallableProxy(Protocol):
     def __call__(self, *args: object, **kwargs: object) -> object: ...
 
 
@@ -21,7 +21,6 @@ class LazyImport:
         self.module_name = module_name
         self.attr_name = attr_name
         self.verbose = verbose
-
         self._cached_value: object | None = None
         self._loaded = False
 
@@ -38,6 +37,7 @@ class LazyImport:
                     raise ImportError(
                         f"Cannot import '{self.attr_name}' from '{self.module_name}': {err}"
                     ) from err
+
                 raise ImportError(f"Cannot import module '{self.module_name}': {err}") from err
 
             if self.attr_name:
@@ -67,7 +67,7 @@ class LazyImport:
         return self._cached_value
 
     def __call__(self, *args: object, **kwargs: object) -> object:
-        loaded = cast(_CallableObject, self._load())
+        loaded = cast(CallableProxy, self._load())
         return loaded(*args, **kwargs)
 
     def __getattr__(self, name: str) -> object:
@@ -82,6 +82,7 @@ class LazyImport:
     def __repr__(self) -> str:
         if self._loaded:
             return repr(self._cached_value)
+
         return f"<LazyImport: {self.module_name}{('.' + self.attr_name) if self.attr_name else ''}>"
 
 
@@ -111,6 +112,7 @@ def import_lazy(
     frame = inspect.currentframe()
     if frame is None or frame.f_back is None:
         raise RuntimeError("Cannot determine caller frame for lazy import")
+
     caller_globals = frame.f_back.f_globals
 
     if names is None:
@@ -122,6 +124,7 @@ def import_lazy(
     else:
         if alias:
             raise ValueError("Cannot use alias with named imports")
+
         for name in names:
             lazy_import = LazyImport(module, name, verbose=verbose)
             caller_globals[name] = lazy_import
