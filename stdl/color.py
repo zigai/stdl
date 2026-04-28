@@ -15,26 +15,32 @@ class ColorValueError(Exception):
 def _coerce_rgb_channel(value: object) -> int:
     if isinstance(value, bool):
         raise ColorValueError("RGB values must be integers between 0 and 255")
+
     if isinstance(value, int):
         channel = value
     elif isinstance(value, float) and math.isfinite(value) and value.is_integer():
         channel = int(value)
     else:
         raise ColorValueError("RGB values must be integers between 0 and 255")
+
     if not 0 <= channel <= 255:
         raise ColorValueError("RGB values must be integers between 0 and 255")
+
     return channel
 
 
 def _coerce_finite_float(value: object, *, name: str) -> float:
     if isinstance(value, bool):
         raise ColorValueError(f"{name} must be a finite number")
+
     try:
         number = float(value)
     except (TypeError, ValueError, OverflowError) as exc:
         raise ColorValueError(f"{name} must be a finite number") from exc
+
     if not math.isfinite(number):
         raise ColorValueError(f"{name} must be a finite number")
+
     return number
 
 
@@ -93,6 +99,7 @@ class Color(ABC):
     def __setattr__(self, name: str, value: int | float | str | bool | Color) -> None:
         if getattr(self, "_frozen", False):
             raise AttributeError(f"{self.__class__.__name__} is immutable")
+
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name: str) -> None:
@@ -111,6 +118,7 @@ class RGB(Color):
 
     def __init__(self, red: int, green: int, blue: int) -> None:
         super().__init__()
+
         self.red = _coerce_rgb_channel(red)
         self.green = _coerce_rgb_channel(green)
         self.blue = _coerce_rgb_channel(blue)
@@ -130,6 +138,7 @@ class RGB(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGB):
             return NotImplemented
+
         return (self.red, self.green, self.blue) == (other.red, other.green, other.blue)
 
     __hash__ = Color.__hash__
@@ -215,6 +224,7 @@ class RGBA(Color):
 
     def __init__(self, red: int, green: int, blue: int, alpha: float = 1.0) -> None:
         super().__init__()
+
         self.red = _coerce_rgb_channel(red)
         self.green = _coerce_rgb_channel(green)
         self.blue = _coerce_rgb_channel(blue)
@@ -228,6 +238,7 @@ class RGBA(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGBA):
             return NotImplemented
+
         return (self.red, self.green, self.blue, self.alpha) == (
             other.red,
             other.green,
@@ -286,8 +297,10 @@ class HEX(Color):
 
     def __init__(self, value: str) -> None:
         super().__init__()
+
         if not isinstance(value, str):
             raise ColorValueError("HEX value must be a string")
+
         value = value.removeprefix("#")
         self.value = f"#{value.lower()}"
         self.validate()
@@ -309,6 +322,7 @@ class HEX(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HEX):
             return NotImplemented
+
         return self.value.lower() == other.value.lower()
 
     __hash__ = Color.__hash__
@@ -347,6 +361,7 @@ class HSV(Color):
 
     def __init__(self, hue: float, saturation: float, value: float) -> None:
         super().__init__()
+
         self.hue = _coerce_finite_float(hue, name="Hue")
         self.saturation = _coerce_finite_float(saturation, name="Saturation")
         self.value = _coerce_finite_float(value, name="Value")
@@ -369,6 +384,7 @@ class HSV(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSV):
             return NotImplemented
+
         return (self.hue, self.saturation, self.value) == (
             other.hue,
             other.saturation,
@@ -425,6 +441,7 @@ class HSL(Color):
 
     def __init__(self, hue: float, saturation: float, lightness: float) -> None:
         super().__init__()
+
         self.hue = _coerce_finite_float(hue, name="Hue")
         self.saturation = _coerce_finite_float(saturation, name="Saturation")
         self.lightness = _coerce_finite_float(lightness, name="Lightness")
@@ -449,6 +466,7 @@ class HSL(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSL):
             return NotImplemented
+
         return (self.hue, self.saturation, self.lightness) == (
             other.hue,
             other.saturation,
@@ -470,14 +488,17 @@ class HSL(Color):
             def hue_to_rgb(p: float, q: float, t: float) -> float:
                 if t < 0:
                     t += 1
+
                 if t > 1:
                     t -= 1
+
                 if t < 1 / 6:
                     return p + (q - p) * 6 * t
                 if t < 1 / 2:
                     return q
                 if t < 2 / 3:
                     return p + (q - p) * (2 / 3 - t) * 6
+
                 return p
 
             q = (
@@ -518,6 +539,7 @@ class CMYK(Color):
 
     def __init__(self, cyan: float, magenta: float, yellow: float, key: float) -> None:
         super().__init__()
+
         self.cyan = _coerce_finite_float(cyan, name="Cyan")
         self.magenta = _coerce_finite_float(magenta, name="Magenta")
         self.yellow = _coerce_finite_float(yellow, name="Yellow")
@@ -541,6 +563,7 @@ class CMYK(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CMYK):
             return NotImplemented
+
         return (self.cyan, self.magenta, self.yellow, self.key) == (
             other.cyan,
             other.magenta,
@@ -598,6 +621,7 @@ class ASSA(Color):
         value = self.value
         if value.startswith(("&H", "&h")) and value.endswith("&"):
             return value[2:-1].lower()
+
         return value.lower()
 
     def __repr__(self) -> str:
@@ -609,6 +633,7 @@ class ASSA(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ASSA):
             return NotImplemented
+
         return self.value == other.value
 
     __hash__ = Color.__hash__
@@ -635,6 +660,7 @@ class ASSA(Color):
             blue_hex = clean[2:4]
             green_hex = clean[4:6]
             red_hex = clean[6:8]
+
         return RGB(int(red_hex, 16), int(green_hex, 16), int(blue_hex, 16))
 
     @property
@@ -642,6 +668,7 @@ class ASSA(Color):
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[0:2], 16)
+
         return int(clean[2:4], 16)
 
     @property
@@ -649,6 +676,7 @@ class ASSA(Color):
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[2:4], 16)
+
         return int(clean[4:6], 16)
 
     @property
@@ -656,6 +684,7 @@ class ASSA(Color):
         clean = self.clean_value
         if len(clean) == 6:
             return int(clean[4:6], 16)
+
         return int(clean[6:8], 16)
 
     @property
@@ -663,6 +692,7 @@ class ASSA(Color):
         clean = self.clean_value
         if len(clean) == 6:
             return None
+
         return int(clean[0:2], 16)
 
     def to_hsv(self) -> HSV:
@@ -690,12 +720,14 @@ class ASSA(Color):
             clean_value = ASSA._normalize_value(value)
         except ColorValueError:
             return False
+
         return len(clean_value) in (6, 8)
 
     @classmethod
     def from_alpha(cls, alpha: int) -> ASSA:
         if not 0 <= alpha <= 255:
             raise ColorValueError("Alpha value must be 0-255")
+
         return cls(f"{alpha:02X}000000")
 
     @classmethod
@@ -704,6 +736,7 @@ class ASSA(Color):
             raise ColorValueError("Alpha value must be 0-255")
         if alpha is None:
             return cls(f"{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
+
         return cls(f"{alpha:02X}{rgb.blue:02X}{rgb.green:02X}{rgb.red:02X}")
 
     @classmethod
@@ -717,6 +750,7 @@ class ASSA(Color):
             raise ColorValueError(
                 "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hex digits"
             )
+
         return cls(clean)
 
     @classmethod
@@ -732,12 +766,15 @@ class ASSA(Color):
     def _normalize_value(value: str) -> str:
         if not isinstance(value, str):
             raise ColorValueError("ASSA value must be a string")
+
         if value.startswith(("&H", "&h")) and value.endswith("&"):
             value = value[2:-1]
+
         if not re.fullmatch(r"[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8}", value):
             raise ColorValueError(
                 "Color value must be either 6 (BBGGRR) or 8 (AABBGGRR) hexadecimal digits"
             )
+
         return value.lower()
 
 
@@ -1056,6 +1093,7 @@ class WebColor(Color):
 
     def __init__(self, name: CssColorName) -> None:
         super().__init__()
+
         self.name = name.lower()
         self.validate()
         self.hex_value = HEX(self.COLORS[self.name])
@@ -1074,6 +1112,7 @@ class WebColor(Color):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, WebColor):
             return NotImplemented
+
         return self.name == other.name
 
     __hash__ = Color.__hash__
@@ -1108,6 +1147,7 @@ class WebColor(Color):
         for name, color in cls.COLORS.items():
             if color.lower() == value:
                 return cls(name)
+
         raise ColorValueError(f"No web color name matches hex value {value}")
 
 
@@ -1118,9 +1158,11 @@ def hex_to_rgb(color: str) -> tuple[int, int, int]:
     c = color.lstrip("#")
     if len(c) != 6:
         raise ValueError(color)
+
     r = int(c[0:2], 16)
     g = int(c[2:4], 16)
     b = int(c[4:6], 16)
+
     return (r, g, b)
 
 
@@ -1144,13 +1186,17 @@ def normalize_color(
             return RGB(*color)
         if len(color) == 4:
             return RGBA(*color)
+
         raise ColorValueError(f"Invalid sequence length: {len(color)}")
+
     if isinstance(color, str):
         if color.startswith("#"):
             return HEX(color)
         if color.startswith(("&h", "&H")):
             return ASSA.from_value(color)
+
         return WebColor(color)
+
     raise ColorValueError(f"Unsupported color format: {color}")
 
 
@@ -1172,6 +1218,7 @@ if _HAS_PYDANTIC:
         data = dict(value)
         if set(data) != keys:
             raise ValueError(f"Invalid {label} mapping: {value!r}")
+
         return data
 
     def _matching_mapping(
@@ -1180,6 +1227,7 @@ if _HAS_PYDANTIC:
         data = dict(value)
         if not any(set(data) == keys for keys in key_sets):
             raise ValueError(f"Invalid {label} mapping: {value!r}")
+
         return data
 
     def parse_rgb(value: str | Mapping[str, T.Any]) -> RGB:
@@ -1189,6 +1237,7 @@ if _HAS_PYDANTIC:
             )
             if "red" in data:
                 return RGB(data["red"], data["green"], data["blue"])
+
             return RGB(data["r"], data["g"], data["b"])
 
         match = re.fullmatch(r"\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*", value)
@@ -1196,6 +1245,7 @@ if _HAS_PYDANTIC:
             raise ValueError(f"Invalid RGB repr: {value!r}")
 
         r, g, b = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+
         return RGB(r, g, b)
 
     def parse_rgba(value: str | Mapping[str, T.Any]) -> RGBA:
@@ -1207,6 +1257,7 @@ if _HAS_PYDANTIC:
             )
             if "red" in data:
                 return RGBA(data["red"], data["green"], data["blue"], data["alpha"])
+
             return RGBA(data["r"], data["g"], data["b"], data["a"])
 
         match = re.fullmatch(
@@ -1241,6 +1292,7 @@ if _HAS_PYDANTIC:
             )
             if "hue" in data:
                 return HSV(data["hue"], data["saturation"], data["value"])
+
             return HSV(data["h"], data["s"], data["v"])
 
         match = re.fullmatch(
@@ -1251,6 +1303,7 @@ if _HAS_PYDANTIC:
             raise ValueError(f"Invalid HSV repr: {value!r}")
 
         h, s, v = float(match.group(1)), float(match.group(2)), float(match.group(3))
+
         return HSV(h, s, v)
 
     def parse_hsl(value: str | Mapping[str, T.Any]) -> HSL:
@@ -1260,6 +1313,7 @@ if _HAS_PYDANTIC:
             )
             if "hue" in data:
                 return HSL(data["hue"], data["saturation"], data["lightness"])
+
             return HSL(data["h"], data["s"], data["l"])
 
         match = re.fullmatch(
@@ -1270,6 +1324,7 @@ if _HAS_PYDANTIC:
             raise ValueError(f"Invalid HSL repr: {value!r}")
 
         h, s, lightness = float(match.group(1)), float(match.group(2)), float(match.group(3))
+
         return HSL(h, s, lightness)
 
     def parse_cmyk(value: str | Mapping[str, T.Any]) -> CMYK:
@@ -1281,6 +1336,7 @@ if _HAS_PYDANTIC:
             )
             if "cyan" in data:
                 return CMYK(data["cyan"], data["magenta"], data["yellow"], data["key"])
+
             return CMYK(data["c"], data["m"], data["y"], data["k"])
 
         match = re.fullmatch(
@@ -1296,6 +1352,7 @@ if _HAS_PYDANTIC:
             float(match.group(3)),
             float(match.group(4)),
         )
+
         return CMYK(c, m, y, k)
 
     def parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
@@ -1330,10 +1387,13 @@ if _HAS_PYDANTIC:
         schema: dict[str, T.Any] = {"type": "string", "title": title}
         if description:
             schema["description"] = description
+
         if pattern:
             schema["pattern"] = pattern
+
         if examples:
             schema["examples"] = examples
+
         return schema
 
     def _object_schema(
@@ -1398,6 +1458,7 @@ if _HAS_PYDANTIC:
                 return parser(v)
             if isinstance(v, Mapping):
                 return parser(v)
+
             raise ValueError(
                 f"Expected {cls.__name__} instance, repr string, or mapping, got {type(v).__name__}"
             )
@@ -1405,6 +1466,7 @@ if _HAS_PYDANTIC:
         def _serializer(v: Color, info: pydantic_core_schema.SerializationInfo) -> str | Color:
             if info.mode == "json":
                 return repr(v)
+
             return v
 
         core_schema = pydantic_core_schema.no_info_plain_validator_function(
@@ -1608,6 +1670,7 @@ if _HAS_PYDANTIC:
             ({"name": {"type": "string", "enum": list(CSS_COLOR_TO_HEX.keys())}}, ["name"])
         ],
     )
+
 __all__ = [
     "ASSA",
     "CMYK",

@@ -21,6 +21,7 @@ DATE_FMT_CHARS = frozenset("Ymd")
 def _validated_date_fmt(fmt: str) -> str:
     if len(fmt) != 3 or set(fmt) != DATE_FMT_CHARS:
         raise ValueError("fmt must contain exactly one each of 'Y', 'm', and 'd'")
+
     return fmt
 
 
@@ -34,12 +35,14 @@ class TimerStop:
     def __str__(self) -> str:
         if self.label is None:
             return f"total={self.total}, since_last=({self.since_last}), at={datetime_fmt(self.at)}"
+
         return f"{self.label} | total={self.total}, since_last={self.since_last}, at={datetime_fmt(self.at)}"
 
     def total_seconds(self, *, r: int | None = None) -> float:
         seconds = self.total.total_seconds()
         if r is not None:
             return round(seconds, r)
+
         return seconds
 
 
@@ -77,6 +80,7 @@ class Timer:
             label=label,
         )
         self.stops.append(timer_stop)
+
         return timer_stop
 
     def taken_seconds(self, r: int | None = None) -> float:
@@ -153,6 +157,7 @@ def datetime_fmt(
     if ms:
         time_fmt += ".%f"
     dt_str = d.strftime(f"{date_fmt} {time_fmt}")
+
     return dt_str[:-3] if ms else dt_str
 
 
@@ -186,6 +191,7 @@ def time_fmt(
     if ms:
         ms_str = f"{int(tm.microsecond / 1000)}".zfill(3)
         ts = f"{ts}.{ms_str}"
+
     return ts
 
 
@@ -231,6 +237,7 @@ def date_fmt(
     else:
         raise TypeError(type(d))
     fmt = _validated_date_fmt(fmt)
+
     return d.strftime(f"%{fmt[0]}{sep}%{fmt[1]}{sep}%{fmt[2]}")
 
 
@@ -272,8 +279,10 @@ def datetime_range(
         ```
     """
     current = start
+
     if step.total_seconds() == 0:
         raise ValueError("step cannot be zero")
+
     if step.total_seconds() > 0:
         while current < end:
             yield current
@@ -301,10 +310,13 @@ def sleep(lo: float, hi: float | None = None) -> float:
     if hi is None:
         time.sleep(lo)
         return lo
+
     if lo > hi:
         raise ValueError(f"Minimum sleep time is higher that maximum. {(lo, hi)}")
+
     t = random.uniform(lo, hi)  # noqa: S311 - Non-cryptographic jitter for sleep timing is intentional.
     time.sleep(t)
+
     return t
 
 
@@ -329,6 +341,7 @@ def seconds_to_hms(time: int | float, ms: bool = False) -> str:
         s = total_seconds % 60
         m = (total_seconds // 60) % 60
         h = total_seconds // 3600
+
         return f"{sign}{h:02d}:{m:02d}:{s:02d}.{millis:03d}"
 
     s = int(time % 60)
@@ -342,7 +355,9 @@ def _parse_milliseconds(second_part: str, original_time: str, ms: bool) -> tuple
         second_part, millis_str = second_part.split(".", 1)
         if not millis_str.isdigit():
             raise ValueError(f"Invalid milliseconds in time: '{original_time}'")
+
         return second_part, int(millis_str.ljust(3, "0")) / 1000
+
     return second_part, 0.0
 
 
@@ -352,6 +367,7 @@ def _to_seconds_with_minutes(parts: list[str]) -> int:
     seconds = int(second_part)
     if seconds >= 60:
         raise ValueError(f"Seconds ({seconds}) must be < 60.")
+
     return minutes * 60 + seconds
 
 
@@ -362,6 +378,7 @@ def _to_seconds_with_hours(parts: list[str]) -> int:
     seconds = int(second_part)
     if minutes >= 60 or seconds >= 60:
         raise ValueError(f"Minutes ({minutes}) or seconds ({seconds}) must be < 60.")
+
     return hours * 3600 + minutes * 60 + seconds
 
 
@@ -387,6 +404,7 @@ def hms_to_seconds(time: str, ms: bool = False) -> float | None:
     parts = time.split(":")
     if len(parts) == 1:
         return float(parts[0])
+
     parts[-1], time_millis = _parse_milliseconds(parts[-1], time, ms)
 
     if len(parts) not in (2, 3):
@@ -395,6 +413,7 @@ def hms_to_seconds(time: str, ms: bool = False) -> float | None:
     total = _to_seconds_with_minutes(parts) if len(parts) == 2 else _to_seconds_with_hours(parts)
 
     result = total + time_millis
+
     return -result if negative else result
 
 

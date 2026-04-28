@@ -351,6 +351,7 @@ def test_directory_read_files_async_fails_fast(tmp_path: Path) -> None:
         async def flaky_read_async(self: fs.File, mode: str = "r") -> str | bytes:
             if self.path == blocked_path:
                 raise RuntimeError("boom")
+
             return await original_read_async(self, mode)
 
         monkeypatch = pytest.MonkeyPatch()
@@ -400,6 +401,7 @@ def test_directory_remove_files_async_documents_partial_completion(tmp_path: Pat
         async def flaky_remove_async(self: fs.File) -> fs.File:
             if self.path == blocked_path:
                 raise PermissionError("blocked")
+
             return await original_remove_async(self)
 
         monkeypatch = pytest.MonkeyPatch()
@@ -493,6 +495,7 @@ def test_async_metadata_and_xattrs(tmp_path: Path) -> None:
         await file.set_xattr_async("value", "key")
         assert await file.get_xattr_async("key") == "value"
         await file.remove_xattr_async("key")
+
         with pytest.raises(OSError, match=r"No data available|No such xattr"):
             await file.get_xattr_async("key")
 
@@ -527,6 +530,7 @@ def test_async_api_reports_missing_anyio(monkeypatch: pytest.MonkeyPatch) -> Non
     def fake_import_module(name: str) -> object:
         if name == "anyio":
             raise ImportError("missing anyio")
+
         return real_import_module(name)
 
     monkeypatch.setattr(fs, "_ANYIO", None)

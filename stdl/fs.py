@@ -255,6 +255,7 @@ def _next_or_sentinel(iterator: Iterator[T]) -> T | object:
 
 async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenerator[T, None]:
     _load_anyio()
+
     iterator = iter(iterable_factory())
 
     try:
@@ -262,6 +263,7 @@ async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenera
             item = await run_fs_sync(_next_or_sentinel, iterator)
             if item is _ITERATION_SENTINEL:
                 return
+
             yield cast(T, item)
     finally:
         close = getattr(iterator, "close", None)
@@ -310,8 +312,10 @@ async def _claim_limited_map_item(state: LimitedMapState[T, ResultT]) -> tuple[i
     async with state.lock:
         if state.first_error is not None or state.next_index >= len(state.items):
             return None
+
         index = state.next_index
         state.next_index += 1
+
         return index, state.items[index]
 
 
@@ -355,6 +359,7 @@ class AsyncFileHandle(Generic[HandleDataT]):
     def _get_lock(self) -> AsyncLock:
         if self._lock is None:
             self._lock = _load_anyio().Lock()
+
         return self._lock
 
     async def __aenter__(self) -> AsyncFileHandle[HandleDataT]:
@@ -375,6 +380,7 @@ class AsyncFileHandle(Generic[HandleDataT]):
     async def _resolve_result(self, result: ResultT | Awaitable[ResultT]) -> ResultT:
         if inspect.isawaitable(result):
             return await cast(Awaitable[ResultT], result)
+
         return result
 
     async def read(self, size: int = -1) -> HandleDataT:
@@ -385,12 +391,14 @@ class AsyncFileHandle(Generic[HandleDataT]):
         async with self._get_lock():
             if size == -1:
                 return await self._resolve_result(self._handle.readline())
+
             return await self._resolve_result(self._handle.readline(size))
 
     async def readlines(self, hint: int = -1) -> list[HandleDataT]:
         async with self._get_lock():
             if hint == -1:
                 return await self._resolve_result(self._handle.readlines())
+
             return await self._resolve_result(self._handle.readlines(hint))
 
     async def write(self, data: HandleDataT) -> int:
@@ -418,6 +426,7 @@ class AsyncFileHandle(Generic[HandleDataT]):
         if size is None:
             async with self._get_lock():
                 return await self._resolve_result(truncate())
+
         async with self._get_lock():
             return await self._resolve_result(truncate(size))
 
@@ -432,6 +441,7 @@ class AsyncFileHandle(Generic[HandleDataT]):
             line = await self.readline()
             if line in ("", b""):
                 break
+
             yield line
 
     async def iter_chunks(self, size: int = 1024 * 1024) -> AsyncGenerator[HandleDataT, None]:
@@ -439,6 +449,7 @@ class AsyncFileHandle(Generic[HandleDataT]):
             chunk = await self.read(size)
             if chunk in ("", b""):
                 break
+
             yield chunk
 
 
@@ -450,6 +461,7 @@ def _iter_file_paths(
             for entry in sorted(entries, key=lambda entry: os.fspath(entry.name)):
                 if entry.is_file():
                     yield entry.path
+
         return
 
     visited = {_dir_identity(os.fspath(directory))}
@@ -474,6 +486,7 @@ def _normalized_ext(ext: str | tuple[str, ...] | None) -> str | tuple[str, ...] 
         return None
     if isinstance(ext, str):
         return _normalize_single_ext(ext)
+
     return tuple(_normalize_single_ext(extension) for extension in ext)
 
 
@@ -481,6 +494,7 @@ def _normalize_single_ext(ext: str) -> str:
     normalized = ext.lower()
     if normalized and not normalized.startswith("."):
         return f".{normalized}"
+
     return normalized
 
 
@@ -528,6 +542,7 @@ def _ensure_expected_destination_type(
 def _directory_identity_from_stat(path: str, stat_result: os.stat_result) -> DirectoryIdentity:
     if stat_result.st_ino:
         return "inode", stat_result.st_dev, stat_result.st_ino
+
     return "path", _real_comparison_path(path)
 
 
@@ -545,6 +560,7 @@ def _symlink_source_path(source_path: str, target_path: str) -> str:
         return source_path
 
     target_dir = os.path.dirname(os.path.abspath(target_path))
+
     return os.path.relpath(os.path.abspath(source_path), target_dir)
 
 
@@ -570,8 +586,10 @@ def _prepare_destination_path(
     if os.path.exists(path):
         if expected_type is not None:
             _ensure_expected_destination_type(path, expected_type)
+
         if not overwrite:
             raise FileExistsError(path)
+
         if remove_existing:
             _remove_existing_path(path)
 
@@ -589,6 +607,7 @@ def _copy_file_to_destination(source_path: str, destination_path: str) -> None:
     except Exception:
         if os.path.exists(temp_path):
             _remove_existing_path(temp_path)
+
         raise
 
 
@@ -602,6 +621,7 @@ def _copy_directory_to_destination(
     except Exception:
         if os.path.exists(temp_path):
             _remove_existing_path(temp_path)
+
         raise
 
 
@@ -609,7 +629,9 @@ def _replace_temp_path(temp_path: str, destination_path: str, *, overwrite: bool
     if os.path.exists(destination_path):
         if not overwrite:
             raise FileExistsError(destination_path)
+
         _remove_existing_path(destination_path)
+
     os.replace(temp_path, destination_path)
 
 
@@ -679,9 +701,11 @@ def json_append(
     """
     file = File(filepath)
     path = os.fspath(filepath)
+
     if not file.exists or file.size == 0:
         json_dump([data], filepath, encoding=encoding, indent=indent, default=default)
         return
+
     with open(path, "a+", encoding=encoding) as f:
         f.seek(0)
         first_char = f.read(1)
@@ -840,8 +864,10 @@ def get_dir_size(directory: str | PathLike, *, readable: bool = False) -> str | 
             # Skip if it's symbolic link.
             if not os.path.islink(fp):
                 total_size += os.path.getsize(fp)
+
     if readable:
         return bytes_readable(total_size)
+
     return total_size
 
 
@@ -865,6 +891,7 @@ def move_files(
             os.makedirs(directory, exist_ok=True)
         else:
             raise FileNotFoundError(f"{directory} is not a directory")
+
     for file in files:
         os.rename(os.fspath(file), f"{directory}{SEP}{os.path.basename(file)}")
 
@@ -892,6 +919,7 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
         filename = f"{prefix}.{num}.{creation_time}{ext}"
     else:
         filename = f"{prefix}.{num}{ext}"
+
     return safe_filename(filename)
 
 
@@ -906,12 +934,15 @@ def bytes_readable(size_bytes: int) -> str:
     """
     if size_bytes < 0:
         raise ValueError(size_bytes)
+
     if size_bytes == 0:
         return "0B"
+
     i = math.floor(math.log(size_bytes, 1024))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+
     return f"{s} {size_name[i]}"
 
 
@@ -960,6 +991,7 @@ def windows_has_drive(letter: str) -> bool:
     """
     if sys.platform != "win32":
         return False
+
     return os.path.exists(f"{letter}:{SEP}")
 
 
@@ -990,6 +1022,7 @@ def mkdirs(dest: str | PathLike, names: list[str]) -> None:
     """
     if not exists(dest):
         mkdir(dest)
+
     for i in names:
         if not exists(i):
             path = f"{dest}{SEP}{i}"
@@ -1084,6 +1117,7 @@ def yield_dirs_in(
                     if recursive and entry_identity not in visited:
                         visited.add(entry_identity)
                         queue.put(entry.path)
+
                     yield os.path.abspath(entry.path) if abs else entry.path
 
 
@@ -1174,6 +1208,7 @@ class CompletedCommand(subprocess.CompletedProcess):
         stderr: str | bytes | None = None,
     ) -> None:
         super().__init__(args, returncode, stdout, stderr)
+
         self.time_taken = time_taken
 
     def __repr__(self) -> str:
@@ -1184,8 +1219,10 @@ class CompletedCommand(subprocess.CompletedProcess):
         ]
         if self.stdout is not None:
             args.append(f"stdout={self.stdout!r}")
+
         if self.stderr is not None:
             args.append(f"stderr={self.stderr!r}")
+
         return "{}({})".format(type(self).__name__, ", ".join(args))
 
     @property
@@ -1193,6 +1230,7 @@ class CompletedCommand(subprocess.CompletedProcess):
         """Returns the stdout as a list of lines."""
         if self.stdout is None:
             return []
+
         return self.stdout.splitlines()
 
     @property
@@ -1200,6 +1238,7 @@ class CompletedCommand(subprocess.CompletedProcess):
         """Returns the stderr as a list of lines."""
         if self.stderr is None:
             return []
+
         return self.stderr.splitlines()
 
     def dict(self) -> dict[str, Any]:
@@ -1285,6 +1324,7 @@ def read_piped() -> str:
     """Reads piped input from stdin."""
     if sys.stdin.isatty():
         return ""
+
     return sys.stdin.read().strip()
 
 
@@ -1350,6 +1390,7 @@ class PathBase(PathLike):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PathBase):
             return NotImplemented
+
         return type(self) is type(other) and self._comparison_path() == other._comparison_path()
 
     def __hash__(self) -> int:
@@ -1374,6 +1415,7 @@ class PathBase(PathLike):
         resolved_path = os.path.realpath(self.path)
         if strict and not os.path.exists(resolved_path):
             raise FileNotFoundError(f"No such file: '{resolved_path}'")
+
         return self._clone_with_path(resolved_path)
 
     async def resolve_async(self, strict: bool = False) -> Self:
@@ -1424,7 +1466,9 @@ class PathBase(PathLike):
             parent = os.path.dirname(current)
             if parent == current:
                 break
+
             current = parent
+
         return tuple(result)
 
     @property
@@ -1474,6 +1518,7 @@ class PathBase(PathLike):
         """
         new_path = os.path.join(self.parent.path, name)
         os.rename(self.path, new_path)
+
         return self._clone_with_path(new_path)
 
     async def rename_async(self, name: str) -> Self:
@@ -1488,6 +1533,7 @@ class PathBase(PathLike):
             mode (int): The new permissions mode.
         """
         os.chmod(self.path, mode)
+
         return self
 
     async def chmod_async(self, mode: int) -> Self:
@@ -1503,6 +1549,7 @@ class PathBase(PathLike):
             group (str): The new group.
         """
         shutil.chown(self.path, user, group)
+
         return self
 
     async def chown_async(self, user: str, group: str) -> Self:
@@ -1513,6 +1560,7 @@ class PathBase(PathLike):
         """Raise FileNotFoundError if the path does not exist."""
         if not self.exists:
             raise FileNotFoundError(f"No such path: '{self.path}'")
+
         return self
 
     async def should_exist_async(self) -> Self:
@@ -1523,6 +1571,7 @@ class PathBase(PathLike):
         """Raise FileExistsError if the path exists."""
         if self.exists:
             raise FileExistsError(f"Path already exists: '{self.path}'")
+
         return self
 
     async def should_not_exist_async(self) -> Self:
@@ -1567,6 +1616,7 @@ class PathBase(PathLike):
         """Return True if both paths reference the same filesystem entry."""
         if isinstance(other, PathBase):
             other = other.path
+
         return os.path.samefile(self.path, os.fspath(other))
 
     async def samefile_async(self, other: str | PathLike | PathBase) -> bool:
@@ -1585,6 +1635,7 @@ class PathBase(PathLike):
         """Return the filesystem owner name."""
         if sys.platform == "win32":
             raise NotImplementedError("owner() is not supported on Windows")
+
         import pwd
 
         return pwd.getpwuid(self.stat().st_uid).pw_name
@@ -1597,6 +1648,7 @@ class PathBase(PathLike):
         """Return the filesystem group name."""
         if sys.platform == "win32":
             raise NotImplementedError("group() is not supported on Windows")
+
         import grp
 
         return grp.getgrgid(self.stat().st_gid).gr_name
@@ -1624,6 +1676,7 @@ class PathBase(PathLike):
         self_abs = os.path.abspath(self.path)
         if not self_abs.startswith(other.rstrip(SEP) + SEP) and self_abs != other:
             raise ValueError(f"'{self.path}' is not relative to '{other}'")
+
         return os.path.relpath(self_abs, other)
 
     def expanduser(self) -> Self:
@@ -1651,6 +1704,7 @@ class PathBase(PathLike):
         """
         if not self.is_absolute:
             raise ValueError("relative path can't be expressed as a file URI")
+
         return "file://" + pathname2url(os.path.abspath(self.path))
 
     def match(self, pattern: str) -> bool:
@@ -1670,6 +1724,7 @@ class PathBase(PathLike):
         parent = os.path.dirname(self.path)
         if parent:
             return self._clone_with_path(os.path.join(parent, name))
+
         return self._clone_with_path(name)
 
     @property
@@ -1787,6 +1842,7 @@ class PathBase(PathLike):
             if isinstance(value, str):
                 value = value.encode()
             os.setxattr(self.path, f"{group}.{name}", value)
+
             return self
 
         async def set_xattr_async(self, value: str | bytes, name: str, group: str = "user") -> Self:
@@ -1802,6 +1858,7 @@ class PathBase(PathLike):
                 group: The group of the extended attribute. Defaults to "user".
             """
             os.removexattr(self.path, f"{group}.{name}")
+
             return self
 
         async def remove_xattr_async(self, name: str, group: str = "user") -> Self:
@@ -1826,6 +1883,7 @@ class File(PathBase):
             abs (bool): Whether to use the absolute path.
         """
         super().__init__(path, abs=abs)
+
         self.encoding = encoding
 
     def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> File:  # noqa: A002
@@ -1879,7 +1937,9 @@ class File(PathBase):
         """Create an empty file if it doesn't exist."""
         if self.exists:
             return self
+
         open(self.path, "a", encoding=self.encoding).close()
+
         return self
 
     async def create_async(self) -> File:
@@ -1894,9 +1954,12 @@ class File(PathBase):
                 os.makedirs(parent, exist_ok=True)
             else:
                 raise FileNotFoundError(f"No such directory: '{parent}'")
+
         with open(self.path, "a", encoding=self.encoding):
             pass
+
         os.utime(self.path, None)
+
         return self
 
     async def touch_async(self, *, mkdir: bool = False) -> File:
@@ -1907,14 +1970,18 @@ class File(PathBase):
         """Remove the file."""
         if not self.exists:
             return self
+
         os.remove(self.path)
+
         return self
 
     def clear(self) -> File:
         """Clear the contents of a file if it exists."""
         if not self.exists:
             return self
+
         open(self.path, "w", encoding=self.encoding).close()
+
         return self
 
     async def clear_async(self) -> File:
@@ -1940,6 +2007,7 @@ class File(PathBase):
         if mode == "rb":
             with open(self.path, mode) as f:
                 return f.read()
+
         with open(self.path, mode, encoding=self.encoding) as f:
             return f.read()
 
@@ -2004,6 +2072,7 @@ class File(PathBase):
             File: The File object for method chaining.
         """
         self._write(data, mode, newline=newline)
+
         return self
 
     @overload
@@ -2071,6 +2140,7 @@ class File(PathBase):
             File: The File object for method chaining.
         """
         self._write(data, mode, newline=newline)
+
         return self
 
     @overload
@@ -2128,8 +2198,10 @@ class File(PathBase):
         """
         if "b" in mode:
             return open(self.path, mode, **kwargs)
+
         if encoding is None:
             encoding = self.encoding
+
         return open(self.path, mode, encoding=encoding, **kwargs)
 
     @overload
@@ -2156,8 +2228,10 @@ class File(PathBase):
         anyio = _load_anyio()
         with anyio.CancelScope(shield=True):
             handle = await anyio.open_file(self.path, mode, encoding=encoding, **kwargs)
+
         if "b" in mode:
             return AsyncFileHandle(cast(AsyncFileLike[bytes], handle))
+
         return AsyncFileHandle(cast(AsyncFileLike[str], handle))
 
     def write_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
@@ -2172,6 +2246,7 @@ class File(PathBase):
             File: The File object for method chaining.
         """
         self._write_iter(data, "w", sep=sep)
+
         return self
 
     async def write_iter_async(self, data: Iterable[Any], sep: str = "\n") -> File:
@@ -2190,6 +2265,7 @@ class File(PathBase):
             File: The File object for method chaining.
         """
         self._write_iter(data, "a", sep=sep)
+
         return self
 
     async def append_iter_async(self, data: Iterable[Any], sep: str = "\n") -> File:
@@ -2210,6 +2286,7 @@ class File(PathBase):
         data = self.read(mode="r")
         if isinstance(data, bytes):
             data = data.decode(self.encoding)
+
         return data.splitlines()
 
     async def splitlines_async(self) -> list[str]:
@@ -2249,7 +2326,9 @@ class File(PathBase):
             expected_type="file",
         ):
             return self._clone_with_path(dest_path)
+
         shutil.move(self.path, dest_path)
+
         return self._clone_with_path(dest_path)
 
     async def move_to_async(
@@ -2296,7 +2375,9 @@ class File(PathBase):
             remove_existing=False,
         ):
             return self._clone_with_path(dest_path)
+
         _copy_file_to_destination(self.path, dest_path)
+
         return self._clone_with_path(dest_path)
 
     async def copy_to_async(
@@ -2328,6 +2409,7 @@ class File(PathBase):
         """
         if not ext.startswith("."):
             ext = f".{ext}"
+
         return self._clone_with_path(os.path.join(self.dirname, f"{self.stem}{ext}"))
 
     def with_suffix(self, suffix: str) -> File:
@@ -2349,6 +2431,7 @@ class File(PathBase):
         """Rename the file and return the new File object."""
         new_path = os.path.join(self.dirname, name)
         os.rename(self.path, new_path)
+
         return self._clone_with_path(new_path)
 
     def link(self, target: str, follow_symlinks: bool = True) -> File:
@@ -2358,7 +2441,9 @@ class File(PathBase):
         except NotImplementedError:
             if not follow_symlinks:
                 raise
+
             os.link(self.path, target)
+
         return self._clone_with_path(target)
 
     async def link_async(self, target: str, follow_symlinks: bool = True) -> File:
@@ -2368,6 +2453,7 @@ class File(PathBase):
     def symlink(self, target: str) -> File:
         """Create a symbolic link and return a File for the created link path."""
         os.symlink(_symlink_source_path(self.path, target), target)
+
         return self._clone_with_path(target)
 
     async def symlink_async(self, target: str) -> File:
@@ -2429,6 +2515,7 @@ class Directory(PathBase):
     def create(self, mode: int = 0o777, exist_ok: bool = True) -> Directory:
         """Create directory (including parents)."""
         os.makedirs(self.path, mode=mode, exist_ok=exist_ok)
+
         return self
 
     async def create_async(self, mode: int = 0o777, exist_ok: bool = True) -> Directory:
@@ -2439,9 +2526,11 @@ class Directory(PathBase):
         """Remove all children while keeping the directory itself."""
         if not self.exists:
             return self
+
         with os.scandir(self.path) as entries:
             for entry in entries:
                 _remove_existing_path(entry.path)
+
         return self
 
     async def clear_async(self) -> Directory:
@@ -2488,7 +2577,9 @@ class Directory(PathBase):
             expected_type="directory",
         ):
             return self._clone_with_path(dest)
+
         shutil.move(self.path, dest)
+
         return self._clone_with_path(dest)
 
     async def move_to_async(
@@ -2533,7 +2624,9 @@ class Directory(PathBase):
             remove_existing=False,
         ):
             return self._clone_with_path(dest)
+
         _copy_directory_to_destination(self.path, dest, overwrite=overwrite)
+
         return self._clone_with_path(dest)
 
     async def copy_to_async(
@@ -2550,7 +2643,9 @@ class Directory(PathBase):
         """Remove the directory and all its contents."""
         if not self.exists:
             return self
+
         shutil.rmtree(self.path)
+
         return self
 
     async def remove_async(self) -> Directory:
@@ -2584,6 +2679,7 @@ class Directory(PathBase):
             basename = os.path.basename(file_path)
             if glob_pattern and not glob_pattern.match(basename):
                 continue
+
             if regex_pattern and not regex_pattern.search(basename):
                 continue
             yield File(file_path)
@@ -2753,6 +2849,7 @@ class Directory(PathBase):
             basename = os.path.basename(dir_path)
             if glob_pattern and not glob_pattern.match(basename):
                 continue
+
             if regex_pattern and not regex_pattern.search(basename):
                 continue
             yield Directory(dir_path)
@@ -2884,6 +2981,7 @@ def _walk_directory(
             current_identity = _dir_identity(directory.path)
             if current_identity in visited:
                 return
+
             visited.add(current_identity)
 
     subdirs: list[Directory] = []

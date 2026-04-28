@@ -23,5 +23,6 @@ def test_split_with_invalid_input():
     values = [1, 2, 3]
     with pytest.raises(ValueError, match=r"^4$"):
         split(values, 4)
+
     with pytest.raises(ValueError, match=r"^0$"):
         split(values, 0)

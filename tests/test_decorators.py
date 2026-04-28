@@ -91,6 +91,7 @@ class TestRetryDecorator:
 
         with pytest.raises(RetryFailureError, match="Failure") as excinfo:
             failing_func()
+
         assert str(excinfo.value) == "Failure"
         assert counter[0] == 3
 
@@ -102,6 +103,7 @@ class TestRetryDecorator:
             counter[0] += 1
             if counter[0] < 2:
                 raise RetryFailureError("Failure")
+
             return "Success"
 
         assert func_with_success_on_second() == "Success"

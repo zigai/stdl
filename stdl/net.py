@@ -16,6 +16,7 @@ if tqdm is not None:
         def update_to(self, b: int = 1, bsize: int = 1, tsize: int | None = None) -> None:
             if tsize is not None:
                 self.total = tsize
+
             self.update(b * bsize - self.n)
 else:
     ProgressBarTQDM = None
@@ -81,7 +82,9 @@ def download(
                 RuntimeWarning,
                 stacklevel=2,
             )
+
         r = urlretrieve(url, path)
+
     return r
 
 

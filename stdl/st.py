@@ -24,6 +24,7 @@ class ColorANSI:
         handle = kernel32.GetStdHandle(-11)
         if handle:
             kernel32.SetConsoleMode(handle, 7)
+
         del kernel32
         del handle
         del ctypes
@@ -33,6 +34,7 @@ class ColorANSI:
         key = key.upper().replace(" ", "_")
         if key in dir(cls):
             return getattr(cls, key)
+
         raise KeyError(key)
 
     @classmethod
@@ -42,6 +44,7 @@ class ColorANSI:
         for attr in dir(cls):
             if attr[0] != "_" and attr not in ignored:
                 data[attr] = cls[attr]
+
         return data
 
     @classmethod
@@ -156,6 +159,7 @@ Style: TypeAlias = Literal["blink", "bold", "dim", "italic", "reset", "underline
 def _get_ansi_value(value: str | None, handler: type[ColorANSI]) -> str:
     if not value:
         return ""
+
     try:
         return handler[value]
     except KeyError:
@@ -182,9 +186,11 @@ def colored(
     """
     if NO_COLOR or not stdout.isatty():
         return text
+
     color = _get_ansi_value(color, FG)
     background = _get_ansi_value(background, BG)
     style = _get_ansi_value(style, ST)
+
     return f"{color}{background}{style}{text}{ST.RESET}"
 
 
@@ -231,6 +237,7 @@ def terminal_link(
 
     link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\" if stdout.isatty() else uri
     link = colored(link, color, background, style)
+
     return link
 
 
@@ -251,6 +258,7 @@ def remove(s: str, chars: str | set, replace_with: str = "") -> str:
             string.append(c)
         elif replace_with:
             string.append(replace_with)
+
     return "".join(string)
 
 
@@ -271,6 +279,7 @@ def keep(s: str, chars: str | set, replace_with: str = "") -> str:
             string.append(c)
         elif replace_with:
             string.append(replace_with)
+
     return "".join(string)
 
 
@@ -290,9 +299,11 @@ class sf:  # noqa: N801
         """Removes or replaces characters that are not allowed to be in a filepath."""
         if not filepath:
             return ""
+
         dirname, filename = os.path.split(filepath)
         filename = cls.filename(filename, replace_with)
         dirname = remove(dirname, '|?*<>:"')
+
         return os.path.join(dirname, filename)
 
     @classmethod
@@ -317,6 +328,7 @@ def camel_case(s: str) -> str:
     s = re.sub(r"(_|-)+", " ", s).title().replace(" ", "")
     if not s:
         return ""
+
     return s[0].lower() + s[1:]
 
 
@@ -324,6 +336,7 @@ def kebab_case(s: str) -> str:
     """Converts a given string to kebab-case."""
     RE_WORDS = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
     RE_SEP = r"(\s|_|-)+"
+
     return "-".join(
         re.sub(
             RE_SEP,

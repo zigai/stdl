@@ -50,6 +50,7 @@ class LoguruFormatter:
 
         if title := record["extra"].get("title"):
             return f"{self.time} | {self.level} | [ {title} ] {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
+
         return f"{self.time} | {self.level} | {self.name}:{self.func}:{self.lineno} - {self.msg} {extras}\n"
 
 
@@ -143,6 +144,7 @@ def br(
     """
     if IGNORE_BREAKS:
         return
+
     length = length or get_terminal_size().columns
     line = c * length
     if newline:

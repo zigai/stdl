@@ -31,20 +31,28 @@ class TestRGB:
     def test_rgb_validation_invalid(self):
         with pytest.raises(ColorValueError):
             RGB(-1, 0, 0)
+
         with pytest.raises(ColorValueError):
             RGB(-0.9, 0, 0)
+
         with pytest.raises(ColorValueError):
             RGB(256, 0, 0)
+
         with pytest.raises(ColorValueError):
             RGB(255.9, 0, 0)
+
         with pytest.raises(ColorValueError):
             RGB(0, -1, 0)
+
         with pytest.raises(ColorValueError):
             RGB(0, 256, 0)
+
         with pytest.raises(ColorValueError):
             RGB(0, 0, -1)
+
         with pytest.raises(ColorValueError):
             RGB(0, 0, 256)
+
         with pytest.raises(ColorValueError):
             RGB(float("nan"), 0, 0)
         bool_channel = True
@@ -132,14 +140,19 @@ class TestRGBA:
     def test_rgba_validation_invalid(self):
         with pytest.raises(ColorValueError):
             RGBA(-1, 0, 0, 0.5)
+
         with pytest.raises(ColorValueError):
             RGBA(-0.9, 0, 0, 0.5)
+
         with pytest.raises(ColorValueError):
             RGBA(256, 0, 0, 0.5)
+
         with pytest.raises(ColorValueError):
             RGBA(255.9, 0, 0, 0.5)
+
         with pytest.raises(ColorValueError):
             RGBA(128, 128, 128, -0.1)
+
         with pytest.raises(ColorValueError):
             RGBA(128, 128, 128, 1.1)
 
@@ -189,14 +202,19 @@ class TestHEX:
     def test_hex_validation_invalid(self):
         with pytest.raises(ColorValueError):
             HEX("#12345")
+
         with pytest.raises(ColorValueError):
             HEX("#1234567")
+
         with pytest.raises(ColorValueError):
             HEX("##123456")
+
         with pytest.raises(ColorValueError):
             HEX(123456)
+
         with pytest.raises(ColorValueError):
             HEX("#gggggg")
+
         with pytest.raises(ColorValueError):
             HEX("invalid")
 
@@ -238,16 +256,22 @@ class TestHSV:
     def test_hsv_validation_invalid(self):
         with pytest.raises(ColorValueError):
             HSV(-1, 50, 75)
+
         with pytest.raises(ColorValueError):
             HSV(361, 50, 75)
+
         with pytest.raises(ColorValueError):
             HSV(180, -1, 75)
+
         with pytest.raises(ColorValueError):
             HSV(180, 101, 75)
+
         with pytest.raises(ColorValueError):
             HSV(180, 50, -1)
+
         with pytest.raises(ColorValueError):
             HSV(180, 50, 101)
+
         with pytest.raises(ColorValueError):
             HSV("bad", 0, 0)
 
@@ -303,14 +327,19 @@ class TestHSL:
     def test_hsl_validation_invalid(self):
         with pytest.raises(ColorValueError):
             HSL(-1, 50, 75)
+
         with pytest.raises(ColorValueError):
             HSL(361, 50, 75)
+
         with pytest.raises(ColorValueError):
             HSL(180, -1, 75)
+
         with pytest.raises(ColorValueError):
             HSL(180, 101, 75)
+
         with pytest.raises(ColorValueError):
             HSL(180, 50, -1)
+
         with pytest.raises(ColorValueError):
             HSL(180, 50, 101)
 
@@ -360,18 +389,25 @@ class TestCMYK:
     def test_cmyk_validation_invalid(self):
         with pytest.raises(ColorValueError):
             CMYK(-1, 50, 75, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(101, 50, 75, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(25, -1, 75, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(25, 101, 75, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(25, 50, -1, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(25, 50, 101, 10)
+
         with pytest.raises(ColorValueError):
             CMYK(25, 50, 75, -1)
+
         with pytest.raises(ColorValueError):
             CMYK(25, 50, 75, 101)
 
@@ -426,6 +462,7 @@ class TestASSA:
     def test_assa_from_clean_value_validates_input(self):
         assa = ASSA.from_clean_value("80402010")
         assert assa.clean_value == "80402010"
+
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("12345")
 
@@ -520,16 +557,20 @@ class TestASSA:
         # Test invalid characters
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("GGHHII")
+
         with pytest.raises(ColorValueError):
             ASSA("GGHHII")
+
         with pytest.raises(ColorValueError):
             ASSA("zz40-80-ff!!")
+
         with pytest.raises(ColorValueError):
             ASSA("#4080ff")
 
         # Test wrong lengths
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("12345")  # Too short
+
         with pytest.raises(ColorValueError):
             ASSA.from_clean_value("1234567")  # Wrong length
 
@@ -631,16 +672,20 @@ class TestNormalizeColor:
     def test_normalize_invalid_sequence_length(self):
         with pytest.raises(ColorValueError):
             normalize_color((255, 128))
+
         with pytest.raises(ColorValueError):
             normalize_color((255, 128, 64, 0.5, 100))
 
     def test_normalize_invalid_type(self):
         with pytest.raises(ColorValueError):
             normalize_color(123)
+
         with pytest.raises(ColorValueError):
             normalize_color(b"abc")
+
         with pytest.raises(ColorValueError):
             normalize_color(bytearray([1, 2, 3]))
+
         with pytest.raises(ColorValueError):
             normalize_color([True, False, True])
 
@@ -737,6 +782,7 @@ class TestPydanticColorSchemas:
 
         assert adapter.validate_python({"red": 1, "green": 2, "blue": 3}) == RGB(1, 2, 3)
         assert adapter.validate_python({"r": 1, "g": 2, "b": 3}) == RGB(1, 2, 3)
+
         with pytest.raises(pydantic.ValidationError, match="Invalid RGB mapping"):
             adapter.validate_python({"red": 1, "green": 2, "blue": 3, "extra": 4})
 
@@ -747,5 +793,6 @@ class TestPydanticColorSchemas:
 
         assert re.fullmatch(pattern, "webcolor('red')")
         assert not re.fullmatch(pattern, "webcolor(red)")
+
         with pytest.raises(pydantic.ValidationError, match="Invalid webcolor repr"):
             adapter.validate_python("webcolor(red)")

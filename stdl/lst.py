@@ -21,6 +21,7 @@ def chunks(items: list[T], size: int) -> list[list[T]]:
     """
     if size < 1 or size > len(items):
         raise ValueError(size)
+
     return [items[i : i + size] for i in range(0, len(items), size)]
 
 
@@ -46,6 +47,7 @@ def split(items: list[T], parts: int) -> list[list[T]]:
         split_index = length // remaining_parts
         if length - split_index > 0:
             return [remaining[:split_index], *inner(remaining[split_index:], remaining_parts - 1)]
+
         return [remaining]
 
     return inner(items, parts)
@@ -111,6 +113,7 @@ def nodups(items: Sequence[T]) -> list[T]:
     for i in items:
         if i not in result:
             result.append(i)
+
     return result
 
 
@@ -136,8 +139,11 @@ def replace_sublists(items: list[Any], sublist: list[Any], replacement: list[Any
             i += len_old
         else:
             result.append(items[i])
+
             i += 1
+
     result.extend(items[i:])
+
     return result
 
 

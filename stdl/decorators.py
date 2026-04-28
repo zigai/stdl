@@ -65,6 +65,7 @@ def timer(
                 message = json.dumps(message_dict)
 
             sink(message)
+
             return result
 
         return wrapper
@@ -82,7 +83,9 @@ def retry(attempts: int, delay: float = 0) -> Callable[[Callable[P, T]], Callabl
             for _ in range(attempts - 1):
                 with suppress(Exception):
                     return func(*args, **kwargs)
+
                 time.sleep(delay)
+
             return func(*args, **kwargs)
 
         return wrapper

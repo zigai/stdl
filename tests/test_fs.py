@@ -16,6 +16,7 @@ def temp_file(tmp_path: Path) -> File:
     """Create a temporary file with content."""
     f = tmp_path / "test.txt"
     f.write_text("hello world")
+
     return fs.File(str(f))
 
 
@@ -30,6 +31,7 @@ def empty_file(tmp_path: Path) -> File:
     """Create an empty temporary file."""
     f = tmp_path / "empty.txt"
     f.touch()
+
     return fs.File(str(f))
 
 
@@ -39,6 +41,7 @@ def test_yield_files_in_without_ext():
         filenames = ["file1.txt", "file2.txt", "file3.txt"]
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
+
         files_found = fs.get_files_in(temp_dir)
     assert set(files_found) == {str(i) for i in files}
 
@@ -49,6 +52,7 @@ def test_yield_files_in_with_ext():
         filenames = ["file1.txt", "file2.txt", "file3.csv", "barecsv"]
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
+
         files_found = fs.get_files_in(temp_dir, ext="csv")
     assert set(files_found) == {str(files[2])}
 
@@ -59,6 +63,7 @@ def test_yield_files_in_with_tuple_ext():
         filenames = ["file1.txt", "file2.txt", "file3.csv", "file4.py", "barepy"]
         files = [temp_dir_path / i for i in filenames]
         [i.touch() for i in files]
+
         files_found = fs.get_files_in(temp_dir, ext=("py", "csv"))
     assert set(files_found) == {str(files[2]), str(files[3])}
 
@@ -73,6 +78,7 @@ def test_yield_files_in_with_recursive():
         [i.touch() for i in files]
         sub_file = sub_dir / "sub_file1.txt"
         sub_file.touch()
+
         files = [temp_dir_path / i for i in filenames]
         files_found = fs.get_files_in(temp_dir, recursive=False)
 
@@ -103,8 +109,10 @@ def test_readable_size_to_bytes():
 
     with pytest.raises(ValueError, match=r"Invalid size format"):
         fs.readable_size_to_bytes("1XB")
+
     with pytest.raises(ValueError, match=r"Invalid size format"):
         fs.readable_size_to_bytes("-1KB")
+
     with pytest.raises(ValueError, match=r"Invalid kb_size"):
         fs.readable_size_to_bytes("1KB", kb_size=1023)
 
@@ -578,6 +586,7 @@ class TestFileOpen:
         file = fs.File(str(tmp_path / "open.txt"))
         with file.open("w") as f:
             f.write("new content")
+
         assert file.read() == "new content"
 
     def test_file_open_binary(self, tmp_path: Path):
@@ -593,6 +602,7 @@ class TestFileOpen:
         """open() works with with statement."""
         with temp_file.open() as f:
             content = f.read()
+
         assert f.closed
         assert content == "hello world"
 
@@ -688,6 +698,7 @@ class TestFileMoveCopy:
         """copy_to(mkdir=True) creates directory and returns new File."""
         dest_dir = tmp_path / "newdir"
         assert not dest_dir.exists()
+
         copied_file = temp_file.copy_to(fs.Directory(str(dest_dir)), mkdir=True)
         assert dest_dir.exists()
         assert temp_file.exists
@@ -1088,6 +1099,7 @@ class TestFileParents:
         """Parents in order from immediate to root."""
         parents = temp_file.parents
         assert parents[0].path == temp_file.dirname
+
         if sys.platform != "win32":
             assert parents[-1].path == "/"
 
@@ -1108,6 +1120,7 @@ class TestFileXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
 
     def test_file_get_xattr(self, temp_file: File):
@@ -1119,6 +1132,7 @@ class TestFileXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
 
     def test_file_remove_xattr(self, temp_file: File):
@@ -1131,6 +1145,7 @@ class TestFileXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
 
 
@@ -1142,6 +1157,7 @@ def temp_directory(tmp_path: Path) -> fs.Directory:
     (test_dir / "file1.txt").write_text("content1")
     (test_dir / "file2.txt").write_text("content2")
     (test_dir / "file3.py").write_text("print('hello')")
+
     return fs.Directory(str(test_dir))
 
 
@@ -1160,6 +1176,7 @@ def nested_directory(tmp_path: Path) -> fs.Directory:
     deep = sub1 / "deep"
     deep.mkdir()
     (deep / "deep_file.txt").write_text("deep content")
+
     return fs.Directory(str(root))
 
 
@@ -1654,6 +1671,7 @@ class TestDirectoryMoveCopy:
         """copy_to(mkdir=True) creates the target directory before copying into it."""
         dest = fs.Directory(str(tmp_path / "newparent" / "dest"))
         assert not Path(dest.path).exists()
+
         copied_dir = temp_directory.copy_to(dest, mkdir=True)
         assert Path(dest.path).exists()
         assert temp_directory.exists
@@ -1931,6 +1949,7 @@ class TestDirectoryParents:
         """Parents in order from immediate to root."""
         parents = temp_directory.parents
         assert parents[0].path == os.path.dirname(temp_directory.path)
+
         if sys.platform != "win32":
             assert parents[-1].path == "/"
 
@@ -1978,6 +1997,7 @@ class TestDirectoryXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
 
     def test_directory_get_xattr(self, temp_directory: fs.Directory):
@@ -1989,6 +2009,7 @@ class TestDirectoryXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
 
     def test_directory_remove_xattr(self, temp_directory: fs.Directory):
@@ -2001,4 +2022,5 @@ class TestDirectoryXattr:
         except OSError as e:
             if e.errno == 95:  # EOPNOTSUPP
                 pytest.skip("Extended attributes not supported on this filesystem")
+
             raise
