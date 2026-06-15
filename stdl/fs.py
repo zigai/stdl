@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import fnmatch
 import importlib
-import inspect
 import json
 import math
 import os
@@ -30,7 +29,7 @@ from functools import partial
 from os import PathLike
 from pathlib import Path
 from queue import Queue
-from types import TracebackType
+from types import ModuleType, TracebackType
 from typing import (
     IO,
     Any,
@@ -40,7 +39,6 @@ from typing import (
     Protocol,
     TypeAlias,
     TypeVar,
-    cast,
     overload,
 )
 
@@ -86,6 +84,7 @@ P = ParamSpec("P")
 HandleDataT = TypeVar("HandleDataT", str, bytes)
 T = TypeVar("T")
 ResultT = TypeVar("ResultT")
+PickleDataT = TypeVar("PickleDataT")
 
 JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 YamlValue: TypeAlias = (
@@ -99,6 +98,10 @@ YamlValue: TypeAlias = (
     | dict["YamlValue", "YamlValue"]
 )
 OpenKwarg: TypeAlias = str | int | bool | None | Callable[[str, int], int]
+SubprocessRunArg: TypeAlias = str | bytes | int | bool | float | None
+SubprocessRunKwarg: TypeAlias = (
+    str | bytes | int | bool | float | None | IO[str] | IO[bytes] | list[str] | dict[str, str]
+)
 DirectoryIdentity: TypeAlias = tuple[Literal["inode"], int, int] | tuple[Literal["path"], str]
 
 
@@ -143,10 +146,7 @@ class AnyIOTaskGroup(Protocol):
     cancel_scope: TaskGroupCancelScope
 
     def start_soon(
-        self,
-        func: Callable[..., Awaitable[object]],
-        *args: object,
-        **kwargs: object,
+        self, func: Callable[P, Awaitable[Any]], *args: P.args, **kwargs: P.kwargs
     ) -> None: ...
 
 
@@ -211,14 +211,34 @@ class AnyIOModule(Protocol):
 @dataclass
 class LimitedMapState(Generic[T, ResultT]):
     items: list[T]
-    results: list[ResultT | None]
+    results: dict[int, ResultT]
     lock: AsyncLock
     next_index: int = 0
     first_error: Exception | None = None
 
 
+class IterationSentinel:
+    pass
+
+
 _ANYIO: AnyIOModule | None = None
-_ITERATION_SENTINEL = object()
+_ITERATION_SENTINEL = IterationSentinel()
+
+
+def _validate_anyio_module(module: ModuleType) -> AnyIOModule:
+    for name in (
+        "to_thread",
+        "CancelScope",
+        "Lock",
+        "Semaphore",
+        "create_task_group",
+        "get_cancelled_exc_class",
+        "open_file",
+    ):
+        if not hasattr(module, name):
+            raise ImportError(f"AnyIO module is missing required attribute {name!r}")
+
+    return module
 
 
 def _load_anyio() -> AnyIOModule:
@@ -228,7 +248,7 @@ def _load_anyio() -> AnyIOModule:
         return _ANYIO
 
     try:
-        _ANYIO = cast(AnyIOModule, importlib.import_module("anyio"))
+        _ANYIO = _validate_anyio_module(importlib.import_module("anyio"))
     except ImportError as exc:
         raise ImportError(
             "Async stdl.fs APIs require AnyIO. Install stdl with the async extra: "
@@ -249,7 +269,7 @@ async def _run_fs_sync_shielded(func: Callable[P, T], /, *args: P.args, **kwargs
         return await run_fs_sync(func, *args, **kwargs)
 
 
-def _next_or_sentinel(iterator: Iterator[T]) -> T | object:
+def _next_or_sentinel(iterator: Iterator[T]) -> T | IterationSentinel:
     return next(iterator, _ITERATION_SENTINEL)
 
 
@@ -264,7 +284,7 @@ async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenera
             if item is _ITERATION_SENTINEL:
                 return
 
-            yield cast(T, item)
+            yield item
     finally:
         close = getattr(iterator, "close", None)
         if close is not None:
@@ -287,7 +307,7 @@ async def _map_limited_async(
     anyio = _load_anyio()
     state = LimitedMapState(
         items=item_list,
-        results=[None] * len(item_list),
+        results={},
         lock=anyio.Lock(),
     )
     cancelled_exc_class = anyio.get_cancelled_exc_class()
@@ -305,7 +325,7 @@ async def _map_limited_async(
     if state.first_error is not None:
         raise state.first_error
 
-    return [cast(ResultT, result) for result in state.results]
+    return [state.results[index] for index in range(len(item_list))]
 
 
 async def _claim_limited_map_item(state: LimitedMapState[T, ResultT]) -> tuple[int, T] | None:
@@ -340,6 +360,7 @@ async def _run_limited_map_worker(
         next_item = await _claim_limited_map_item(state)
         if next_item is None:
             return
+
         index, item = next_item
 
         try:
@@ -356,12 +377,6 @@ class AsyncFileHandle(Generic[HandleDataT]):
         self._handle: AsyncFileLike[HandleDataT] = handle
         self._lock: AsyncLock | None = None
 
-    def _get_lock(self) -> AsyncLock:
-        if self._lock is None:
-            self._lock = _load_anyio().Lock()
-
-        return self._lock
-
     async def __aenter__(self) -> AsyncFileHandle[HandleDataT]:
         return self
 
@@ -376,12 +391,6 @@ class AsyncFileHandle(Generic[HandleDataT]):
 
     def __aiter__(self) -> AsyncIterator[HandleDataT]:
         return self.iter_lines()
-
-    async def _resolve_result(self, result: ResultT | Awaitable[ResultT]) -> ResultT:
-        if inspect.isawaitable(result):
-            return await cast(Awaitable[ResultT], result)
-
-        return result
 
     async def read(self, size: int = -1) -> HandleDataT:
         async with self._get_lock():
@@ -452,6 +461,18 @@ class AsyncFileHandle(Generic[HandleDataT]):
 
             yield chunk
 
+    def _get_lock(self) -> AsyncLock:
+        if self._lock is None:
+            self._lock = _load_anyio().Lock()
+
+        return self._lock
+
+    async def _resolve_result(self, result: ResultT | Awaitable[ResultT]) -> ResultT:
+        if isinstance(result, Awaitable):
+            return await result
+
+        return result
+
 
 def _iter_file_paths(
     directory: str | PathLike[str], *, recursive: bool
@@ -475,6 +496,7 @@ def _iter_file_paths(
                     entry_identity = _entry_dir_identity(entry)
                     if entry_identity in visited:
                         continue
+
                     visited.add(entry_identity)
                     queue.put(entry.path)
                 elif entry.is_file():
@@ -517,6 +539,18 @@ def _is_same_filesystem_path(path: str | PathLike, other: str | PathLike) -> boo
     return _comparison_path(path) == _comparison_path(other) or (
         _real_comparison_path(path) == _real_comparison_path(other)
     )
+
+
+def _clone_with_path(
+    path_object: PathBase,
+    path: str | PathLike,
+    *,
+    abs: bool = False,  # noqa: A002
+) -> PathBase:
+    if isinstance(path_object, File):
+        return File(path, encoding=path_object.encoding, abs=abs)
+
+    return path_object.__class__(path, abs=abs)
 
 
 def _ensure_directory_target_is_not_inside_source(source_path: str, destination_path: str) -> None:
@@ -635,24 +669,24 @@ def _replace_temp_path(temp_path: str, destination_path: str, *, overwrite: bool
     os.replace(temp_path, destination_path)
 
 
-def pickle_load(filepath: str | PathLike) -> object:
+def pickle_load(filepath: str | PathLike) -> PickleDataT:
     """Loads a pickled file."""
     with open(filepath, "rb") as f:
         return pickle.load(f)  # noqa: S301
 
 
-async def pickle_load_async(filepath: str | PathLike) -> object:
+async def pickle_load_async(filepath: str | PathLike) -> PickleDataT:
     """Async version of pickle_load()."""
     return await run_fs_sync(pickle_load, filepath)
 
 
-def pickle_dump(data: object, filepath: str | PathLike) -> None:
+def pickle_dump(data: PickleDataT, filepath: str | PathLike) -> None:
     """Dumps an object to the specified filepath."""
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
 
 
-async def pickle_dump_async(data: object, filepath: str | PathLike) -> None:
+async def pickle_dump_async(data: PickleDataT, filepath: str | PathLike) -> None:
     """Async version of pickle_dump()."""
     await _run_fs_sync_shielded(pickle_dump, data, filepath)
 
@@ -685,7 +719,7 @@ def json_append(
     data: JsonValue,
     filepath: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[object], str] = str,
+    default: Callable[[Any], str] = str,
     indent: int = 4,
 ) -> None:
     """
@@ -734,7 +768,7 @@ async def json_append_async(
     data: JsonValue,
     filepath: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[object], str] = str,
+    default: Callable[[Any], str] = str,
     indent: int = 4,
 ) -> None:
     """Async version of json_append()."""
@@ -747,7 +781,7 @@ def json_dump(
     data: JsonValue,
     path: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[object], str] = str,
+    default: Callable[[Any], str] = str,
     indent: int = 4,
 ) -> None:
     """
@@ -768,7 +802,7 @@ async def json_dump_async(
     data: JsonValue,
     path: str | PathLike,
     encoding: str = "utf-8",
-    default: Callable[[object], str] = str,
+    default: Callable[[Any], str] = str,
     indent: int = 4,
 ) -> None:
     """Async version of json_dump()."""
@@ -1057,6 +1091,7 @@ def yield_files_in(
     for file_path in _iter_file_paths(directory, recursive=recursive):
         if normalized_ext is not None and not file_path.lower().endswith(normalized_ext):
             continue
+
         yield os.path.abspath(file_path) if abs else file_path
 
 
@@ -1264,8 +1299,8 @@ def exec_cmd(
     input: str | None | bytes = None,
     env: dict[str, str] | None = None,
     text: bool = True,
-    *args: object,
-    **kwargs: object,
+    *args: SubprocessRunArg,
+    **kwargs: SubprocessRunKwarg,
 ) -> CompletedCommand:
     """
     Wrapper for subprocess.run with nicer default arguments.
@@ -1381,20 +1416,16 @@ class PathBase(PathLike):
         """The stored path string."""
         return self._path
 
-    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> Self:  # noqa: A002
-        return self.__class__(path, abs=abs)
-
-    def _comparison_path(self) -> str:
-        return os.path.normcase(os.path.normpath(self.path))
-
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: PathBase) -> bool:
         if not isinstance(other, PathBase):
             return NotImplemented
 
-        return type(self) is type(other) and self._comparison_path() == other._comparison_path()
+        return type(self) is type(other) and _comparison_path(self.path) == _comparison_path(
+            other.path
+        )
 
     def __hash__(self) -> int:
-        return hash((type(self), self._comparison_path()))
+        return hash((type(self), _comparison_path(self.path)))
 
     def __fspath__(self) -> str:
         return self.path
@@ -1416,7 +1447,7 @@ class PathBase(PathLike):
         if strict and not os.path.exists(resolved_path):
             raise FileNotFoundError(f"No such file: '{resolved_path}'")
 
-        return self._clone_with_path(resolved_path)
+        return _clone_with_path(self, resolved_path)
 
     async def resolve_async(self, strict: bool = False) -> Self:
         """Async version of resolve()."""
@@ -1519,7 +1550,7 @@ class PathBase(PathLike):
         new_path = os.path.join(self.parent.path, name)
         os.rename(self.path, new_path)
 
-        return self._clone_with_path(new_path)
+        return _clone_with_path(self, new_path)
 
     async def rename_async(self, name: str) -> Self:
         """Async version of rename()."""
@@ -1686,7 +1717,7 @@ class PathBase(PathLike):
         Returns:
             The path object with the expanded path.
         """
-        return self._clone_with_path(os.path.expanduser(self.path))
+        return _clone_with_path(self, os.path.expanduser(self.path))
 
     def as_posix(self) -> str:
         """Return the path with forward slashes."""
@@ -1723,9 +1754,9 @@ class PathBase(PathLike):
         """Return a new path with the name changed."""
         parent = os.path.dirname(self.path)
         if parent:
-            return self._clone_with_path(os.path.join(parent, name))
+            return _clone_with_path(self, os.path.join(parent, name))
 
-        return self._clone_with_path(name)
+        return _clone_with_path(self, name)
 
     @property
     def exists(self) -> bool:
@@ -1886,9 +1917,6 @@ class File(PathBase):
 
         self.encoding = encoding
 
-    def _clone_with_path(self, path: str | PathLike, *, abs: bool = False) -> File:  # noqa: A002
-        return File(path, encoding=self.encoding, abs=abs)
-
     @property
     def exists(self) -> bool:
         """Whether the file exists."""
@@ -2020,20 +2048,6 @@ class File(PathBase):
     async def read_async(self, mode: Literal["r", "rb"] = "r") -> str | bytes:
         """Async version of read()."""
         return await run_fs_sync(self.read, mode)
-
-    def _write(self, data: str | bytes, mode: str, *, newline: bool = True) -> None:
-        if "b" in mode:
-            with open(self.path, mode) as f:
-                f.write(data)
-        else:
-            with open(self.path, mode, encoding=self.encoding) as f:
-                f.write(data)
-                if newline:
-                    f.write("\n")
-
-    def _write_iter(self, data: Iterable[Any], mode: str, sep: str = "\n") -> None:
-        with open(self.path, mode, encoding=self.encoding) as f:
-            f.writelines(f"{entry}{sep}" for entry in data)
 
     @overload
     def write(
@@ -2229,10 +2243,7 @@ class File(PathBase):
         with anyio.CancelScope(shield=True):
             handle = await anyio.open_file(self.path, mode, encoding=encoding, **kwargs)
 
-        if "b" in mode:
-            return AsyncFileHandle(cast(AsyncFileLike[bytes], handle))
-
-        return AsyncFileHandle(cast(AsyncFileLike[str], handle))
+        return AsyncFileHandle(handle)
 
     def write_iter(self, data: Iterable[Any], sep: str = "\n") -> File:
         """
@@ -2325,11 +2336,11 @@ class File(PathBase):
             source_path=self.path,
             expected_type="file",
         ):
-            return self._clone_with_path(dest_path)
+            return _clone_with_path(self, dest_path)
 
         shutil.move(self.path, dest_path)
 
-        return self._clone_with_path(dest_path)
+        return _clone_with_path(self, dest_path)
 
     async def move_to_async(
         self,
@@ -2374,11 +2385,11 @@ class File(PathBase):
             expected_type="file",
             remove_existing=False,
         ):
-            return self._clone_with_path(dest_path)
+            return _clone_with_path(self, dest_path)
 
         _copy_file_to_destination(self.path, dest_path)
 
-        return self._clone_with_path(dest_path)
+        return _clone_with_path(self, dest_path)
 
     async def copy_to_async(
         self,
@@ -2395,7 +2406,7 @@ class File(PathBase):
         Change the directory of the file object. This will not move the actual file to that directory.
         Use File.move_to for that.
         """
-        return self._clone_with_path(os.path.join(directory, self.basename))
+        return _clone_with_path(self, os.path.join(directory, self.basename))
 
     def with_ext(self, ext: str) -> File:
         """
@@ -2410,29 +2421,29 @@ class File(PathBase):
         if not ext.startswith("."):
             ext = f".{ext}"
 
-        return self._clone_with_path(os.path.join(self.dirname, f"{self.stem}{ext}"))
+        return _clone_with_path(self, os.path.join(self.dirname, f"{self.stem}{ext}"))
 
     def with_suffix(self, suffix: str) -> File:
         """Add a suffix to the file's name and return the new File object."""
         filename = f"{self.stem}{suffix}{self.suffix}"
-        return self._clone_with_path(os.path.join(self.dirname, filename))
+        return _clone_with_path(self, os.path.join(self.dirname, filename))
 
     def with_prefix(self, prefix: str) -> File:
         """Add a prefix to the file's name and return the new File object."""
         filename = f"{prefix}{self.stem}{self.suffix}"
-        return self._clone_with_path(os.path.join(self.dirname, filename))
+        return _clone_with_path(self, os.path.join(self.dirname, filename))
 
     def with_stem(self, stem: str) -> File:
         """Return a new File with the stem changed, keeping the suffix."""
         suffix = self.suffix
-        return self._clone_with_path(os.path.join(self.dirname, f"{stem}{suffix}"))
+        return _clone_with_path(self, os.path.join(self.dirname, f"{stem}{suffix}"))
 
     def rename(self, name: str) -> File:
         """Rename the file and return the new File object."""
         new_path = os.path.join(self.dirname, name)
         os.rename(self.path, new_path)
 
-        return self._clone_with_path(new_path)
+        return _clone_with_path(self, new_path)
 
     def link(self, target: str, follow_symlinks: bool = True) -> File:
         """Create a hard link and return a File for the created link path."""
@@ -2444,7 +2455,7 @@ class File(PathBase):
 
             os.link(self.path, target)
 
-        return self._clone_with_path(target)
+        return _clone_with_path(self, target)
 
     async def link_async(self, target: str, follow_symlinks: bool = True) -> File:
         """Async version of link()."""
@@ -2454,7 +2465,7 @@ class File(PathBase):
         """Create a symbolic link and return a File for the created link path."""
         os.symlink(_symlink_source_path(self.path, target), target)
 
-        return self._clone_with_path(target)
+        return _clone_with_path(self, target)
 
     async def symlink_async(self, target: str) -> File:
         """Async version of symlink()."""
@@ -2473,6 +2484,20 @@ class File(PathBase):
             File: A new File object with a random name.
         """
         return File(rand_filename(prefix, ext))
+
+    def _write(self, data: str | bytes, mode: str, *, newline: bool = True) -> None:
+        if "b" in mode:
+            with open(self.path, mode) as f:
+                f.write(data)
+        else:
+            with open(self.path, mode, encoding=self.encoding) as f:
+                f.write(data)
+                if newline:
+                    f.write("\n")
+
+    def _write_iter(self, data: Iterable[Any], mode: str, sep: str = "\n") -> None:
+        with open(self.path, mode, encoding=self.encoding) as f:
+            f.writelines(f"{entry}{sep}" for entry in data)
 
 
 class Directory(PathBase):
@@ -2576,11 +2601,11 @@ class Directory(PathBase):
             source_path=self.path,
             expected_type="directory",
         ):
-            return self._clone_with_path(dest)
+            return _clone_with_path(self, dest)
 
         shutil.move(self.path, dest)
 
-        return self._clone_with_path(dest)
+        return _clone_with_path(self, dest)
 
     async def move_to_async(
         self,
@@ -2623,11 +2648,11 @@ class Directory(PathBase):
             expected_type="directory",
             remove_existing=False,
         ):
-            return self._clone_with_path(dest)
+            return _clone_with_path(self, dest)
 
         _copy_directory_to_destination(self.path, dest, overwrite=overwrite)
 
-        return self._clone_with_path(dest)
+        return _clone_with_path(self, dest)
 
     async def copy_to_async(
         self,
@@ -2682,6 +2707,7 @@ class Directory(PathBase):
 
             if regex_pattern and not regex_pattern.search(basename):
                 continue
+
             yield File(file_path)
 
     async def yield_files_async(
@@ -2852,6 +2878,7 @@ class Directory(PathBase):
 
             if regex_pattern and not regex_pattern.search(basename):
                 continue
+
             yield Directory(dir_path)
 
     async def yield_subdirs_async(
@@ -2998,6 +3025,7 @@ def _walk_directory(
     for subdir in subdirs:
         if subdir.is_symlink and not follow_symlinks:
             continue
+
         yield from _walk_directory(
             subdir,
             follow_symlinks=follow_symlinks,
