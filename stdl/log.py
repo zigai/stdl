@@ -38,6 +38,7 @@ class LoguruFormatter:
             for key in record["extra"]:
                 if key in self.extra_key_skips:
                     continue
+
                 extras = (
                     extras
                     + colored(key, self.extra_key_name_color)
@@ -61,6 +62,7 @@ class SimpleLoguruFormatter(LoguruFormatter):
             for key in record["extra"]:
                 if key in self.extra_key_skips:
                     continue
+
                 extras = (
                     extras
                     + colored(key, self.extra_key_name_color)

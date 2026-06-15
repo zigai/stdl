@@ -56,6 +56,7 @@ class ColorANSI:
         for k, v in cls.dict().items():
             if k == "RESET":
                 continue
+
             print(colored(k, color=v))
 
 
