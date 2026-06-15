@@ -1,15 +1,14 @@
 import importlib
-import inspect
 import sys
-import time
-from typing import Protocol, cast
+from collections.abc import Callable
+from typing import Generic, ParamSpec, TypeVar
+
+LazyValueT = TypeVar("LazyValueT")
+LazyCallResultT = TypeVar("LazyCallResultT")
+P = ParamSpec("P")
 
 
-class CallableProxy(Protocol):
-    def __call__(self, *args: object, **kwargs: object) -> object: ...
-
-
-class LazyImport:
+class LazyImport(Generic[LazyValueT]):
     """A lazy import that loads the actual object on first access."""
 
     def __init__(
@@ -21,12 +20,15 @@ class LazyImport:
         self.module_name = module_name
         self.attr_name = attr_name
         self.verbose = verbose
-        self._cached_value: object | None = None
+        self._cached_value: LazyValueT | None = None
         self._loaded = False
 
-    def _load(self) -> object:
+    def _load(self) -> LazyValueT:
         if not self._loaded:
+            start_time = 0.0
             if self.verbose:
+                import time
+
                 start_time = time.time()
 
             module_already_loaded = self.module_name in sys.modules
@@ -51,6 +53,8 @@ class LazyImport:
                 self._cached_value = module
 
             if self.verbose and not module_already_loaded:
+                import time
+
                 end_time = time.time()
                 import_time = end_time - start_time
                 import_target = (
@@ -66,14 +70,19 @@ class LazyImport:
 
         return self._cached_value
 
-    def __call__(self, *args: object, **kwargs: object) -> object:
-        loaded = cast(CallableProxy, self._load())
-        return loaded(*args, **kwargs)
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> LazyCallResultT:
+        loaded = self._load()
+        if not callable(loaded):
+            raise TypeError(f"{loaded!r} is not callable")
 
-    def __getattr__(self, name: str) -> object:
+        loaded_callable: Callable[P, LazyCallResultT] = loaded
+
+        return loaded_callable(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> LazyValueT:
         return getattr(self._load(), name)
 
-    def __setattr__(self, name: str, value: object) -> None:
+    def __setattr__(self, name: str, value: LazyValueT) -> None:
         if name in ("module_name", "attr_name", "verbose", "_cached_value", "_loaded"):
             super().__setattr__(name, value)
         else:
@@ -109,11 +118,12 @@ def import_lazy(
         >>> import_lazy("package.submodule", ["name_1"])   # from package.submodule import name_1
         ```
     """
-    frame = inspect.currentframe()
-    if frame is None or frame.f_back is None:
-        raise RuntimeError("Cannot determine caller frame for lazy import")
+    try:
+        frame = sys._getframe(1)  # noqa: SLF001 - intentionally avoid importing inspect here.
+    except ValueError as exc:
+        raise RuntimeError("Cannot determine caller frame for lazy import") from exc
 
-    caller_globals = frame.f_back.f_globals
+    caller_globals = frame.f_globals
 
     if names is None:
         lazy_import = LazyImport(module, verbose=verbose)
