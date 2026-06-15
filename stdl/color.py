@@ -12,7 +12,7 @@ class ColorValueError(Exception):
     pass
 
 
-def _coerce_rgb_channel(value: object) -> int:
+def _coerce_rgb_channel(value: int | float) -> int:
     if isinstance(value, bool):
         raise ColorValueError("RGB values must be integers between 0 and 255")
 
@@ -29,7 +29,7 @@ def _coerce_rgb_channel(value: object) -> int:
     return channel
 
 
-def _coerce_finite_float(value: object, *, name: str) -> float:
+def _coerce_finite_float(value: int | float, *, name: str) -> float:
     if isinstance(value, bool):
         raise ColorValueError(f"{name} must be a finite number")
 
@@ -48,12 +48,11 @@ class Color(ABC):
     """Base class for all color representations."""
 
     __slots__ = ("_frozen",)
+    __get_pydantic_core_schema__: T.ClassVar[T.Callable[..., T.Any]]
+    __get_pydantic_json_schema__: T.ClassVar[T.Callable[..., T.Any]]
 
     def __init__(self) -> None:
         object.__setattr__(self, "_frozen", False)
-
-    def _freeze(self) -> None:
-        object.__setattr__(self, "_frozen", True)
 
     def to_str(self) -> str:
         return self.__repr__()
@@ -109,6 +108,9 @@ class Color(ABC):
         values = tuple(getattr(self, key) for key in self.get_value_keys())
         return hash((self.__class__, values))
 
+    def _freeze(self) -> None:
+        object.__setattr__(self, "_frozen", True)
+
 
 class RGB(Color):
     __slots__ = ("blue", "green", "red")
@@ -135,7 +137,7 @@ class RGB(Color):
     def __repr__(self) -> str:
         return f"rgb({self.red}, {self.green}, {self.blue})"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: RGB) -> bool:
         if not isinstance(other, RGB):
             return NotImplemented
 
@@ -235,7 +237,7 @@ class RGBA(Color):
     def __repr__(self) -> str:
         return f"rgba({self.red}, {self.green}, {self.blue}, {self.alpha})"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: RGBA) -> bool:
         if not isinstance(other, RGBA):
             return NotImplemented
 
@@ -309,6 +311,7 @@ class HEX(Color):
     def validate(self) -> None:
         if not isinstance(self.value, str):
             raise ColorValueError("HEX value must be a string")
+
         hex_value = self.value.removeprefix("#")
         if len(hex_value) != 6 or not all(c in "0123456789ABCDEFabcdef" for c in hex_value):
             raise ColorValueError(f"Invalid HEX color format ({hex_value})")
@@ -319,7 +322,7 @@ class HEX(Color):
     def __repr__(self) -> str:
         return f"hex({self.value})"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: HEX) -> bool:
         if not isinstance(other, HEX):
             return NotImplemented
 
@@ -381,7 +384,7 @@ class HSV(Color):
     def to_str(self) -> str:
         return f"hsv({self.hue}°, {self.saturation}%, {self.value}%)"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: HSV) -> bool:
         if not isinstance(other, HSV):
             return NotImplemented
 
@@ -463,7 +466,7 @@ class HSL(Color):
     def to_str(self) -> str:
         return f"hsl({self.hue}°, {self.saturation}%, {self.lightness}%)"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: HSL) -> bool:
         if not isinstance(other, HSL):
             return NotImplemented
 
@@ -560,7 +563,7 @@ class CMYK(Color):
     def to_str(self) -> str:
         return f"cmyk({self.cyan}%, {self.magenta}%, {self.yellow}%, {self.key}%)"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: CMYK) -> bool:
         if not isinstance(other, CMYK):
             return NotImplemented
 
@@ -630,7 +633,7 @@ class ASSA(Color):
     def to_str(self) -> str:
         return self.value
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: ASSA) -> bool:
         if not isinstance(other, ASSA):
             return NotImplemented
 
@@ -1109,7 +1112,7 @@ class WebColor(Color):
     def __repr__(self) -> str:
         return f"webcolor('{self.name}')"
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: WebColor) -> bool:
         if not isinstance(other, WebColor):
             return NotImplemented
 
@@ -1279,6 +1282,7 @@ if _HAS_PYDANTIC:
         match = re.fullmatch(r"\s*hex\(\s*(#?[0-9A-Fa-f]{6})\s*\)\s*", value)
         if not match:
             raise ValueError(f"Invalid HEX repr: {value!r}")
+
         v = match.group(1)
         if not v.startswith("#"):
             v = f"#{v}"
@@ -1494,8 +1498,8 @@ if _HAS_PYDANTIC:
                 ],
             }
 
-        cls.__get_pydantic_core_schema__ = classmethod(_core_schema_factory)  # type: ignore[attr-defined]
-        cls.__get_pydantic_json_schema__ = classmethod(_json_schema_factory)  # type: ignore[attr-defined]
+        cls.__get_pydantic_core_schema__ = classmethod(_core_schema_factory)
+        cls.__get_pydantic_json_schema__ = classmethod(_json_schema_factory)
 
     rgb_long = {
         "red": {"type": "integer", "minimum": 0, "maximum": 255},
