@@ -50,18 +50,17 @@ async = ["anyio>=4.0.0"]
 full = ["tqdm>=4.67.1"]
 dev = [
     "anyio>=4.0.0",
-    "pytest>=9.0.2",
-    "coverage>=7.13.5",
-    "ruff==0.15.8",
-    "pre-commit>=4.5.1",
-    "mypy>=1.19.1",
+    "pytest>=9.0.3",
+    "coverage>=7.14.1",
+    "ruff==0.15.16",
+    "pre-commit>=4.6.0",
+    "pyrefly>=1.0.0",
     "codespell>=2.4.2",
     "pydantic>=2",
-    "rattle-lint>=1.0.6",
-    "rattle-blank-lines>=0.2.6",
+    "rattle-lint>=2.5.1",
 ]
 
-test = ["anyio>=4.0.0", "pytest>=9.0.2", "coverage>=7.13.5", "pydantic>=2"]
+test = ["anyio>=4.0.0", "pytest>=9.0.3", "coverage>=7.14.1", "pydantic>=2"]
 [project.urls]
 Repository = "https://github.com/zigai/stdl"
 Issues = "https://github.com/zigai/stdl/issues"
@@ -101,26 +100,49 @@ exclude_lines = [
 ]
 omit = ["tests/*", "tests/**"]
 
-[tool.mypy]
-python_version = "3.10"
-files = ["stdl"]
-exclude = ["^tests/"]
-
-disallow_untyped_defs = true
-disallow_untyped_calls = true
-disallow_any_generics = true
-no_implicit_optional = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unused_configs = true
-strict_equality = true
-ignore_missing_imports = true
+[tool.pyrefly]
+project-includes = ["stdl"]
+project-excludes = ["tests/**"]
+disable-project-excludes-heuristics = true
+search-path = ["."]
+disable-search-path-heuristics = true
+python-version = "3.10"
+enabled-ignores = ["type", "pyrefly"]
+use-ignore-files = false
+check-unannotated-defs = true
+infer-return-types = "checked"
+infer-with-first-use = true
+strict-callable-subtyping = false
+spec-compliant-overloads = false
 
 [tool.rattle]
 root = true
-enable = ["rattle_blank_lines.rules"]
-disable = ["rattle.rules"]
+enable = [
+    "blank-line-after-control-block",
+    "blank-line-after-terminal-control-block",
+    "blank-line-before-branch",
+    "blank-line-before-unrelated-block",
+    "no-suite-leading-trailing-blank-lines",
+    "module-all-at-bottom",
+    "no-underscore-all-exports",
+    "forbidden-call",
+    "no-relative-imports",
+    "no-underscore-import-aliases",
+    "no-unsafe-tempfile-factories",
+    "no-annotated-self",
+    "no-exception-message-variables",
+    "no-str-exception-translation",
+    "no-underscore-class",
+    "public-method-order",
+    "no-bare-object-annotations",
+    "no-named-tuple",
+    "no-static-if-condition",
+    "sorted-attributes",
+    "use-callable-ellipsis",
+]
+
+[tool.rattle.options."forbidden-call"]
+forbidden_calls = ["typing.cast"]
 
 [tool.ruff]
 line-length = 100
