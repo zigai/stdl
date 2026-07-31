@@ -105,7 +105,7 @@ class Timer:
 
 
 def datetime_fmt(
-    d: str | float | int | None | datetime = None,
+    d: str | float | int | datetime | None = None,
     fmt: str = "Ymd",
     dsep: str = "-",
     tsep: str = ":",

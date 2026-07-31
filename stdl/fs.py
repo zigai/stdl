@@ -86,21 +86,21 @@ T = TypeVar("T")
 ResultT = TypeVar("ResultT")
 PickleDataT = TypeVar("PickleDataT")
 
-JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+JsonValue: TypeAlias = bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"] | None
 YamlValue: TypeAlias = (
-    None
-    | bool
+    bool
     | int
     | float
     | str
     | list["YamlValue"]
     | tuple["YamlValue", ...]
     | dict["YamlValue", "YamlValue"]
+    | None
 )
-OpenKwarg: TypeAlias = str | int | bool | None | Callable[[str, int], int]
+OpenKwarg: TypeAlias = str | int | bool | Callable[[str, int], int] | None
 SubprocessRunArg: TypeAlias = str | bytes | int | bool | float | None
 SubprocessRunKwarg: TypeAlias = (
-    str | bytes | int | bool | float | None | IO[str] | IO[bytes] | list[str] | dict[str, str]
+    str | bytes | int | bool | float | IO[str] | IO[bytes] | list[str] | dict[str, str] | None
 )
 DirectoryIdentity: TypeAlias = tuple[Literal["inode"], int, int] | tuple[Literal["path"], str]
 
@@ -174,9 +174,9 @@ class AsyncFileLike(Protocol[HandleDataT]):
 
     def write(self, data: HandleDataT) -> int | Awaitable[int]: ...
 
-    def writelines(self, lines: Iterable[HandleDataT]) -> None | Awaitable[None]: ...
+    def writelines(self, lines: Iterable[HandleDataT]) -> Awaitable[None] | None: ...
 
-    def flush(self) -> None | Awaitable[None]: ...
+    def flush(self) -> Awaitable[None] | None: ...
 
     def seek(self, offset: int, whence: int = 0) -> int | Awaitable[int]: ...
 
@@ -188,7 +188,7 @@ class AsyncFileLike(Protocol[HandleDataT]):
     @overload
     def truncate(self, size: int) -> int | Awaitable[int]: ...
 
-    def close(self) -> None | Awaitable[None]: ...
+    def close(self) -> Awaitable[None] | None: ...
 
 
 class AnyIOModule(Protocol):
@@ -1296,7 +1296,7 @@ def exec_cmd(
     stdin: IO | None = None,
     stdout: IO | None = None,
     stderr: IO | None = None,
-    input: str | None | bytes = None,
+    input: str | bytes | None = None,
     env: dict[str, str] | None = None,
     text: bool = True,
     *args: SubprocessRunArg,
