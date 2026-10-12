@@ -209,7 +209,7 @@ def with_style(text: str, style: TextStyle) -> str:
 def terminal_link(
     uri: str,
     label: str | None = None,
-    color: ForegroundColor = "white",
+    color: ForegroundColor | None = "white",
     background: BackgroundColor | None = None,
     style: Style | None = None,
 ) -> str:
