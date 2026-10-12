@@ -3,7 +3,7 @@ import time
 import warnings
 from collections.abc import Generator
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
@@ -141,12 +141,12 @@ def datetime_fmt(
         ```
     """
     if d is None:
-        d = datetime.fromtimestamp(time.time(), tz=timezone.utc if utc else None)
+        d = datetime.fromtimestamp(time.time(), tz=UTC if utc else None)
 
     elif isinstance(d, str):
         d = parse_datetime_str(d)
     elif isinstance(d, (float, int)):
-        d = datetime.fromtimestamp(d, tz=timezone.utc if utc else None)
+        d = datetime.fromtimestamp(d, tz=UTC if utc else None)
     elif isinstance(d, datetime):
         pass
     else:
@@ -180,11 +180,11 @@ def time_fmt(
         str: Formatted time.
     """
     if t is None:
-        tm = datetime.fromtimestamp(time.time(), tz=timezone.utc if utc else None)
+        tm = datetime.fromtimestamp(time.time(), tz=UTC if utc else None)
     elif isinstance(t, datetime):
         tm = t.time()
     elif isinstance(t, (int, float)):
-        tm = datetime.fromtimestamp(t, tz=timezone.utc if utc else None)
+        tm = datetime.fromtimestamp(t, tz=UTC if utc else None)
     else:
         raise TypeError(type(t))
     ts = tm.strftime(f"%H{sep}%M{sep}%S")
@@ -227,9 +227,9 @@ def date_fmt(
         ```
     """
     if d is None:
-        d = datetime.fromtimestamp(time.time(), tz=timezone.utc).astimezone().date()
+        d = datetime.fromtimestamp(time.time(), tz=UTC).astimezone().date()
     elif isinstance(d, (float, int)):
-        d = datetime.fromtimestamp(d, tz=timezone.utc).astimezone().date()
+        d = datetime.fromtimestamp(d, tz=UTC).astimezone().date()
     elif isinstance(d, datetime):
         d = d.date()
     elif isinstance(d, date):
