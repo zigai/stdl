@@ -3,7 +3,7 @@
 [![Tests](https://github.com/zigai/stdl/actions/workflows/tests.yml/badge.svg)](https://github.com/zigai/stdl/actions/workflows/tests.yml)
 [![Documentation Status](https://readthedocs.org/projects/stdl/badge/?version=latest)](https://stdl.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/stdl.svg)](https://badge.fury.io/py/stdl)
-![Supported versions](https://img.shields.io/badge/python-3.10+-blue.svg)
+![Supported versions](https://img.shields.io/badge/python-3.11+-blue.svg)
 [![Downloads](https://static.pepy.tech/badge/stdl)](https://pepy.tech/project/stdl)
 [![license](https://img.shields.io/github/license/zigai/stdl.svg)](https://github.com/zigai/stdl/blob/master/LICENSE)
 

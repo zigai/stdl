@@ -6,12 +6,11 @@ authors = [{ name = "Žiga Ivanšek", email = "ziga.ivansek@gmail.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "python-dateutil>=2.8.2",
     "pyyaml>=6.0.2",
     "toml>=0.10.2",
-    "typing_extensions>=4.0; python_version < '3.11'",
 ]
 
 classifiers = [
@@ -25,7 +24,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -96,7 +94,7 @@ project-excludes = ["tests/**"]
 disable-project-excludes-heuristics = true
 search-path = ["."]
 disable-search-path-heuristics = true
-python-version = "3.10"
+python-version = "3.11"
 enabled-ignores = ["type", "pyrefly"]
 use-ignore-files = false
 check-unannotated-defs = true

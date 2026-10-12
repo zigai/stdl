@@ -24,7 +24,7 @@ from collections.abc import (
     Iterator,
 )
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
 from os import PathLike
 from pathlib import Path
@@ -37,16 +37,11 @@ from typing import (
     Literal,
     ParamSpec,
     Protocol,
+    Self,
     TypeAlias,
     TypeVar,
     overload,
 )
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 from urllib.request import pathname2url
 
 import toml
@@ -947,9 +942,7 @@ def rand_filename(prefix: str = "file", ext: str = "", include_datetime: bool = 
         ext = f".{ext}"
     num = str(secrets.randbelow(9_000_000_000) + 1_000_000_000).zfill(10)
     if include_datetime:
-        creation_time = (
-            datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d.%H-%M-%S-%f")[:-3]
-        )
+        creation_time = datetime.now(tz=UTC).astimezone().strftime("%Y-%m-%d.%H-%M-%S-%f")[:-3]
         filename = f"{prefix}.{num}.{creation_time}{ext}"
     else:
         filename = f"{prefix}.{num}{ext}"
