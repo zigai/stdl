@@ -42,10 +42,6 @@ from typing import (
     TypeVar,
     overload,
 )
-from urllib.request import pathname2url
-
-import toml
-import yaml
 
 from stdl import st
 
@@ -819,6 +815,8 @@ def yaml_load(
     Returns:
         dict | list[dict]: The YAML data loaded from the file.
     """
+    import yaml
+
     with open(path, encoding=encoding) as f:
         return yaml.safe_load(f)
 
@@ -839,6 +837,8 @@ def yaml_dump(data: YamlValue, path: str | PathLike, encoding: str = "utf-8") ->
         path (Pathlike): path to the output file
         encoding (str): encoding of the output file. Default: 'utf-8'
     """
+    import yaml
+
     with open(path, "w", encoding=encoding) as f:
         yaml.safe_dump(data, f)
 
@@ -849,6 +849,8 @@ async def yaml_dump_async(data: YamlValue, path: str | PathLike, encoding: str =
 
 
 def toml_load(path: str | PathLike, encoding: str = "utf-8") -> dict[str, Any]:
+    import toml
+
     with open(path, encoding=encoding) as f:
         return toml.load(f)
 
@@ -859,6 +861,8 @@ async def toml_load_async(path: str | PathLike, encoding: str = "utf-8") -> dict
 
 
 def toml_dump(data: dict[str, Any], path: str | PathLike, encoding: str = "utf-8") -> None:
+    import toml
+
     with open(path, "w", encoding=encoding) as f:
         toml.dump(data, f)
 
@@ -1728,6 +1732,8 @@ class PathBase(PathLike):
         """
         if not self.is_absolute:
             raise ValueError("relative path can't be expressed as a file URI")
+
+        from urllib.request import pathname2url
 
         return "file://" + pathname2url(os.path.abspath(self.path))
 

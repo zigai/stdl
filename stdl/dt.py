@@ -5,14 +5,20 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 
-with warnings.catch_warnings():
-    warnings.filterwarnings(
-        "ignore",
-        message=r"datetime\.datetime\.utcfromtimestamp\(\) is deprecated.*",
-        category=DeprecationWarning,
-        module=r"dateutil\.tz\.tz",
-    )
-    from dateutil.parser import parse as parse_datetime_str
+
+def parse_datetime_str(timestr: str) -> datetime:
+    """Parse a date/time string with `dateutil.parser.parse`."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"datetime\.datetime\.utcfromtimestamp\(\) is deprecated.*",
+            category=DeprecationWarning,
+            module=r"dateutil\.tz\.tz",
+        )
+        from dateutil.parser import parse
+
+    return parse(timestr)
+
 
 local_timezone: tzinfo | None = datetime.now().astimezone().tzinfo
 DATE_FMT_CHARS = frozenset("Ymd")
