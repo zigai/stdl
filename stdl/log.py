@@ -95,7 +95,26 @@ def get_logging_config(
         or "{asctime} | {levelname:<8s} | [ {name} ] {module}.{funcName}:{lineno} - {message}"
     )
 
-    config = {
+    handlers: dict[str, dict[str, str | int]] = {
+        "console": {
+            "class": console_handler,
+            "level": level,
+            "formatter": "standard",
+            "stream": "ext://sys.stdout",
+        },
+    }
+    root_handlers = ["console"]
+    if filename:
+        handlers["file"] = {
+            "class": file_handler,
+            "level": level,
+            "formatter": "standard",
+            "backupCount": backup_count,
+            "filename": filename,
+        }
+        root_handlers.append("file")
+
+    return {
         "version": 1,
         "disable_existing_loggers": disable_existing,
         "formatters": {
@@ -105,27 +124,9 @@ def get_logging_config(
                 "style": format_style,
             }
         },
-        "handlers": {
-            "console": {
-                "class": console_handler,
-                "level": level,
-                "formatter": "standard",
-                "stream": "ext://sys.stdout",
-            },
-        },
-        "root": {"level": level, "handlers": ["console"]},
+        "handlers": handlers,
+        "root": {"level": level, "handlers": root_handlers},
     }
-    if filename:
-        config["handlers"]["file"] = {
-            "class": file_handler,
-            "level": level,
-            "formatter": "standard",
-            "backupCount": backup_count,
-            "filename": filename,
-        }
-        config["root"]["handlers"].append("file")
-
-    return config
 
 
 def br(

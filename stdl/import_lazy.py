@@ -1,14 +1,8 @@
 import importlib
 import sys
-from collections.abc import Callable
-from typing import Generic, ParamSpec, TypeVar
-
-LazyValueT = TypeVar("LazyValueT")
-LazyCallResultT = TypeVar("LazyCallResultT")
-P = ParamSpec("P")
 
 
-class LazyImport(Generic[LazyValueT]):
+class LazyImport:
     """A lazy import that loads the actual object on first access."""
 
     def __init__(
@@ -20,10 +14,10 @@ class LazyImport(Generic[LazyValueT]):
         self.module_name = module_name
         self.attr_name = attr_name
         self.verbose = verbose
-        self._cached_value: LazyValueT | None = None
+        self._cached_value: object = None
         self._loaded = False
 
-    def _load(self) -> LazyValueT:
+    def _load(self) -> object:
         if not self._loaded:
             start_time = 0.0
             if self.verbose:
@@ -70,19 +64,17 @@ class LazyImport(Generic[LazyValueT]):
 
         return self._cached_value
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> LazyCallResultT:
+    def __call__(self, *args: object, **kwargs: object) -> object:
         loaded = self._load()
         if not callable(loaded):
             raise TypeError(f"{loaded!r} is not callable")
 
-        loaded_callable: Callable[P, LazyCallResultT] = loaded
+        return loaded(*args, **kwargs)
 
-        return loaded_callable(*args, **kwargs)
-
-    def __getattr__(self, name: str) -> LazyValueT:
+    def __getattr__(self, name: str) -> object:
         return getattr(self._load(), name)
 
-    def __setattr__(self, name: str, value: LazyValueT) -> None:
+    def __setattr__(self, name: str, value: object) -> None:
         if name in ("module_name", "attr_name", "verbose", "_cached_value", "_loaded"):
             super().__setattr__(name, value)
         else:

@@ -259,7 +259,7 @@ def date_range(start: date, end: date) -> Generator[date, None, None]:
         2022-11-21
         ```
     """
-    for n in range(int((end - start).days)):
+    for n in range((end - start).days):
         yield start + timedelta(n)
 
 

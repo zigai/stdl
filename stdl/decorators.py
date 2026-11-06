@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 def timer(
     r: int | None = 2,
-    sink: Callable[[str], None] = sys.stdout.write,
+    sink: Callable[[str], object] = sys.stdout.write,
     show_args: bool = False,
     serialize: bool = False,
     sep: str = " | ",
