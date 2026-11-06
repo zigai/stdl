@@ -137,7 +137,7 @@ class RGB(Color):
     def __repr__(self) -> str:
         return f"rgb({self.red}, {self.green}, {self.blue})"
 
-    def __eq__(self, other: RGB) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGB):
             return NotImplemented
 
@@ -237,7 +237,7 @@ class RGBA(Color):
     def __repr__(self) -> str:
         return f"rgba({self.red}, {self.green}, {self.blue}, {self.alpha})"
 
-    def __eq__(self, other: RGBA) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, RGBA):
             return NotImplemented
 
@@ -322,7 +322,7 @@ class HEX(Color):
     def __repr__(self) -> str:
         return f"hex({self.value})"
 
-    def __eq__(self, other: HEX) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, HEX):
             return NotImplemented
 
@@ -384,7 +384,7 @@ class HSV(Color):
     def to_str(self) -> str:
         return f"hsv({self.hue}°, {self.saturation}%, {self.value}%)"
 
-    def __eq__(self, other: HSV) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSV):
             return NotImplemented
 
@@ -466,7 +466,7 @@ class HSL(Color):
     def to_str(self) -> str:
         return f"hsl({self.hue}°, {self.saturation}%, {self.lightness}%)"
 
-    def __eq__(self, other: HSL) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, HSL):
             return NotImplemented
 
@@ -563,7 +563,7 @@ class CMYK(Color):
     def to_str(self) -> str:
         return f"cmyk({self.cyan}%, {self.magenta}%, {self.yellow}%, {self.key}%)"
 
-    def __eq__(self, other: CMYK) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, CMYK):
             return NotImplemented
 
@@ -633,7 +633,7 @@ class ASSA(Color):
     def to_str(self) -> str:
         return self.value
 
-    def __eq__(self, other: ASSA) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, ASSA):
             return NotImplemented
 
@@ -936,7 +936,7 @@ CssColorName = T.Literal[
     "yellowgreen",
 ]
 
-CSS_COLOR_TO_HEX = {
+CSS_COLOR_TO_HEX: dict[CssColorName, str] = {
     "aliceblue": "#F0F8FF",
     "antiquewhite": "#FAEBD7",
     "aqua": "#00FFFF",
@@ -1088,16 +1088,28 @@ CSS_COLOR_TO_HEX = {
 }
 
 
+def _is_css_color_name(name: str) -> T.TypeGuard[CssColorName]:
+    return name in CSS_COLOR_TO_HEX
+
+
+def _css_color_name(name: str) -> CssColorName:
+    name = name.lower()
+    if not _is_css_color_name(name):
+        raise ColorValueError(f"Unknown web color name '{name}'")
+
+    return name
+
+
 class WebColor(Color):
     __slots__ = ("hex_value", "name")
-    name: str
+    name: CssColorName
     hex_value: HEX
     COLORS = CSS_COLOR_TO_HEX
 
     def __init__(self, name: CssColorName) -> None:
         super().__init__()
 
-        self.name = name.lower()
+        self.name = _css_color_name(name)
         self.validate()
         self.hex_value = HEX(self.COLORS[self.name])
         self._freeze()
@@ -1112,7 +1124,7 @@ class WebColor(Color):
     def __repr__(self) -> str:
         return f"webcolor('{self.name}')"
 
-    def __eq__(self, other: WebColor) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, WebColor):
             return NotImplemented
 
@@ -1186,9 +1198,11 @@ def normalize_color(
         and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in color)
     ):
         if len(color) == 3:
-            return RGB(*color)
+            red, green, blue = (_coerce_rgb_channel(channel) for channel in color)
+            return RGB(red, green, blue)
         if len(color) == 4:
-            return RGBA(*color)
+            red, green, blue = (_coerce_rgb_channel(channel) for channel in color[:3])
+            return RGBA(red, green, blue, color[3])
 
         raise ColorValueError(f"Invalid sequence length: {len(color)}")
 
@@ -1198,7 +1212,7 @@ def normalize_color(
         if color.startswith(("&h", "&H")):
             return ASSA.from_value(color)
 
-        return WebColor(color)
+        return WebColor(_css_color_name(color))
 
     raise ColorValueError(f"Unsupported color format: {color}")
 
@@ -1362,7 +1376,7 @@ if _HAS_PYDANTIC:
     def parse_assa(value: str | Mapping[str, T.Any]) -> ASSA:
         if isinstance(value, Mapping):
             data = _matching_mapping(value, ({"value"}, {"clean_value"}), label="ASSA")
-            return ASSA(data.get("value", data.get("clean_value")))
+            return ASSA(data["value"] if "value" in data else data["clean_value"])
 
         match = re.fullmatch(r"\s*assa\(\s*([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\s*\)\s*", value)
         if not match:
@@ -1373,13 +1387,13 @@ if _HAS_PYDANTIC:
     def parse_webcolor(value: str | Mapping[str, T.Any]) -> WebColor:
         if isinstance(value, Mapping):
             data = _exact_mapping(value, {"name"}, label="webcolor")
-            return WebColor(data["name"])
+            return WebColor(_css_color_name(data["name"]))
 
         match = re.fullmatch(r"\s*webcolor\(\s*(['\"])\s*([A-Za-z]+)\s*\1\s*\)\s*", value)
         if not match:
             raise ValueError(f"Invalid webcolor repr: {value!r}")
 
-        return WebColor(match.group(2))
+        return WebColor(_css_color_name(match.group(2)))
 
     def _string_schema(
         *,
