@@ -30,13 +30,13 @@
 
 #### Using pip
 
-```
+```text
 pip install stdl
 ```
 
 #### From source
 
-```
+```text
 pip install git+https://github.com/zigai/stdl
 ```
 

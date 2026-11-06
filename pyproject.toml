@@ -7,11 +7,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "python-dateutil>=2.8.2",
-    "pyyaml>=6.0.2",
-    "toml>=0.10.2",
-]
+dependencies = ["python-dateutil>=2.8.2", "pyyaml>=6.0.2", "toml>=0.10.2"]
 
 classifiers = [
     "Typing :: Typed",
@@ -52,9 +48,7 @@ dev = [
     "pytest>=9.0.3",
     "coverage>=7.14.1",
     "ruff==0.16.10",
-    "pre-commit>=4.6.0",
     "pyrefly>=1.0.0",
-    "codespell>=2.4.2",
     "pydantic>=2",
     "rattle-lint>=3.4.0",
 ]
@@ -73,12 +67,11 @@ build-backend = "uv_build"
 module-name = "stdl"
 module-root = ""
 
-[tool.codespell]
-skip = '.git,uv.lock'
-
 [tool.coverage.run]
 source = ["stdl"]
 branch = true
+parallel = true
+patch = ["subprocess"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -234,27 +227,20 @@ exclude = ["build"]
 "examples/*.py" = ["INP001"]
 
 [tool.ruff.lint.pep8-naming]
-classmethod-decorators = [
-    "pydantic.validator",
-    "declared_attr",
-    "expression",
-    "comparator",
-]
+classmethod-decorators = ["pydantic.validator", "declared_attr", "expression", "comparator"]
 
 [tool.ruff.lint.flake8-builtins]
 ignorelist = ["id", "input"]
 
 [tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = [
-    "pydantic.BaseModel",
-    "sqlalchemy.orm.DeclarativeBase",
-]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlalchemy.orm.DeclarativeBase"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "lf"
+exclude = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["stdl", "tests"]
@@ -263,8 +249,20 @@ known-first-party = ["stdl", "tests"]
 convention = "google"
 
 [tool.uv]
-default-groups = ["test"]
+default-groups = ["dev"]
 
 [dependency-groups]
-test = ["anyio>=4.0.0", "pytest>=9.0.3", "coverage>=7.14.1", "pydantic>=2"]
-dev = [{include-group = "test"}, "ruff==0.16.10", "pre-commit>=4.6.0", "pyrefly>=1.0.0", "codespell>=2.4.2", "rattle-lint>=3.4.0"]
+dev = [
+    "anyio>=4.0.0",
+    "pytest>=9.0.3",
+    "coverage>=7.14.1",
+    "pydantic>=2",
+    "ruff==0.16.10",
+    "pyrefly>=1.0.0",
+    "rattle-lint>=3.4.0",
+    "tqdm>=4.67.1",
+    "types-python-dateutil",
+    "types-PyYAML",
+    "types-toml",
+    "types-tqdm",
+]
