@@ -1,8 +1,9 @@
 import os
 import re
+import sys
 import textwrap
+import unicodedata
 from dataclasses import dataclass
-from platform import system
 from sys import stdout
 from typing import Literal, TypeAlias
 
@@ -15,9 +16,36 @@ def ansi_code(n: int) -> str:
     return f"{CSI_RESET}{n}m"
 
 
-class ColorANSI:
+class ColorANSIMeta(type):
+    def __getitem__(cls, key: str) -> str:
+        key = key.upper().replace(" ", "_")
+        if key in dir(cls):
+            return getattr(cls, key)
+
+        raise KeyError(key)
+
+    def dict(cls) -> dict[str, str]:
+        data = {}
+        for attr in dir(cls):
+            if attr[0] != "_":
+                data[attr] = cls[attr]
+
+        return data
+
+    def get_names(cls) -> list[str]:
+        return list(cls.dict())
+
+    def print_all(cls) -> None:
+        for k, v in cls.dict().items():
+            if k == "RESET":
+                continue
+
+            print(colored(k, color=v))
+
+
+class ColorANSI(metaclass=ColorANSIMeta):
     # Enable VT mode on Windows
-    if stdout.isatty() and system() == "Windows":
+    if sys.platform == "win32" and stdout.isatty():
         import ctypes
 
         kernel32 = ctypes.windll.kernel32
@@ -28,36 +56,6 @@ class ColorANSI:
         del kernel32
         del handle
         del ctypes
-
-    @classmethod
-    def __class_getitem__(cls, key: str) -> str:
-        key = key.upper().replace(" ", "_")
-        if key in dir(cls):
-            return getattr(cls, key)
-
-        raise KeyError(key)
-
-    @classmethod
-    def dict(cls) -> dict[str, str]:
-        ignored = ["dict", "print_all", "get_names"]
-        data = {}
-        for attr in dir(cls):
-            if attr[0] != "_" and attr not in ignored:
-                data[attr] = cls[attr]
-
-        return data
-
-    @classmethod
-    def get_names(cls) -> list[str]:
-        return list(cls.dict())
-
-    @classmethod
-    def print_all(cls) -> None:
-        for k, v in cls.dict().items():
-            if k == "RESET":
-                continue
-
-            print(colored(k, color=v))
 
 
 class FG(ColorANSI):
@@ -157,7 +155,7 @@ BackgroundColor: TypeAlias = Literal[
 Style: TypeAlias = Literal["blink", "bold", "dim", "italic", "reset", "underline"]
 
 
-def _get_ansi_value(value: str | None, handler: type[ColorANSI]) -> str:
+def _get_ansi_value(value: str | None, handler: ColorANSIMeta) -> str:
     if not value:
         return ""
 
@@ -333,22 +331,33 @@ def camel_case(s: str) -> str:
     return s[0].lower() + s[1:]
 
 
+def _char_class(c: str) -> str:
+    if c.isupper():
+        return "A"
+    if c.isalpha():
+        return "a"
+    if c.isdigit():
+        return "0"
+
+    return c
+
+
 def kebab_case(s: str) -> str:
     """Converts a given string to kebab-case."""
     RE_WORDS = r"[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+"
     RE_SEP = r"(\s|_|-)+"
 
-    return "-".join(
-        re.sub(
-            RE_SEP,
-            " ",
-            re.sub(
-                RE_WORDS,
-                lambda mo: " " + mo.group(0).lower(),
-                s,
-            ),
-        ).split()
-    )
+    # `re` has no Unicode case classes, so words are matched on a same-length ASCII stand-in.
+    classes = "".join(_char_class(c) for c in s)
+    spaced: list[str] = []
+    end = 0
+    for mo in re.finditer(RE_WORDS, classes):
+        spaced.extend((s[end : mo.start()], " ", s[mo.start() : mo.end()].lower()))
+        end = mo.end()
+
+    spaced.append(s[end:])
+
+    return "-".join(re.sub(RE_SEP, " ", "".join(spaced)).split())
 
 
 def wrapped(text: str, width: int, newline: str = "\n") -> str:
@@ -356,9 +365,18 @@ def wrapped(text: str, width: int, newline: str = "\n") -> str:
     return newline.join(textwrap.wrap(text, width=width))
 
 
+def _char_width(c: str) -> int:
+    if unicodedata.combining(c):
+        return 0
+    if unicodedata.east_asian_width(c) in {"W", "F"}:
+        return 2
+
+    return 1
+
+
 def ansi_len(s: str) -> int:
-    """Returns the length of the string without the ANSI codes."""
-    return len(ansi_strip(s))
+    """Returns the terminal display width of the string without the ANSI codes."""
+    return sum(_char_width(c) for c in ansi_strip(s))
 
 
 def ansi_ljust(s: str, width: int, fillchar: str = " ") -> str:

@@ -30,6 +30,8 @@ def test_kebab_case():
     assert kebab_case("foo____bar") == "foo-bar"
     assert kebab_case("foo bar") == "foo-bar"
     assert kebab_case("foo   bar") == "foo-bar"
+    assert kebab_case("naïve_value") == "naïve-value"
+    assert kebab_case("MyÉclair") == "my-éclair"
 
 
 def test_camel_case():
@@ -80,6 +82,9 @@ def test_len_without_ansi():
     assert st.ansi_len("\x1b[?25lTEXT\x1b[?25h") == 4
     assert st.ansi_len("\x1b]8;;https://example.com\x1b\\TEXT\x1b]8;;\x1b\\") == 4
     assert st.ansi_len("") == 0
+    assert st.ansi_len("日本語") == 6
+    assert st.ansi_len(colored("日本", color="red")) == 4
+    assert st.ansi_len("e\u0301") == 1
 
 
 def test_ansi_strip_removes_osc8_links():
