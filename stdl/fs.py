@@ -19,6 +19,7 @@ from collections.abc import (
     AsyncIterator,
     Awaitable,
     Callable,
+    Collection,
     Generator,
     Iterable,
     Iterator,
@@ -39,7 +40,10 @@ from typing import (
     Protocol,
     Self,
     TypeAlias,
+    TypedDict,
+    TypeGuard,
     TypeVar,
+    Unpack,
     overload,
 )
 
@@ -88,12 +92,35 @@ YamlValue: TypeAlias = (
     | dict["YamlValue", "YamlValue"]
     | None
 )
-OpenKwarg: TypeAlias = str | int | bool | Callable[[str, int], int] | None
-SubprocessRunArg: TypeAlias = str | bytes | int | bool | float | None
-SubprocessRunKwarg: TypeAlias = (
-    str | bytes | int | bool | float | IO[str] | IO[bytes] | list[str] | dict[str, str] | None
-)
 DirectoryIdentity: TypeAlias = tuple[Literal["inode"], int, int] | tuple[Literal["path"], str]
+
+
+class OpenOptions(TypedDict, total=False):
+    buffering: int
+    errors: str | None
+    newline: str | None
+    closefd: bool
+    opener: Callable[[str, int], int] | None
+
+
+class SubprocessRunOptions(TypedDict, total=False):
+    bufsize: int
+    executable: str | bytes | PathLike[str] | PathLike[bytes] | None
+    preexec_fn: Callable[[], object] | None
+    close_fds: bool
+    universal_newlines: bool | None
+    creationflags: int
+    restore_signals: bool
+    start_new_session: bool
+    pass_fds: Collection[int]
+    encoding: str | None
+    errors: str | None
+    user: int | str | None
+    group: int | str | None
+    extra_groups: Iterable[int | str] | None
+    umask: int
+    pipesize: int
+    process_group: int | None
 
 
 class AsyncLock(Protocol):
@@ -195,7 +222,7 @@ class AnyIOModule(Protocol):
         file: str | PathLike[str],
         mode: str = "r",
         encoding: str | None = None,
-        **kwargs: OpenKwarg,
+        **kwargs: Unpack[OpenOptions],
     ) -> AsyncFileLike[str] | AsyncFileLike[bytes]: ...
 
 
@@ -216,20 +243,27 @@ _ANYIO: AnyIOModule | None = None
 _ITERATION_SENTINEL = IterationSentinel()
 
 
-def _validate_anyio_module(module: ModuleType) -> AnyIOModule:
-    for name in (
-        "to_thread",
-        "CancelScope",
-        "Lock",
-        "Semaphore",
-        "create_task_group",
-        "get_cancelled_exc_class",
-        "open_file",
-    ):
-        if not hasattr(module, name):
-            raise ImportError(f"AnyIO module is missing required attribute {name!r}")
+_ANYIO_REQUIRED_ATTRIBUTES = (
+    "to_thread",
+    "CancelScope",
+    "Lock",
+    "Semaphore",
+    "create_task_group",
+    "get_cancelled_exc_class",
+    "open_file",
+)
 
-    return module
+
+def _is_anyio_module(module: ModuleType) -> TypeGuard[AnyIOModule]:
+    return all(hasattr(module, name) for name in _ANYIO_REQUIRED_ATTRIBUTES)
+
+
+def _validate_anyio_module(module: ModuleType) -> AnyIOModule:
+    if _is_anyio_module(module):
+        return module
+
+    missing = next(name for name in _ANYIO_REQUIRED_ATTRIBUTES if not hasattr(module, name))
+    raise ImportError(f"AnyIO module is missing required attribute {missing!r}")
 
 
 def _load_anyio() -> AnyIOModule:
@@ -272,7 +306,7 @@ async def iterate_fs(iterable_factory: Callable[[], Iterable[T]]) -> AsyncGenera
     try:
         while True:
             item = await run_fs_sync(_next_or_sentinel, iterator)
-            if item is _ITERATION_SENTINEL:
+            if isinstance(item, IterationSentinel):
                 return
 
             yield item
@@ -364,6 +398,12 @@ async def _run_limited_map_worker(
 
 
 class AsyncFileHandle(Generic[HandleDataT]):
+    @overload
+    def __init__(self: AsyncFileHandle[str], handle: AsyncFileLike[str]) -> None: ...
+
+    @overload
+    def __init__(self: AsyncFileHandle[bytes], handle: AsyncFileLike[bytes]) -> None: ...
+
     def __init__(self, handle: AsyncFileLike[HandleDataT]) -> None:
         self._handle: AsyncFileLike[HandleDataT] = handle
         self._lock: AsyncLock | None = None
@@ -532,6 +572,33 @@ def _is_same_filesystem_path(path: str | PathLike, other: str | PathLike) -> boo
     )
 
 
+@overload
+def _clone_with_path(
+    path_object: File,
+    path: str | PathLike,
+    *,
+    abs: bool = False,
+) -> File: ...
+
+
+@overload
+def _clone_with_path(
+    path_object: Directory,
+    path: str | PathLike,
+    *,
+    abs: bool = False,
+) -> Directory: ...
+
+
+@overload
+def _clone_with_path(
+    path_object: PathBase,
+    path: str | PathLike,
+    *,
+    abs: bool = False,
+) -> PathBase: ...
+
+
 def _clone_with_path(
     path_object: PathBase,
     path: str | PathLike,
@@ -660,13 +727,13 @@ def _replace_temp_path(temp_path: str, destination_path: str, *, overwrite: bool
     os.replace(temp_path, destination_path)
 
 
-def pickle_load(filepath: str | PathLike) -> PickleDataT:
+def pickle_load(filepath: str | PathLike) -> object:
     """Loads a pickled file."""
     with open(filepath, "rb") as f:
         return pickle.load(f)  # noqa: S301
 
 
-async def pickle_load_async(filepath: str | PathLike) -> PickleDataT:
+async def pickle_load_async(filepath: str | PathLike) -> object:
     """Async version of pickle_load()."""
     return await run_fs_sync(pickle_load, filepath)
 
@@ -1296,8 +1363,7 @@ def exec_cmd(
     input: str | bytes | None = None,
     env: dict[str, str] | None = None,
     text: bool = True,
-    *args: SubprocessRunArg,
-    **kwargs: SubprocessRunKwarg,
+    **kwargs: Unpack[SubprocessRunOptions],
 ) -> CompletedCommand:
     """
     Wrapper for subprocess.run with nicer default arguments.
@@ -1315,7 +1381,6 @@ def exec_cmd(
         input (str | bytes): input to send to the command.
         env (dict, optional): environment variables to pass to the new process.
         text (bool): whether or not to return output as text or bytes.
-        *args : additional arguments to pass to subprocess.run.
         **kwargs : additional keyword arguments to pass to subprocess.run.
 
     Returns:
@@ -1328,7 +1393,6 @@ def exec_cmd(
 
     result = subprocess.run(  # noqa: S603
         cmd,
-        *args,
         timeout=timeout,
         shell=shell,
         check=check,
@@ -1413,7 +1477,7 @@ class PathBase(PathLike):
         """The stored path string."""
         return self._path
 
-    def __eq__(self, other: PathBase) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, PathBase):
             return NotImplemented
 
@@ -1807,40 +1871,6 @@ class PathBase(PathLike):
     def clear(self) -> Self:
         raise NotImplementedError
 
-    def move_to(self, target: PathBase, *, mkdir: bool = False, overwrite: bool = True) -> Self:
-        """
-        Move the path to a new target.
-
-        Args:
-            target: The destination path object.
-            mkdir: Whether to create missing parent directories. Defaults to False.
-            overwrite: Whether to overwrite files if they already exist. Defaults to True.
-
-        Returns:
-            A new path object pointing at the moved path.
-        """
-        raise NotImplementedError
-
-    def copy_to(
-        self,
-        target: PathBase,
-        *,
-        mkdir: bool = False,
-        overwrite: bool = True,
-    ) -> Self:
-        """
-        Copy the path to a new target.
-
-        Args:
-            target: The destination path object.
-            mkdir: Whether to create missing parent directories. Defaults to False.
-            overwrite: Whether to overwrite files if they already exist. Defaults to True.
-
-        Returns:
-            A new path object pointing at the copied path.
-        """
-        raise NotImplementedError
-
     if sys.platform != "win32":
 
         def get_xattr(self, name: str, group: str = "user") -> str:
@@ -2046,7 +2076,10 @@ class File(PathBase):
 
     async def read_async(self, mode: Literal["r", "rb"] = "r") -> str | bytes:
         """Async version of read()."""
-        return await run_fs_sync(self.read, mode)
+        if mode == "rb":
+            return await run_fs_sync(lambda: self.read("rb"))
+
+        return await run_fs_sync(lambda: self.read("r"))
 
     @overload
     def write(
@@ -2186,18 +2219,22 @@ class File(PathBase):
 
     @overload
     def open(
-        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: OpenKwarg
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: Unpack[OpenOptions]
     ) -> IO[str]: ...
 
     @overload
     def open(
-        self, mode: Literal["rb"], encoding: None = None, **kwargs: OpenKwarg
+        self, mode: Literal["rb"], encoding: None = None, **kwargs: Unpack[OpenOptions]
     ) -> IO[bytes]: ...
 
     @overload
-    def open(self, mode: str, encoding: str | None = None, **kwargs: OpenKwarg) -> IO[Any]: ...
+    def open(
+        self, mode: str, encoding: str | None = None, **kwargs: Unpack[OpenOptions]
+    ) -> IO[Any]: ...
 
-    def open(self, mode: str = "r", encoding: str | None = None, **kwargs: OpenKwarg) -> IO[Any]:
+    def open(
+        self, mode: str = "r", encoding: str | None = None, **kwargs: Unpack[OpenOptions]
+    ) -> IO[Any]:
         """
         Open the file and return a file handle.
 
@@ -2219,21 +2256,21 @@ class File(PathBase):
 
     @overload
     async def open_async(
-        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: OpenKwarg
+        self, mode: Literal["r"] = "r", encoding: str | None = None, **kwargs: Unpack[OpenOptions]
     ) -> AsyncFileHandle[str]: ...
 
     @overload
     async def open_async(
-        self, mode: Literal["rb"], encoding: None = None, **kwargs: OpenKwarg
+        self, mode: Literal["rb"], encoding: None = None, **kwargs: Unpack[OpenOptions]
     ) -> AsyncFileHandle[bytes]: ...
 
     @overload
     async def open_async(
-        self, mode: str, encoding: str | None = None, **kwargs: OpenKwarg
+        self, mode: str, encoding: str | None = None, **kwargs: Unpack[OpenOptions]
     ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]: ...
 
     async def open_async(
-        self, mode: str = "r", encoding: str | None = None, **kwargs: OpenKwarg
+        self, mode: str = "r", encoding: str | None = None, **kwargs: Unpack[OpenOptions]
     ) -> AsyncFileHandle[str] | AsyncFileHandle[bytes]:
         """Async version of open()."""
         if "b" not in mode and encoding is None:
@@ -2998,7 +3035,7 @@ def _walk_directory(
     *,
     follow_symlinks: bool,
     abs: bool,  # noqa: A002
-    visited: set[tuple[int, int]] | None,
+    visited: set[DirectoryIdentity] | None,
 ) -> Generator[tuple[Directory, list[Directory], list[File]], None, None]:
     if follow_symlinks:
         if visited is None:
