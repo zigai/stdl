@@ -1,11 +1,12 @@
 # stdl
 
-[![Tests](https://github.com/zigai/stdl/actions/workflows/test.yml/badge.svg)](https://github.com/zigai/stdl/actions/workflows/test.yml)
-[![Documentation Status](https://readthedocs.org/projects/stdl/badge/?version=latest)](https://stdl.readthedocs.io/en/latest/?badge=latest)
-[![PyPI version](https://badge.fury.io/py/stdl.svg)](https://badge.fury.io/py/stdl)
-![Supported versions](https://img.shields.io/badge/python-3.11+-blue.svg)
-[![Downloads](https://static.pepy.tech/badge/stdl)](https://pepy.tech/project/stdl)
-[![license](https://img.shields.io/github/license/zigai/stdl.svg)](https://github.com/zigai/stdl/blob/master/LICENSE)
+[![tests](https://img.shields.io/github/actions/workflow/status/zigai/stdl/test.yml?branch=master&label=tests&labelColor=30363d)](https://github.com/zigai/stdl/actions/workflows/test.yml)
+[![docs](https://img.shields.io/readthedocs/stdl?label=docs&logo=readthedocs&logoColor=white&labelColor=30363d)](https://stdl.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/stdl?label=PyPI&color=blue&logo=pypi&logoColor=white&labelColor=30363d)](https://pypi.org/project/stdl/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white&labelColor=30363d)](pyproject.toml)
+[![downloads](https://img.shields.io/pypi/dm/stdl?label=downloads&color=blue&labelColor=30363d)](https://pepy.tech/projects/stdl)
+[![downloads](https://img.shields.io/pepy/dt/stdl?label=downloads&color=blue&labelColor=30363d)](https://pepy.tech/projects/stdl)
+[![license](https://img.shields.io/github/license/zigai/stdl?label=license&labelColor=30363d)](LICENSE)
 
 `stdl` is a collection of Python utilities that complement the standard library.
 
