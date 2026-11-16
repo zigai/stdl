@@ -4,11 +4,9 @@ import sys
 import textwrap
 import unicodedata
 from dataclasses import dataclass
-from sys import stdout
-from typing import Literal, TypeAlias
+from typing import Literal, TextIO, TypeAlias
 
 CSI_RESET = "\033["
-NO_COLOR = bool(os.environ.get("NO_COLOR"))
 ANSI_ESCAPE_RE = re.compile(r"\x1B(?:\][^\x1B\x07]*(?:\x07|\x1B\\)|\[[0-?]*[ -/]*[@-~]|[@-Z\\-_])")
 
 
@@ -45,7 +43,7 @@ class ColorANSIMeta(type):
 
 class ColorANSI(metaclass=ColorANSIMeta):
     # Enable VT mode on Windows
-    if sys.platform == "win32" and stdout.isatty():
+    if sys.platform == "win32" and sys.stdout.isatty():
         import ctypes
 
         kernel32 = ctypes.windll.kernel32
@@ -165,25 +163,48 @@ def _get_ansi_value(value: str | None, handler: ColorANSIMeta) -> str:
         return value
 
 
+def color_enabled(stream: TextIO | None = None) -> bool:
+    """
+    Return whether ANSI escape codes should be written to ``stream``.
+
+    Codes are off when ``NO_COLOR`` or ``NOCOLOR`` is set to any value, when ``TERM`` is
+    ``dumb``, or when the stream is not a terminal. The environment is read on every call.
+
+    Args:
+        stream (TextIO, optional): The stream the text is written to. Defaults to the current
+            ``sys.stdout``.
+    """
+    if "NO_COLOR" in os.environ or "NOCOLOR" in os.environ or os.environ.get("TERM") == "dumb":
+        return False
+
+    return (sys.stdout if stream is None else stream).isatty()
+
+
 def colored(
     text: str,
     color: ForegroundColor | str | None = None,
     background: BackgroundColor | str | None = None,
     style: Style | str | None = None,
+    *,
+    stream: TextIO | None = None,
 ) -> str:
     """
     Returns the text with ansi color, background color and text style codes.
+
+    Returns the text unchanged when ``color_enabled(stream)`` is false.
 
     Args:
         text (str): The text that should be colorized.
         color (str, optional): The color to use for the text.
         background (str, optional): The color to use for the background.
         style (str, optional): The style to use for the text.
+        stream (TextIO, optional): The stream the text is written to. Defaults to the current
+            ``sys.stdout``.
 
     Returns:
         str: The colorized text.
     """
-    if NO_COLOR or not stdout.isatty():
+    if not color_enabled(stream):
         return text
 
     color = _get_ansi_value(color, FG)
@@ -200,8 +221,10 @@ class TextStyle:
     style: Style | str | None = None
 
 
-def with_style(text: str, style: TextStyle) -> str:
-    return colored(text, color=style.color, background=style.background, style=style.style)
+def with_style(text: str, style: TextStyle, *, stream: TextIO | None = None) -> str:
+    return colored(
+        text, color=style.color, background=style.background, style=style.style, stream=stream
+    )
 
 
 def terminal_link(
@@ -210,6 +233,8 @@ def terminal_link(
     color: ForegroundColor | None = "white",
     background: BackgroundColor | None = None,
     style: Style | None = None,
+    *,
+    stream: TextIO | None = None,
 ) -> str:
     """
     Returns a hyperlink that can be used in terminals.
@@ -227,6 +252,9 @@ def terminal_link(
         color (str, optional): The color of the link. Defaults to white.
         background (str, optional): The background color of the link.
         style (str, optional): The style of the link.
+        stream (TextIO, optional): The stream the link is written to. Without terminal escape
+            support (see ``color_enabled``), the plain URI is returned. Defaults to the current
+            ``sys.stdout``.
 
     Returns:
         str: The link as a string.
@@ -234,8 +262,11 @@ def terminal_link(
     if label is None:
         label = uri
 
-    link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\" if stdout.isatty() else uri
-    link = colored(link, color, background, style)
+    if not color_enabled(stream):
+        return uri
+
+    link = f"\033]8;;{uri}\033\\{label}\033]8;;\033\\"
+    link = colored(link, color, background, style, stream=stream)
 
     return link
 
@@ -426,6 +457,7 @@ __all__ = [
     "ansi_ljust",
     "ansi_rjust",
     "camel_case",
+    "color_enabled",
     "colored",
     "kebab_case",
     "keep",

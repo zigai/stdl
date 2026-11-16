@@ -1,4 +1,6 @@
+import io
 import os
+import sys
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -132,6 +134,60 @@ def test_ansi_rjust():
     assert ansi_len(ansi_rjust(private_csi_text, 10)) == 10
 
     assert ansi_rjust("", 5) == "     "
+
+
+class Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def color_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("NOCOLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color")
+
+
+def test_colored_styles_text_for_a_terminal_stdout(
+    color_env: None, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(sys, "stdout", Terminal())
+
+    assert colored("TEXT", color="red") == "\033[31mTEXT\033[0m"
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("NO_COLOR", "1"), ("NO_COLOR", ""), ("NOCOLOR", "1"), ("TERM", "dumb")],
+)
+def test_colored_honors_color_switches_read_at_call_time(
+    color_env: None, monkeypatch: pytest.MonkeyPatch, name: str, value: str
+):
+    monkeypatch.setattr(sys, "stdout", Terminal())
+    monkeypatch.setenv(name, value)
+
+    assert colored("TEXT", color="red") == "TEXT"
+    assert st.with_style("TEXT", st.TextStyle(color="red"), stream=Terminal()) == "TEXT"
+
+
+def test_colored_checks_the_given_stream(color_env: None, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+
+    assert colored("TEXT", color="red") == "TEXT"
+    assert colored("TEXT", color="red", stream=Terminal()) == "\033[31mTEXT\033[0m"
+    assert st.with_style("TEXT", st.TextStyle(color="red"), stream=Terminal()) != "TEXT"
+
+
+def test_terminal_link_falls_back_to_the_uri_without_escape_support(
+    color_env: None, monkeypatch: pytest.MonkeyPatch
+):
+    uri = "https://example.com/page"
+    terminal = Terminal()
+    assert st.ansi_strip(st.terminal_link(uri, "page", stream=terminal)) == "page"
+    assert st.terminal_link(uri, "page", stream=io.StringIO()) == uri
+
+    monkeypatch.setenv("TERM", "dumb")
+    assert st.terminal_link(uri, "page", stream=terminal) == uri
 
 
 def test_text_style_is_immutable():
